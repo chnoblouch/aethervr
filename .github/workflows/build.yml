@@ -23,3 +23,11 @@ jobs:
     - name: Build OpenXR Runtime
       working-directory: "${{ github.workspace }}/openxr_runtime"
       run: banjo build
+
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: aethervr-x86_64-windows
+        path: |
+          openxr_runtime/out/x86_64-windows/aethervr.dll
+          openxr_runtime/openxr_runtime.json
