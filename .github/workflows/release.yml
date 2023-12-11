@@ -2,6 +2,11 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version"
+        required: true
+        type: string
 
 jobs:
   build:
@@ -52,4 +57,4 @@ jobs:
     - name: Release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: gh release create -t "AetherVR 0.0.1" "v0.0.1" aethervr-x86_64-windows.zip
+      run: gh release create -t "AetherVR ${{ inputs.version }}" "v${{ inputs.version }}" aethervr-x86_64-windows.zip
