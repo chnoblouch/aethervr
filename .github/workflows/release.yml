@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Install Banjo
+      run: Invoke-WebRequest https://raw.githubusercontent.com/Chnoblouch/banjo-releases/main/getbanjo.py | Select-Object -Expand Content | python
+
+    - name: Install libclang
+      run: pip install libclang
+
+    - name: Add Banjo to path
+      run: echo "$ENV:USERPROFILE\.banjo\bin" | Out-File -FilePath $ENV:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Build OpenXR runtime
+      working-directory: "${{ github.workspace }}/openxr_runtime"
+      run: banjo build
+
+    - name: Install pyinstaller
+      run: pip install pyinstaller
+
+    - name: Set up tracker venv
+      working-directory: "${{ github.workspace }}/tracker"
+      run: |
+        python -m venv venv
+        ./venv/Scripts/pip install -r requirements.txt
+
+    - name: Create tracker build directory
+      run: mkdir "${{ github.workspace }}/tracker/build"
+
+    - name: Package tracker
+      working-directory: "${{ github.workspace }}/tracker/build"
+      run: pyinstaller --paths ..\venv\Lib\site-packages\ --icon NONE ..\aethervr_tracker.py
+
+    - name: Package
+      run: |
+        mkdir aethervr-x86_64-windows
+        cp openxr_runtime/out/x86_64-windows-debug/aethervr.dll aethervr-x86_64-windows/aethervr.dll
+        cp openxr_runtime/openxr_runtime.json aethervr-x86_64-windows/openxr_runtime.json
+        cp tracker/build/dist/aethervr_tracker/aethervr_tracker.exe aethervr-x86_64-windows/aethervr_tracker.exe
+        7z a aethervr-x86_64-windows.zip aethervr-x86_64-windows
+
+    - name: Release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: gh release create -t "AetherVR 0.0.1" "v0.0.1" aethervr-x86_64-windows.zip
