@@ -1,0 +1,131 @@
+use std.{memory, socket.{Socket, TcpSocket}, math};
+use aether.{pose, logger as log};
+use xr;
+
+struct HandState {
+    var pose: xr.Posef;
+    var select: bool;
+}
+
+struct InputState {
+    var x: f32;
+    var y: f32;
+    var z: f32;
+    var pitch: f32;
+    var yaw: f32;
+    var left_hand: HandState;
+    var right_hand: HandState;
+
+    func get_view_pose(self) -> xr.Posef {
+        var orientation_pitch = pose.axis_angle(math.deg2rad(self.pitch), 1.0, 0.0, 0.0);
+        var orientation_yaw = pose.axis_angle(math.deg2rad(self.yaw), 0.0, 1.0, 0.0);
+        var orientation = pose.mul(orientation_pitch, orientation_yaw);
+
+        var position = pose.position(self.x, self.y, self.z);
+
+        return pose.pose(orientation, position);
+    }
+}
+
+struct Message {
+    var head_x: f32;
+    var head_y: f32;
+    var head_z: f32;
+    var head_pitch: f32;
+    var head_yaw: f32;
+    var left_hand_position_x: f32;
+    var left_hand_position_y: f32;
+    var left_hand_position_z: f32;
+    var left_hand_orientation_x: f32;
+    var left_hand_orientation_y: f32;
+    var left_hand_orientation_z: f32;
+    var left_hand_orientation_w: f32;
+    var right_hand_position_x: f32;
+    var right_hand_position_y: f32;
+    var right_hand_position_z: f32;
+    var right_hand_orientation_x: f32;
+    var right_hand_orientation_y: f32;
+    var right_hand_orientation_z: f32;
+    var right_hand_orientation_w: f32;
+    var left_hand_select: u8;
+    var right_hand_select: u8;
+}
+
+struct TrackerConnection {
+    var stream: Socket;
+    var state: InputState;
+
+    pub func connect() -> TrackerConnection {
+        var stream = TcpSocket.connect("127.0.0.1", 38057).unwrap();
+        stream.set_blocking(false);
+
+        log.info("Client connected");
+
+        return TrackerConnection {
+            stream,
+            state: {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                pitch: 0.0,
+                yaw: 0.0,
+                left_hand: {
+                    pose: {
+                        position: { x: 0.0, y: 0.0, z: 0.0 },
+                        orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+                    },
+                    select: false
+                },
+                right_hand: {
+                    pose: {
+                        position: { x: 0.0, y: 0.0, z: 0.0 },
+                        orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+                    },
+                    select: false
+                }
+            }
+        };
+    }
+
+    pub func poll(self) -> InputState {
+        var poll_message: u8 = 0;
+        self.stream.send(&poll_message, 1);
+
+        var message: Message;
+        var size = meta.size(Message);
+
+        if self.stream.recv(&message as *u8, size as u32) != size as i32 {
+            return self.state;
+        }
+
+        self.state.x = message.head_x;
+        self.state.y = message.head_y;
+        self.state.z = message.head_z;
+        self.state.pitch = message.head_pitch;
+        self.state.yaw = message.head_yaw;
+
+        self.state.left_hand.pose.position.x = message.left_hand_position_x;
+        self.state.left_hand.pose.position.y = message.left_hand_position_y;
+        self.state.left_hand.pose.position.z = message.left_hand_position_z;
+        self.state.left_hand.pose.orientation.x = message.left_hand_orientation_x;
+        self.state.left_hand.pose.orientation.y = message.left_hand_orientation_y;
+        self.state.left_hand.pose.orientation.z = message.left_hand_orientation_z;
+        self.state.left_hand.pose.orientation.w = message.left_hand_orientation_w;
+
+        self.state.right_hand.pose.position.x = message.right_hand_position_x;
+        self.state.right_hand.pose.position.y = message.right_hand_position_y;
+        self.state.right_hand.pose.position.z = message.right_hand_position_z;
+        self.state.right_hand.pose.orientation.x = message.right_hand_orientation_x;
+        self.state.right_hand.pose.orientation.y = message.right_hand_orientation_y;
+        self.state.right_hand.pose.orientation.z = message.right_hand_orientation_z;
+        self.state.right_hand.pose.orientation.w = message.right_hand_orientation_w;
+        
+        self.state.left_hand.select = message.left_hand_select != 0;
+        self.state.right_hand.select = message.right_hand_select != 0;
+
+        # self.state.left_hand.pose = pose.apply(self.state.get_view_pose(), self.state.left_hand.pose);
+        # self.state.right_hand.pose = pose.apply(self.state.get_view_pose(), self.state.right_hand.pose);
+
+        return self.state;
+    }
+}

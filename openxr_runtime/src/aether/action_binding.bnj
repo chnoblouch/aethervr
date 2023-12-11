@@ -1,0 +1,163 @@
+use xr;
+
+use aether.{
+    instance.Instance,
+    action.Action,
+    logger as log,
+    utils.streq as eq
+};
+
+enum InputDevice {
+    UNKNOWN,
+    HEAD,
+    LEFT_HAND,
+    RIGHT_HAND,
+    ANY_HAND
+}
+
+enum InputIdentifier {
+    UNKNOWN,
+    GRIP,
+    AIM,
+    THUMBSTICK,
+    TRIGGER
+}
+
+enum InputLocation {
+    UNKNOWN,
+    CLICK,
+    VALUE,
+    POSE
+}
+
+struct ActionBinding {
+    var device: InputDevice;
+    var identifier: InputIdentifier;
+    var location: InputLocation;
+}
+
+pub func set_action_bindings(
+    instance: *Instance,
+    suggested_bindings: *xr.InteractionProfileSuggestedBinding
+) -> xr.Result {
+    log.info("Suggesting interaction profile bindings");
+    log.enter_scope();
+
+    var profile = instance.path_mapping.get_string(suggested_bindings.interaction_profile).value;
+    log.info(str("Interaction Profile: ") + str(profile));
+
+    var profile_path = suggested_bindings.interaction_profile;
+    if !instance.path_mapping.is_path(profile_path, "/interaction_profiles/valve/index_controller") {
+        log.info("Not Valve Index Controller Profile -> Ignored");
+        log.exit_scope();
+        return xr.Result.SUCCESS;
+    }
+
+    log.info("Suggested bindings:");
+    log.enter_scope();
+
+    var actions = Set!<*Action>.new();
+
+    for i in 0..suggested_bindings.count_suggested_bindings {
+        var binding = suggested_bindings.suggested_bindings[i];
+        var action = binding.action as *Action;
+        var path = binding.binding;
+
+        var string = instance.path_mapping.get_string(path).value;
+
+        log.info(str("- ") + action.name.copy() + str(" -> ") + str(string));
+
+        var tokens: [String] = [];
+        var token = String.new();
+        var index = 1;  # The first slash is skipped 
+        
+        while true {
+            var char = string[index];
+            
+            if char == '\0' {
+                tokens.append(token.copy());
+                break;
+            } else if char == '/' {
+                tokens.append(token.copy());
+                token = String.new();
+            } else {
+                token.append(char);
+            }
+
+            index += 1;
+        }
+
+        if eq(tokens[0].cstr(), "user") && eq(tokens[3].cstr(), "input") {
+            if eq(tokens[1].cstr(), "hand") {
+                var hand = tokens[2].cstr();
+                var identifier = tokens[4].cstr();
+
+                if action.binding.device == InputDevice.LEFT_HAND || action.binding.device == InputDevice.RIGHT_HAND {
+                    # If an action has already been bound to a hand, it will be bound to any hand
+                    action.binding.device = InputDevice.ANY_HAND;
+                } else if eq(hand, "left") {
+                    action.binding.device = InputDevice.LEFT_HAND;
+                } else if eq(hand, "right") {
+                    action.binding.device = InputDevice.RIGHT_HAND;
+                }
+
+                if eq(identifier, "grip") {
+                    action.binding.identifier = InputIdentifier.GRIP;
+                } else if eq(identifier, "aim") {
+                    action.binding.identifier = InputIdentifier.AIM;
+                } else if eq(identifier, "thumbstick") {
+                    action.binding.identifier = InputIdentifier.THUMBSTICK;
+                } else if eq(identifier, "trigger") {
+                    action.binding.identifier = InputIdentifier.TRIGGER;
+                }
+
+                if tokens.length >= 6 {
+                    var location = tokens[5].cstr();
+
+                    if eq(location, "click") {
+                        action.binding.location = InputLocation.CLICK;
+                    } else if eq(location, "value") {
+                        action.binding.location = InputLocation.VALUE;
+                    } else if eq(location, "pose") {
+                        action.binding.location = InputLocation.POSE;
+                    }
+                }
+            }   
+        }
+
+        actions.insert(action);
+    }
+
+    log.exit_scope();
+
+    log.info("Resulting bindings:");
+    log.enter_scope();
+
+    for action in actions.elements {
+        var binding_str = String.new();
+
+        if action.binding.device == InputDevice.UNKNOWN { binding_str.append_str("unknown."); }
+        else if action.binding.device == InputDevice.HEAD { binding_str.append_str("head."); }
+        else if action.binding.device == InputDevice.LEFT_HAND { binding_str.append_str("left_hand."); }
+        else if action.binding.device == InputDevice.RIGHT_HAND { binding_str.append_str("right_hand."); }
+        else if action.binding.device == InputDevice.ANY_HAND { binding_str.append_str("any_hand."); }
+
+        if action.binding.identifier == InputIdentifier.UNKNOWN { binding_str.append_str("unknown."); }
+        else if action.binding.identifier == InputIdentifier.GRIP { binding_str.append_str("grip."); }
+        else if action.binding.identifier == InputIdentifier.AIM { binding_str.append_str("aim."); }
+        else if action.binding.identifier == InputIdentifier.THUMBSTICK { binding_str.append_str("thumbstick."); }
+        else if action.binding.identifier == InputIdentifier.TRIGGER { binding_str.append_str("trigger."); }
+
+        if action.binding.location == InputLocation.UNKNOWN { binding_str.append_str("unknown"); }
+        else if action.binding.location == InputLocation.CLICK { binding_str.append_str("click"); }
+        else if action.binding.location == InputLocation.VALUE { binding_str.append_str("value"); }
+        else if action.binding.location == InputLocation.POSE { binding_str.append_str("pose"); }
+
+        log.info(action.name + str(": ") + binding_str);
+    }
+
+    log.exit_scope();
+    log.exit_scope();
+
+    return xr.Result.SUCCESS;
+}

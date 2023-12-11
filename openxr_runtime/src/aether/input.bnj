@@ -1,0 +1,20 @@
+use std.math;
+use xr;
+
+use aether.{session.Session, time, pose, constants};
+
+pub func get_view_pose(session: *Session) -> xr.Posef {
+    return session.input_state.get_view_pose();
+}
+
+pub func get_left_eye_pose(session: *Session) -> xr.Posef {
+    var pose = get_view_pose(session);
+    pose.position.x -= 0.1;
+    return pose;
+}
+
+pub func get_right_eye_pose(session: *Session) -> xr.Posef {
+    var pose = get_view_pose(session);
+    pose.position.x += 0.1;
+    return pose;
+}

@@ -1,0 +1,177 @@
+use std.memory;
+use xr;
+use vulkan as vk;
+
+use aether.{
+    session.Session,
+    graphics,
+    graphics.GraphicsAPI,
+    constants,
+    logger as log,
+    utils.handle_buffer_size
+};
+
+enum SwapchainImageState {
+    AVAILABLE,
+    ACQUIRED,
+    WAITED,
+    BEGUN,
+}
+
+struct SwapchainImage {
+    var create_info: xr.SwapchainCreateInfo;
+    var api_handle: addr;
+    var state: SwapchainImageState;
+}
+
+struct Swapchain {
+    var session: *Session;
+    var usage_flags: u64;
+    var images: [SwapchainImage];
+
+    pub func create(session: *Session, create_info: *xr.SwapchainCreateInfo) -> (*Swapchain, xr.Result) {
+        log.info("Creating swapchain");
+
+        # Raise an error if create flags were provided because there are currently none implemented.
+        if create_info.create_flags != 0 {
+            log.warn("Unsupported create flags, cannot create swapchain");
+            return (null, xr.Result.ERROR_FEATURE_UNSUPPORTED);
+        }
+
+        log.enter_scope();
+
+        log.info(str("Format: ") + String.from(create_info.format));
+        log.info(str("Sample count: ") + String.from(create_info.sample_count as u64));
+        log.info(str("Width: ") + String.from(create_info.width as u64));
+        log.info(str("Height: ") + String.from(create_info.height as u64));
+        log.info(str("Face count: ") + String.from(create_info.face_count as u64));
+        log.info(str("Array size: ") + String.from(create_info.array_size as u64));
+        log.info(str("Mip count: ") + String.from(create_info.mip_count as u64));
+        
+        var images: [SwapchainImage] = [];
+        
+        if session.graphics_api == GraphicsAPI.OPENGL {
+            var binding = session.graphics_binding as *xr.GraphicsBindingOpenGLXlibKHR;
+
+            for i in 0..constants.NUM_SWAPCHAIN_IMAGES {
+                var image: SwapchainImage;
+                if graphics.opengl.create_swapchain_image(create_info, binding, &image) != xr.Result.SUCCESS {
+                    # TODO: This is a memory leak
+                    log.exit_scope();
+                    return (null as *Swapchain, xr.Result.ERROR_RUNTIME_FAILURE);
+                }
+
+                images.append(image);
+            }
+        } else if session.graphics_api == GraphicsAPI.VULKAN {
+            if create_info.format != vk.Format.R8G8B8A8_SRGB as i64 {
+                log.error("Swapchain format is unsupported");
+                return (null as *Swapchain, xr.Result.ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED);
+            }
+
+            var binding = session.graphics_binding as *xr.GraphicsBindingVulkanKHR;
+            log.info(str("Vulkan queue family index: ") + String.from(binding.queue_family_index as u64));
+            log.info(str("Vulkan queue index: ") + String.from(binding.queue_index as u64));
+        
+            for i in 0..constants.NUM_SWAPCHAIN_IMAGES {
+                var image: SwapchainImage;
+                if graphics.vulkan.create_swapchain_image(create_info, binding, &image) != xr.Result.SUCCESS {
+                    # TODO: This is a memory leak
+                    log.exit_scope();
+                    return (null as *Swapchain, xr.Result.ERROR_RUNTIME_FAILURE);
+                }
+
+                images.append(image);
+            }
+        } else if session.graphics_api == GraphicsAPI.D3D11 {
+            var binding = session.graphics_binding as *xr.GraphicsBindingD3D11KHR;
+
+            for i in 0..constants.NUM_SWAPCHAIN_IMAGES {
+                var image: SwapchainImage;
+                if graphics.d3d11.create_swapchain_image(create_info, binding, &image) != xr.Result.SUCCESS {
+                    # TODO: This is a memory leak
+                    log.exit_scope();
+                    return (null as *Swapchain, xr.Result.ERROR_RUNTIME_FAILURE);
+                }
+
+                images.append(image);
+            }
+        }
+
+        var swapchain = memory.box(Swapchain {
+            session,
+            usage_flags: create_info.usage_flags,
+            images
+        });
+
+        log.exit_scope();
+        return (swapchain, xr.Result.SUCCESS);
+    }
+
+    pub func enumerate_images(
+        self,
+        image_capacity_input: u32,
+        image_count_output: *u32,
+        images: *xr.SwapchainImageBaseHeader
+    ) -> xr.Result {
+        log.info("Enumerating swapchain images");
+
+        var buffer_info = handle_buffer_size(self.images.length, image_count_output, image_capacity_input);
+        if buffer_info.0 {
+            return buffer_info.1;
+        }
+
+        if self.session.graphics_api == GraphicsAPI.OPENGL {
+            var opengl_images = images as *xr.SwapchainImageOpenGLKHR;
+            for i in 0..self.images.length {
+                opengl_images[i].image = self.images[i].api_handle as u32;
+            }
+        } else if self.session.graphics_api == GraphicsAPI.VULKAN {
+            var vulkan_images = images as *xr.SwapchainImageVulkanKHR;
+            for i in 0..self.images.length {
+                vulkan_images[i].image = self.images[i].api_handle;
+            }
+        } else if self.session.graphics_api == GraphicsAPI.D3D11 {
+            var d3d11_images = images as *xr.SwapchainImageD3D11KHR;
+            for i in 0..self.images.length {
+                d3d11_images[i].texture = self.images[i].api_handle;
+            }
+        }
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func acquire_image(self, info: *xr.SwapchainImageAcquireInfo, index: *u32) -> xr.Result {  
+        for i in 0..self.images.length {
+            if self.images[i].state == SwapchainImageState.AVAILABLE {
+                *index = i as u32;
+                self.images[i].state = SwapchainImageState.ACQUIRED;
+                return xr.Result.SUCCESS;
+            }
+        }
+
+        return xr.Result.ERROR_CALL_ORDER_INVALID;
+    }
+
+    pub func wait_image(self, info: *xr.SwapchainImageWaitInfo) -> xr.Result {
+        for i in 0..self.images.length {
+            if self.images[i].state == SwapchainImageState.ACQUIRED {
+                self.images[i].state = SwapchainImageState.WAITED;
+                return xr.Result.SUCCESS;
+            }
+        }
+
+        return xr.Result.ERROR_CALL_ORDER_INVALID;
+    }
+
+    pub func release_image(self, info: *xr.SwapchainImageReleaseInfo) -> xr.Result {
+        for i in 0..self.images.length {
+            if self.images[i].state == SwapchainImageState.WAITED {
+                self.images[i].state = SwapchainImageState.AVAILABLE;
+                return xr.Result.SUCCESS;
+            }
+        }
+
+        return xr.Result.ERROR_CALL_ORDER_INVALID;
+    }
+}

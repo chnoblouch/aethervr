@@ -1,0 +1,381 @@
+use std.{memory, math};
+use xr;
+
+use gl;
+use vulkan as vk;
+use d3d11;
+
+use aether.{
+    instance.Instance,
+    space.{Space, SpaceType},
+    swapchain.Swapchain,
+    action.{ActionSet, Action},
+    graphics,
+    graphics.GraphicsAPI,
+    tracker_connection.{InputState, TrackerConnection},
+    input_mapper.InputMapper,
+    pose,
+    time,
+    constants,
+    input,
+    utils.handle_buffer_size,
+    logger as log
+};
+
+enum FrameState {
+    ENDED,
+    WAITED,
+    BEGAN,
+}
+
+struct Session {
+    var instance: *Instance;
+    var state: xr.SessionState;
+
+    var graphics_api: GraphicsAPI;
+    var graphics_binding: addr;
+    var frame_state: FrameState;
+
+    var view_configuration_type: xr.ViewConfigurationType;
+
+    var input_state: InputState;
+    var tracker_connection: TrackerConnection;
+    var input_mapper: InputMapper;
+
+    pub func create(instance: *Instance, create_info: *xr.SessionCreateInfo) -> (*Session, xr.Result) {
+        log.info("Creating session");
+
+        if !Instance.check_system(create_info.system_id) {
+            return (null as *Session, xr.Result.ERROR_SYSTEM_INVALID);
+        }
+
+        if !instance.graphics_reqs_queried {
+            log.error("Graphics requirements have not been queried");
+            return (null as *Session, xr.Result.ERROR_GRAPHICS_REQUIREMENTS_CALL_MISSING);
+        }
+
+        if create_info.next == null {
+            log.error("Pointer to graphics binding is null");
+            return (null as *Session, xr.Result.ERROR_GRAPHICS_DEVICE_INVALID);
+        }
+
+        var next = create_info.next as *xr.BaseInStructure;
+        var graphics_api: GraphicsAPI;
+        var binding_copy = null;
+
+        if next.type_ == xr.StructureType.GRAPHICS_BINDING_OPENGL_XLIB_KHR {
+            log.info("Graphics binding: OpenGL (Xlib)");
+
+            graphics_api = GraphicsAPI.OPENGL;
+            var binding = next as *xr.GraphicsBindingOpenGLXcbKHR;
+            binding_copy = memory.box(*binding) as addr;
+            
+            if gl.load_auto() {
+                log.info("OpenGL loaded");
+            } else {
+                log.error("Failed to load OpenGL");
+            }
+        } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_VULKAN_KHR {
+            log.info("Graphics binding: Vulkan");
+
+            graphics_api = GraphicsAPI.VULKAN;
+            var binding = next as *xr.GraphicsBindingVulkanKHR;
+            binding_copy = memory.box(*binding) as addr;
+        } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_D3D11_KHR {
+            log.info("Graphics binding: D3D11");
+
+            graphics_api = GraphicsAPI.D3D11;
+            var binding = next as *xr.GraphicsBindingD3D11KHR;
+            binding_copy = memory.box(*binding) as addr;
+        } else {
+            log.error("Graphics binding is unsupported");
+            return (null as *Session, xr.Result.ERROR_GRAPHICS_DEVICE_INVALID);
+        }
+
+        var session = memory.box(Session {
+            instance,
+            state: xr.SessionState.UNKNOWN,
+            graphics_api,
+            graphics_binding: binding_copy,
+            frame_state: FrameState.ENDED,
+            view_configuration_type: undefined,
+            tracker_connection: TrackerConnection.connect(),
+            input_state: undefined,
+            input_mapper: undefined
+        });
+
+        session.input_mapper = InputMapper.new(session);
+
+        session.transition_to(xr.SessionState.IDLE);
+        session.transition_to(xr.SessionState.READY);
+
+        return (session, xr.Result.SUCCESS);
+    }
+
+    pub func begin(self, begin_info: *xr.SessionBeginInfo) -> xr.Result {
+        if self.is_running() {
+            return xr.Result.ERROR_SESSION_RUNNING;
+        }
+
+        if self.state != xr.SessionState.READY {
+            return xr.Result.ERROR_SESSION_NOT_READY;
+        }
+
+        if begin_info.primary_view_configuration_type != xr.ViewConfigurationType.PRIMARY_STEREO {
+            return xr.Result.ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED;
+        }
+
+        log.info("Beginning session");
+
+        var event_buffer: xr.EventDataBuffer;
+        var event = &event_buffer as *xr.EventDataInteractionProfileChanged;
+        event.type_ = xr.StructureType.EVENT_DATA_INTERACTION_PROFILE_CHANGED;
+        event.next = null;
+        event.session = self as addr;
+        self.instance.event_queue.push(event_buffer);
+
+        self.transition_to(xr.SessionState.SYNCHRONIZED);
+        self.transition_to(xr.SessionState.VISIBLE);
+        self.transition_to(xr.SessionState.FOCUSED);
+
+        self.view_configuration_type = begin_info.primary_view_configuration_type;
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func locate_views(
+        self,
+        view_locate_info: *xr.ViewLocateInfo,
+        view_state: *xr.ViewState,
+        view_capacity_input: u32,
+        view_count_output: *u32,
+        views: *xr.View
+    ) -> xr.Result {
+        # log.info("Locating views");
+
+        if view_locate_info.view_configuration_type != self.view_configuration_type {
+            return xr.Result.ERROR_VALIDATION_FAILURE;
+        }
+
+        if view_locate_info.view_configuration_type != xr.ViewConfigurationType.PRIMARY_STEREO {
+            return xr.Result.ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED;
+        }
+
+        var buffer_info = handle_buffer_size(2, view_count_output, view_capacity_input);
+        if buffer_info.0 {
+            return buffer_info.1;
+        }
+
+        view_state.view_state_flags =
+            xr.VIEW_STATE_ORIENTATION_VALID_BIT |
+            xr.VIEW_STATE_POSITION_VALID_BIT |
+            xr.VIEW_STATE_ORIENTATION_TRACKED_BIT |
+            xr.VIEW_STATE_POSITION_TRACKED_BIT;
+
+        var base = view_locate_info.space as *Space;
+        views[0].pose = base.get_relative_pose(input.get_left_eye_pose(self));
+        views[1].pose = base.get_relative_pose(input.get_right_eye_pose(self));
+        
+        views[0].fov = xr.Fovf { angle_left: -0.785, angle_right: 0.785, angle_up: 0.785, angle_down: -0.785 };
+        views[1].fov = xr.Fovf { angle_left: -0.785, angle_right: 0.785, angle_up: 0.785, angle_down: -0.785 };
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func wait_frame(self, info: *xr.FrameWaitInfo, state: *xr.FrameState) -> xr.Result {
+        if !self.is_running() {
+            return xr.Result.ERROR_SESSION_NOT_RUNNING;
+        }
+
+        var now = time.now();
+        var remainder = now % constants.NS_PER_FRAME;
+        var next_frame: i64;
+
+        if remainder == 0 {
+            next_frame = now + constants.NS_PER_FRAME;
+        } else {
+            next_frame = now + constants.NS_PER_FRAME - remainder;
+        }
+
+        # var wait_duration_ms = (next_frame - now) / 1000000;
+        # log.info(str("Waiting ") + String.from(wait_duration_ms) + str(" ms for frame"));
+
+        while time.now() < next_frame {}
+
+        state.predicted_display_time = time.now() + constants.NS_PER_FRAME;
+        state.predicted_display_period = constants.NS_PER_FRAME;
+        
+        if self.state == xr.SessionState.SYNCHRONIZED {
+            state.should_render = 0;
+        } else {
+            state.should_render = 1;
+        }
+
+        self.frame_state = FrameState.WAITED;
+        return xr.Result.SUCCESS;
+    }
+
+    pub func begin_frame(self, info: *xr.FrameBeginInfo) -> xr.Result {
+        if !self.is_running() {
+            return xr.Result.ERROR_SESSION_NOT_RUNNING;
+        }
+
+        if self.frame_state == FrameState.WAITED {
+            self.frame_state = FrameState.BEGAN;
+            return xr.Result.SUCCESS;
+        } else if self.frame_state == FrameState.BEGAN {
+            self.frame_state = FrameState.BEGAN;
+            return xr.Result.FRAME_DISCARDED;
+        } else if self.frame_state == FrameState.ENDED {
+            return xr.Result.ERROR_CALL_ORDER_INVALID;
+        }
+    }
+    
+    pub func end_frame(self, info: *xr.FrameEndInfo) -> xr.Result {
+        if !self.is_running() {
+            return xr.Result.ERROR_SESSION_NOT_RUNNING;
+        }
+
+        if self.frame_state == FrameState.BEGAN {
+            self.frame_state = FrameState.ENDED;
+            return xr.Result.SUCCESS;
+        } else {
+            return xr.Result.ERROR_CALL_ORDER_INVALID;
+        }
+    }
+
+    pub func is_running(self) -> bool {
+        return self.state == xr.SessionState.SYNCHRONIZED ||
+               self.state == xr.SessionState.VISIBLE ||
+               self.state == xr.SessionState.FOCUSED;
+    }
+
+    pub func create_reference_space(self, create_info: *xr.ReferenceSpaceCreateInfo) -> (*Space, xr.Result) {
+        return Space.create_reference_space(self, create_info);
+    }
+
+    pub func create_action_space(self, create_info: *xr.ActionSpaceCreateInfo) -> (*Space, xr.Result) {
+        return Space.create_action_space(self, create_info);
+    }
+
+    pub func enumerate_swapchain_formats(self) -> [i64] {
+        log.info("Enumerating swapchain formats");
+
+        if self.graphics_api == GraphicsAPI.OPENGL {
+            return graphics.opengl.get_supported_formats();
+        } else if self.graphics_api == GraphicsAPI.VULKAN {
+            return graphics.vulkan.get_supported_formats();
+        } else if self.graphics_api == GraphicsAPI.D3D11 {
+            return graphics.d3d11.get_supported_formats();
+        }
+    }
+
+    pub func create_swapchain(self, create_info: *xr.SwapchainCreateInfo) -> (*Swapchain, xr.Result) {
+        return Swapchain.create(self, create_info);
+    }
+
+    pub func attach_action_sets(self, info: *xr.SessionActionSetsAttachInfo) -> xr.Result {
+        log.info("Attaching action sets to session");
+
+        for i in 0..info.count_action_sets {
+            var action_set = info.action_sets[i] as *ActionSet;
+            action_set.attach_to(self);
+        }
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func get_current_interaction_profile(self, state: *xr.InteractionProfileState) -> xr.Result {
+        var path = self.instance.path_mapping.get_path("/interaction_profiles/valve/index_controller");
+        log.info("Getting current interaction profile");
+        log.info(str("  Path: ") + String.from(path));
+
+        state.interaction_profile = path;
+        return xr.Result.SUCCESS;
+    }
+
+    pub func sync_actions(self, info: *xr.ActionsSyncInfo) -> xr.Result {
+        # log.info("Syncing actions");
+
+        for i in 0..info.count_active_action_sets {
+            var action_set = info.active_action_sets[i].action_set as *ActionSet;
+            action_set.active = true;
+        }
+
+        self.input_state = self.tracker_connection.poll();
+        return xr.Result.SUCCESS;
+    }
+
+    pub func get_state_bool(self, get_info: *xr.ActionStateGetInfo, state: *xr.ActionStateBoolean) -> xr.Result {
+        var action = get_info.action as *Action;
+        var result = self.input_mapper.get_action_bool(action, get_info.subaction_path);
+        
+        state.changed_since_last_sync = 1;
+        state.last_change_time = time.now();
+        state.is_active = 1;
+
+        if result.has_value {
+            state.current_state = result.value;
+        } else {
+            state.current_state = 0;
+        }
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func get_state_float(self, get_info: *xr.ActionStateGetInfo, state: *xr.ActionStateFloat) -> xr.Result {
+        var action = get_info.action as *Action;
+        var result = self.input_mapper.get_action_float(action, get_info.subaction_path);
+        
+        state.changed_since_last_sync = 1;
+        state.last_change_time = time.now();
+        state.is_active = 1;
+        
+        if result.has_value {
+            state.current_state = result.value;
+        } else {
+            state.current_state = 0;
+        }
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func get_state_vector2f(self, get_info: *xr.ActionStateGetInfo, state: *xr.ActionStateVector2f) -> xr.Result {
+        var action = get_info.action as *Action;
+        var result = self.input_mapper.get_action_vector2f(action, get_info.subaction_path);
+        
+        state.changed_since_last_sync = 1;
+        state.last_change_time = time.now();
+        state.is_active = 1;
+        
+        if result.has_value {
+            state.current_state.x = 0.0;
+            state.current_state.y = 0.0;
+        } else {
+            state.current_state.x = 0.0;
+            state.current_state.y = 0.0;
+        }
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func destroy(self) -> xr.Result {
+        log.info("Destroying session");
+        self.tracker_connection.stream.close();
+        memory.free(self as addr);
+        return xr.Result.SUCCESS;
+    }
+
+    func transition_to(self, state: xr.SessionState) {
+        var event_buffer: xr.EventDataBuffer;
+        var event = &event_buffer as *xr.EventDataSessionStateChanged;
+        event.type_ = xr.StructureType.EVENT_DATA_SESSION_STATE_CHANGED;
+        event.next = null;
+        event.session = self as addr;
+        event.state = state;
+        event.time = time.now();
+        self.instance.event_queue.push(event_buffer);
+
+        self.state = state;
+    }
+}

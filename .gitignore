@@ -1,0 +1,11 @@
+openxr_runtime/out/
+openxr_runtime/packages/
+openxr_runtime/scripts/xr/OpenXR-SDK/
+openxr_runtime/scripts/xr/OpenXR-SDK-Source/
+openxr_runtime/scripts/xr/Vulkan-Headers/
+
+tracker/models/
+
+__pycache__/
+.vscode/
+venv/

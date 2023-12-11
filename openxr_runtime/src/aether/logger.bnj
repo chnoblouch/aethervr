@@ -1,0 +1,87 @@
+use std.{file.{File, FileMode}, path.Path, string.String, io.{Writer, stdout}, memory};
+
+struct Logger {
+	var file: File;
+	var writer: Writer;
+	var depth: u32;
+}
+
+var instance: *Logger = null;
+
+func create_instance(path: Path) {
+	var file = File.open(path, FileMode.WRITE).unwrap();
+	var writer = file.writer();
+	instance = memory.box(Logger { file, writer, depth: 0 });
+}
+
+pub func info(message: String) {
+	instance.writer.write_cstr("[info ] ");
+	
+	for i in 0..instance.depth {
+		instance.writer.write_byte(' ');
+		instance.writer.write_byte(' ');
+	}
+	
+	instance.writer.write_cstr(message.cstr());
+	instance.writer.write_byte('\n');
+	instance.writer.flush();
+}
+
+pub func infof<Args>(format: *u8, args: Args) {
+	var string = String.from("");
+
+	var i = 0;
+
+	meta for arg in args {
+		while format[i] != '\0' && format[i] != '%' {
+			string.append(format[i]);
+			i += 1;
+		}
+
+		string.append_str(to_string(arg));
+		i += 1;
+	}
+
+	while format[i] != '\0' {
+		string.append(format[i]);
+		i += 1;
+	}
+
+	info(string);
+}
+
+pub func warn(message: String) {
+	instance.writer.write_cstr("[warn ] ");
+	
+	for i in 0..instance.depth {
+		instance.writer.write_byte(' ');
+		instance.writer.write_byte(' ');
+	}
+	
+	instance.writer.write_cstr(message.cstr());
+	instance.writer.write_byte('\n');
+	instance.writer.flush();
+}
+
+pub func error(message: String) {
+	instance.writer.write_cstr("[ERROR] ");
+	instance.writer.write_cstr(message.cstr());
+	instance.writer.write_byte('\n');
+	instance.writer.flush();
+}
+
+pub func enter_scope() {
+	instance.depth += 1;
+}
+
+pub func exit_scope() {
+	instance.depth -= 1;
+}
+
+func to_string<T>(value: T) -> String {
+	meta if type(T) == type(i32) { return String.from(value as i64); }
+	else if type(T) == type(u32) { return String.from(value as u64); }
+	else if type(T) == type(String) { return value; }
+
+	return String.from(value);
+}

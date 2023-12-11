@@ -1,0 +1,552 @@
+use xr;
+use vulkan as vk;
+use aether.{
+    logger as log,
+    extensions as ext,
+    instance.Instance,
+    session.Session,
+    space.Space,
+    swapchain.Swapchain,
+    action.{ActionSet, Action},
+    action_binding,
+    utils.{version, handle_buffer_size, handle_buffer, is_successful},
+    constants
+};
+use c.lib.string.{memcpy, strcpy, strlen};
+
+pub func enumerate_instance_extension_properties(
+    layer_name: *u8,
+    property_capacity_input: u32,
+    property_count_output: *u32,
+    properties: *xr.ExtensionProperties
+) -> xr.Result {    
+    var extensions = ext.get_extension_properties();
+    return handle_buffer(&extensions, property_capacity_input, property_count_output, properties);
+}
+
+pub func create_instance(
+    create_info: xr.InstanceCreateInfo,
+    instance: **Instance
+) -> xr.Result {
+    var result = Instance.create(create_info);
+    *instance = result.0;
+    return result.1;
+}
+
+pub func get_instance_properties(
+    instance: *Instance,
+    instance_properties: *xr.InstanceProperties
+) -> xr.Result {
+    return instance.get_properties(instance_properties);
+}
+
+pub func destroy_instance(
+    instance: *Instance
+) -> xr.Result {
+    return Instance.destroy(instance);  
+}
+
+pub func poll_event(
+    instance: *Instance,
+    event_data: *xr.EventDataBuffer
+) -> xr.Result {
+    return instance.event_queue.poll(event_data);
+}
+
+pub func get_system(
+    instance: *Instance,
+    get_info: *xr.SystemGetInfo,
+    system_id: *u64
+) -> xr.Result {
+    var result = instance.get_system(get_info);
+    *system_id = result.0;
+    return result.1;
+}
+
+pub func get_system_properties(
+    instance: *Instance,
+    system_id: u64,
+    properties: *xr.SystemProperties
+) -> xr.Result {
+    return instance.get_system_properties(system_id, properties);
+}
+
+pub func string_to_path(
+    instance: *Instance,
+    path_string: *u8,
+    path: *u64
+) -> xr.Result {
+    var result = instance.string_to_path(path_string);
+    *path = result.0;
+    return result.1;
+}
+
+pub func path_to_string(
+    instance: *Instance,
+    path: u64,
+    buffer_capacity_input: u32,
+    buffer_count_output: *u32,
+    buffer: *u8
+) -> xr.Result {
+    var result = instance.path_to_string(path);
+    if !is_successful(result.1) {
+        return result.1;
+    }
+    
+    var path_string = result.0;
+    var length = strlen(path_string) as u32;
+
+    var buffer_info = handle_buffer_size(length, buffer_count_output, buffer_capacity_input);
+    if buffer_info.0 {
+        return buffer_info.1;
+    }
+
+    memcpy(buffer as addr, path_string as addr, length as usize + 1);
+    return xr.Result.SUCCESS;
+}
+
+pub func enumerate_view_configurations(
+    instance: *Instance,
+    system_id: u64,
+    view_configuration_type_capacity_input: u32,
+    view_configuration_type_count_output: *u32,
+    view_configuration_types: *xr.ViewConfigurationType
+) -> xr.Result {
+    var result = instance.enumerate_view_configurations(system_id);
+    handle_buffer(&result.0, view_configuration_type_capacity_input, view_configuration_type_count_output, view_configuration_types);
+    return result.1;
+}
+
+pub func get_view_configuration_properties(
+    instance: addr,
+    system_id: u64,
+    view_configuration_type: xr.ViewConfigurationType,
+    configuration_properties: *xr.ViewConfigurationProperties
+) -> xr.Result {
+    if !Instance.check_system(system_id) {
+        return xr.Result.ERROR_SYSTEM_INVALID;
+    }
+
+    if view_configuration_type != xr.ViewConfigurationType.PRIMARY_STEREO {
+        return xr.Result.ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED;
+    }
+
+    log.info("Getting view configuration properties");
+
+    configuration_properties.view_configuration_type = xr.ViewConfigurationType.PRIMARY_STEREO;
+    configuration_properties.fov_mutable = 0;
+
+    return xr.Result.SUCCESS;
+}
+
+pub func enumerate_view_configuration_views(
+    instance: addr,
+    system_id: u64,
+    view_configuration_type: xr.ViewConfigurationType,
+    view_capacity_input: u32,
+    view_count_output: *u32,
+    views: *xr.ViewConfigurationView
+) -> xr.Result {
+    if !Instance.check_system(system_id) {
+        return xr.Result.ERROR_SYSTEM_INVALID;
+    }
+
+    if view_configuration_type != xr.ViewConfigurationType.PRIMARY_STEREO {
+        return xr.Result.ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED;
+    }
+
+    var buffer_info = handle_buffer_size(2, view_count_output, view_capacity_input);
+    if buffer_info.0 {
+        return buffer_info.1;
+    }
+
+    log.info("Enumerating view configuration views");
+
+    views[0].recommended_image_rect_width = constants.SWAPCHAIN_WIDTH;
+    views[0].max_image_rect_width = constants.SWAPCHAIN_WIDTH;
+    views[0].recommended_image_rect_height = constants.SWAPCHAIN_HEIGHT;
+    views[0].max_image_rect_height = constants.SWAPCHAIN_HEIGHT;
+    views[0].recommended_swapchain_sample_count = 1;
+    views[0].max_swapchain_sample_count = 1;
+
+    views[1].recommended_image_rect_width = constants.SWAPCHAIN_WIDTH;
+    views[1].max_image_rect_width = constants.SWAPCHAIN_WIDTH;
+    views[1].recommended_image_rect_height = constants.SWAPCHAIN_HEIGHT;
+    views[1].max_image_rect_height = constants.SWAPCHAIN_HEIGHT;
+    views[1].recommended_swapchain_sample_count = 1;
+    views[1].max_swapchain_sample_count = 1;
+
+    return xr.Result.SUCCESS;
+}
+
+pub func create_session(
+    instance: *Instance,
+    create_info: *xr.SessionCreateInfo,
+    session: **Session
+) -> xr.Result {
+    var result = instance.create_session(create_info);
+    *session = result.0;
+    return result.1;
+}
+
+pub func destroy_session(
+    session: *Session
+) -> xr.Result {
+    return session.destroy();
+}
+
+pub func begin_session(
+    session: *Session,
+    begin_info: *xr.SessionBeginInfo
+) -> xr.Result {
+    return session.begin(begin_info);
+}
+
+pub func locate_views(
+    session: *Session,
+    view_locate_info: *xr.ViewLocateInfo,
+    view_state: *xr.ViewState,
+    view_capacity_input: u32,
+    view_count_output: *u32,
+    views: *xr.View
+) -> xr.Result {
+    return session.locate_views(view_locate_info, view_state, view_capacity_input, view_count_output, views);
+}
+
+pub func wait_frame(
+    session: *Session,
+    frame_wait_info: *xr.FrameWaitInfo,
+    frame_state: *xr.FrameState
+) -> xr.Result {
+    return session.wait_frame(frame_wait_info, frame_state);
+}
+
+pub func begin_frame(
+    session: *Session,
+    frame_begin_info: *xr.FrameBeginInfo
+) -> xr.Result {
+    return session.begin_frame(frame_begin_info);
+}
+
+pub func end_frame(
+    session: *Session,
+    frame_end_info: *xr.FrameEndInfo,
+) -> xr.Result {
+    return session.end_frame(frame_end_info);
+}
+
+pub func enumerate_swapchain_formats(
+    session: *Session,
+    format_capacity_input: u32,
+    format_count_output: *u32,
+    formats: *i64
+) -> xr.Result {
+    var values = session.enumerate_swapchain_formats();
+    return handle_buffer(&values, format_capacity_input, format_count_output, formats);
+}
+
+pub func create_swapchain(
+    session: *Session,
+    create_info: *xr.SwapchainCreateInfo,
+    swapchain: **Swapchain
+) -> xr.Result {
+    var result = session.create_swapchain(create_info);
+    *swapchain = result.0;
+    return result.1;
+}
+
+pub func destroy_swapchain(
+    session: *Session
+) -> xr.Result {
+    # TODO: unimplemented
+    return xr.Result.SUCCESS;
+}
+
+pub func enumerate_swapchain_images(
+    swapchain: *Swapchain,
+    image_capacity_input: u32,
+    image_count_output: *u32,
+    images: *xr.SwapchainImageBaseHeader
+) -> xr.Result {
+    return swapchain.enumerate_images(image_capacity_input, image_count_output, images);
+}
+
+pub func acquire_swapchain_image(
+    swapchain: *Swapchain,
+    acquire_info: *xr.SwapchainImageAcquireInfo,
+    index: *u32
+) -> xr.Result {
+    return swapchain.acquire_image(acquire_info, index);
+}
+
+pub func wait_swapchain_image(
+    swapchain: *Swapchain,
+    wait_info: *xr.SwapchainImageWaitInfo
+) -> xr.Result {
+    return swapchain.wait_image(wait_info);
+}
+
+pub func release_swapchain_image(
+    swapchain: *Swapchain,
+    release_info: *xr.SwapchainImageReleaseInfo
+) -> xr.Result {
+    return swapchain.release_image(release_info);
+}
+
+pub func enumerate_reference_spaces(
+    session: addr,
+    space_capacity_input: u32,
+    space_count_output: *u32,
+    spaces: *xr.ReferenceSpaceType
+) -> xr.Result {
+    var buffer_info = handle_buffer_size(3, space_count_output, space_capacity_input);
+    if buffer_info.0 {
+        return buffer_info.1;
+    }
+
+    log.info("Enumerating reference spaces");
+
+    spaces[0] = xr.ReferenceSpaceType.VIEW;
+    spaces[1] = xr.ReferenceSpaceType.LOCAL;
+    spaces[2] = xr.ReferenceSpaceType.STAGE;
+    return xr.Result.SUCCESS;
+}
+
+pub func get_reference_space_bounds_rect(
+    session: addr,
+    reference_space_type: xr.ReferenceSpaceType,
+    bounds: *xr.Extent2Df
+) -> xr.Result {
+    bounds.width = 0.0;
+    bounds.height = 0.0;
+    return xr.Result.SPACE_BOUNDS_UNAVAILABLE;
+}
+
+pub func create_reference_space(
+    session: *Session,
+    create_info: *xr.ReferenceSpaceCreateInfo,
+    space: **Space
+) -> xr.Result {
+    var result = session.create_reference_space(create_info);
+    *space = result.0;
+    return result.1;
+}
+
+pub func create_action_space(
+    session: *Session,
+    create_info: *xr.ActionSpaceCreateInfo,
+    space: **Space
+) -> xr.Result {
+    var result = session.create_action_space(create_info);
+    *space = result.0;
+    return result.1;
+}
+
+pub func locate_space(
+    space: *Space,
+    base_space: *Space,
+    time: u64,
+    location: *xr.SpaceLocation
+) -> xr.Result {
+    return space.locate(base_space, time, location);
+}
+
+pub func enumerate_environment_blend_modes(
+    instance: *Instance,
+    system_id: u64,
+    view_configuration_type: xr.ViewConfigurationType,
+    environment_blend_mode_capacity_input: u32,
+    environment_blend_mode_count_output: *u32,
+    environment_blend_modes: *xr.EnvironmentBlendMode
+) -> xr.Result {
+    if !Instance.check_system(system_id) {
+        return xr.Result.ERROR_SYSTEM_INVALID;
+    }
+
+    if view_configuration_type != xr.ViewConfigurationType.PRIMARY_STEREO {
+        return xr.Result.ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED;
+    }
+
+    var buffer_info = handle_buffer_size(1, environment_blend_mode_count_output, environment_blend_mode_capacity_input);
+    if buffer_info.0 {
+        return buffer_info.1;
+    }
+
+    log.info("Enumerating environment blend modes");
+
+    environment_blend_modes[0] = xr.EnvironmentBlendMode.OPAQUE;
+    return xr.Result.SUCCESS;
+}
+
+pub func create_action_set(
+    instance: *Instance,
+    create_info: *xr.ActionSetCreateInfo,
+    action_set: **ActionSet
+) -> xr.Result {
+    var result = instance.create_action_set(create_info);
+    *action_set = result.0;
+    return result.1;
+}
+
+pub func create_action(
+    action_set: *ActionSet,
+    create_info: *xr.ActionCreateInfo,
+    action: **Action
+) -> xr.Result {
+    var result = action_set.create_action(create_info);
+    *action = result.0;
+    return result.1;
+}
+
+pub func suggest_interaction_profile_bindings(
+    instance: *Instance,
+    suggested_bindings: *xr.InteractionProfileSuggestedBinding
+) -> xr.Result {
+    return action_binding.set_action_bindings(instance, suggested_bindings);
+}
+
+pub func attach_session_action_sets(
+    session: *Session,
+    attach_info: *xr.SessionActionSetsAttachInfo
+) -> xr.Result {
+    return session.attach_action_sets(attach_info);
+}
+
+pub func get_current_interaction_profile(
+    session: *Session,
+    top_level_user_path: u64,
+    interaction_profile: *xr.InteractionProfileState
+) -> xr.Result {
+    return session.get_current_interaction_profile(interaction_profile);
+}
+
+pub func sync_actions(
+    session: *Session,
+    sync_info: *xr.ActionsSyncInfo
+) -> xr.Result {
+    return session.sync_actions(sync_info);
+}
+
+pub func get_action_state_boolean(
+    session: *Session,
+    get_info: *xr.ActionStateGetInfo,
+    state: *xr.ActionStateBoolean,
+) -> xr.Result {
+    return session.get_state_bool(get_info, state);
+}
+
+pub func get_action_state_float(
+    session: *Session,
+    get_info: *xr.ActionStateGetInfo,
+    state: *xr.ActionStateFloat,
+) -> xr.Result {
+    return session.get_state_float(get_info, state);
+}
+
+pub func get_action_state_vector2f(
+    session: *Session,
+    get_info: *xr.ActionStateGetInfo,
+    state: *xr.ActionStateVector2f,
+) -> xr.Result {
+    return session.get_state_vector2f(get_info, state);
+}
+
+pub func get_action_state_pose(
+    session: *Session,
+    get_info: *xr.ActionStateGetInfo,
+    state: *xr.ActionStatePose,
+) -> xr.Result {
+    state.is_active = 1;
+    return xr.Result.SUCCESS;
+}
+
+pub func get_opengl_graphics_requirements_khr(
+    instance: *Instance,
+    system_id: u64,
+    graphics_requirements: *xr.GraphicsRequirementsOpenGLKHR
+) -> xr.Result {
+    return instance.get_opengl_graphics_reqs(system_id, graphics_requirements);
+}
+
+pub func get_vulkan_graphics_requirements_khr(
+    instance: *Instance,
+    system_id: u64,
+    graphics_requirements: *xr.GraphicsRequirementsVulkanKHR
+) -> xr.Result {
+    return instance.get_vulkan_graphics_reqs(system_id, graphics_requirements);
+}
+
+pub func get_vulkan_graphics_device_khr(
+    instance: *Instance,
+    system_id: u64,
+    vk_instance: addr,
+    vk_physical_device: *addr
+) -> xr.Result {
+    return instance.get_vulkan_device(system_id, vk_instance, vk_physical_device);
+}
+
+pub func get_vulkan_instance_extensions_khr(
+    instance: *Instance,
+    system_id: u64,
+    buffer_capacity_input: u32,
+    buffer_count_output: *u32,
+    buffer: *u8
+) -> xr.Result {
+    return instance.get_vulkan_instance_extensions(system_id, buffer_capacity_input, buffer_count_output, buffer);
+}
+
+pub func get_vulkan_device_extensions_khr(
+    instance: *Instance,
+    system_id: u64,
+    buffer_capacity_input: u32,
+    buffer_count_output: *u32,
+    buffer: *u8
+) -> xr.Result {
+    return instance.get_vulkan_device_extensions(system_id, buffer_capacity_input, buffer_count_output, buffer);
+}
+
+pub func get_vulkan_graphics_requirements_2_khr(
+    instance: *Instance,
+    system_id: u64,
+    graphics_requirements: *xr.GraphicsRequirementsVulkanKHR
+) -> xr.Result {
+    return instance.get_vulkan_graphics_reqs(system_id, graphics_requirements);
+}
+
+pub func get_vulkan_graphics_device_2_khr(
+    instance: *Instance,
+    get_info: *xr.VulkanGraphicsDeviceGetInfoKHR,
+    vulkan_physical_device: *addr
+) -> xr.Result {
+    return instance.get_vulkan_device_2(get_info.vulkan_instance, vulkan_physical_device);
+}
+
+pub func create_vulkan_instance_khr(
+    instance: *Instance,
+    create_info: *xr.VulkanInstanceCreateInfoKHR,
+    vulkan_instance: *addr,
+    vulkan_result: *vk.Result
+) -> xr.Result {
+    return instance.create_vulkan_instance(create_info, vulkan_instance, vulkan_result);
+}
+
+pub func create_vulkan_device_khr(
+    instance: *Instance,
+    create_info: *xr.VulkanDeviceCreateInfoKHR,
+    vulkan_device: *addr,
+    vulkan_result: *vk.Result
+) -> xr.Result {
+    return instance.create_vulkan_device(create_info, vulkan_device, vulkan_result);
+}
+
+pub func get_d3d11_graphics_requirements_khr(
+    instance: *Instance,
+    system_id: u64,
+    graphics_requirements: *xr.GraphicsRequirementsD3D11KHR
+) -> xr.Result {
+    return instance.get_d3d11_graphics_reqs(system_id, graphics_requirements);
+}
+
+pub func dummy() -> xr.Result {
+    return xr.Result.MAX_ENUM;
+}

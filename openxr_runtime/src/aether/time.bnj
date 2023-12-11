@@ -1,0 +1,9 @@
+use std.time.MonotonicTime;
+
+pub func now() -> i64 {
+    return MonotonicTime.now().nanosecs() as i64;
+}
+
+pub func now_s() -> f32 {
+    return MonotonicTime.now().secs() as f32;
+}

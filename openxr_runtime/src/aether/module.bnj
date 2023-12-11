@@ -1,0 +1,92 @@
+use aether.{api, env, logger as log, instance.Instance, utils.streq as eq};
+use std.{memory, file.FileMode, path.Path};
+use xr;
+
+@[dllexport, link_name=xrNegotiateLoaderRuntimeInterface]
+func negotiate_interface(loader_info: *xr.NegotiateLoaderInfo, runtime_request: *xr.NegotiateRuntimeRequest) -> xr.Result {
+	var path = env.get_shared_library_path();
+	if !path.has_value {
+		return xr.Result.ERROR_RUNTIME_FAILURE;
+	}
+
+	var log_path = path.value.parent();
+	log_path.append("logs.txt");
+
+	log.create_instance(log_path);
+	log.info("Negotiating interface");
+
+	runtime_request.runtime_interface_version = loader_info.max_interface_version;
+	runtime_request.runtime_api_version = loader_info.max_api_version;
+	runtime_request.get_instance_proc_addr = load_func;
+
+	return xr.Result.SUCCESS;
+}
+
+func load_func(instance: addr, name: *u8, function: *func()) -> xr.Result {
+	var f = get_func(name);
+	*function = f as func();
+
+	# if f == api.dummy as addr {
+	# 	return xr.Result.ERROR_FUNCTION_UNSUPPORTED;
+	# } else {
+	# 	return xr.Result.SUCCESS;
+	# }
+
+	return xr.Result.SUCCESS;
+}
+
+func get_func(name: *u8) -> addr {
+	if eq(name, "xrEnumerateInstanceExtensionProperties") { return api.enumerate_instance_extension_properties as addr; }
+	else if eq(name, "xrCreateInstance") { return api.create_instance as addr; }
+	else if eq(name, "xrGetInstanceProperties") { return api.get_instance_properties as addr; }
+	else if eq(name, "xrDestroyInstance") { return api.destroy_instance as addr; }
+	else if eq(name, "xrPollEvent") { return api.poll_event as addr; }
+	else if eq(name, "xrGetSystem") { return api.get_system as addr; }
+	else if eq(name, "xrGetSystemProperties") { return api.get_system_properties as addr; }
+	else if eq(name, "xrStringToPath") { return api.string_to_path as addr; }
+	else if eq(name, "xrPathToString") { return api.path_to_string as addr; }
+	else if eq(name, "xrEnumerateViewConfigurations") { return api.enumerate_view_configurations as addr; }
+	else if eq(name, "xrGetViewConfigurationProperties") { return api.get_view_configuration_properties as addr; }
+	else if eq(name, "xrEnumerateViewConfigurationViews") { return api.enumerate_view_configuration_views as addr; }
+	else if eq(name, "xrCreateSession") { return api.create_session as addr; }
+	else if eq(name, "xrDestroySession") { return api.destroy_session as addr; }
+	else if eq(name, "xrBeginSession") { return api.begin_session as addr; }
+	else if eq(name, "xrLocateViews") { return api.locate_views as addr; }
+	else if eq(name, "xrWaitFrame") { return api.wait_frame as addr; }
+	else if eq(name, "xrBeginFrame") { return api.begin_frame as addr; }
+	else if eq(name, "xrEndFrame") { return api.end_frame as addr; }
+	else if eq(name, "xrEnumerateSwapchainFormats") { return api.enumerate_swapchain_formats as addr; }
+	else if eq(name, "xrCreateSwapchain") { return api.create_swapchain as addr; }
+	else if eq(name, "xrDestroySwapchain") { return api.destroy_swapchain as addr; }
+	else if eq(name, "xrEnumerateSwapchainImages") { return api.enumerate_swapchain_images as addr; }
+	else if eq(name, "xrAcquireSwapchainImage") { return api.acquire_swapchain_image as addr; }
+	else if eq(name, "xrWaitSwapchainImage") { return api.wait_swapchain_image as addr; }
+	else if eq(name, "xrReleaseSwapchainImage") { return api.release_swapchain_image as addr; }
+	else if eq(name, "xrEnumerateReferenceSpaces") { return api.enumerate_reference_spaces as addr; }
+	else if eq(name, "xrGetReferenceSpaceBoundsRect") { return api.get_reference_space_bounds_rect as addr; }
+	else if eq(name, "xrCreateReferenceSpace") { return api.create_reference_space as addr; }
+	else if eq(name, "xrCreateActionSpace") { return api.create_action_space as addr; }
+	else if eq(name, "xrLocateSpace") { return api.locate_space as addr; }
+	else if eq(name, "xrEnumerateEnvironmentBlendModes") { return api.enumerate_environment_blend_modes as addr; }
+	else if eq(name, "xrCreateActionSet") { return api.create_action_set as addr; }
+	else if eq(name, "xrCreateAction") { return api.create_action as addr; }
+	else if eq(name, "xrSuggestInteractionProfileBindings") { return api.suggest_interaction_profile_bindings as addr; }
+	else if eq(name, "xrAttachSessionActionSets") { return api.attach_session_action_sets as addr; }
+	else if eq(name, "xrGetCurrentInteractionProfile") { return api.get_current_interaction_profile as addr; }
+	else if eq(name, "xrSyncActions") { return api.sync_actions as addr; }
+	else if eq(name, "xrGetActionStateBoolean") { return api.get_action_state_boolean as addr; }
+	else if eq(name, "xrGetActionStateFloat") { return api.get_action_state_float as addr; }
+	else if eq(name, "xrGetActionStateVector2f") { return api.get_action_state_vector2f as addr; }
+	else if eq(name, "xrGetActionStatePose") { return api.get_action_state_pose as addr; }
+	else if eq(name, "xrGetOpenGLGraphicsRequirementsKHR") { return api.get_opengl_graphics_requirements_khr as addr; }
+	else if eq(name, "xrGetVulkanGraphicsRequirementsKHR") { return api.get_vulkan_graphics_requirements_khr as addr; }
+	else if eq(name, "xrGetVulkanGraphicsDeviceKHR") { return api.get_vulkan_graphics_device_khr as addr; }
+	else if eq(name, "xrGetVulkanInstanceExtensionsKHR") { return api.get_vulkan_instance_extensions_khr as addr; }
+	else if eq(name, "xrGetVulkanDeviceExtensionsKHR") { return api.get_vulkan_device_extensions_khr as addr; }
+	else if eq(name, "xrGetVulkanGraphicsRequirements2KHR") { return api.get_vulkan_graphics_requirements_2_khr as addr; }
+	else if eq(name, "xrGetVulkanGraphicsDevice2KHR") { return api.get_vulkan_graphics_device_2_khr as addr; }
+	else if eq(name, "xrCreateVulkanInstanceKHR") { return api.create_vulkan_instance_khr as addr; }
+	else if eq(name, "xrCreateVulkanDeviceKHR") { return api.create_vulkan_device_khr as addr; }
+	else if eq(name, "xrGetD3D11GraphicsRequirementsKHR") { return api.get_d3d11_graphics_requirements_khr as addr; }
+	else { return api.dummy as addr; }
+}

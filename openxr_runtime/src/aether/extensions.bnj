@@ -1,0 +1,42 @@
+use xr;
+use c.lib.string.strcpy;
+use std.config;
+use aether.logger as log;
+
+pub func get_extension_properties() -> [xr.ExtensionProperties] {
+    meta if config.OS == config.WINDOWS {
+        var extensions: [(*u8, u32)] = [
+            ("XR_KHR_opengl_enable", 10),
+            ("XR_KHR_vulkan_enable", 8),
+            ("XR_KHR_vulkan_enable2", 2),
+            ("XR_KHR_win32_convert_performance_counter_time", 1),
+            ("XR_KHR_D3D11_enable", 9)
+        ];
+    } else if config.OS == config.MACOS {
+        var extensions: [(*u8, u32)] = [
+            ("XR_KHR_opengl_enable", 10)
+        ];
+    }
+
+    var properties: [xr.ExtensionProperties] = [];
+    for extension in extensions {
+        properties.append(create_ext_properties(extension));
+    }
+
+    log.info("Enumerating instance extension properties");
+    for extension in extensions {
+        log.info(str("  - ") + str(extension.0));
+    }
+
+    return properties;
+}
+
+func create_ext_properties(extension: (*u8, u32)) -> xr.ExtensionProperties {
+    var properties: xr.ExtensionProperties;
+    properties.type_ = xr.StructureType.EXTENSION_PROPERTIES;
+    properties.next = null;
+    properties.extension_version = extension.1;
+    strcpy(&properties.extension_name as *u8, extension.0);
+    
+    return properties;
+}

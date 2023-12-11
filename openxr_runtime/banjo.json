@@ -1,0 +1,8 @@
+{
+  "name": "aethervr",
+  "main_module": "aether",
+  "type": "shared_library",
+  "packages": ["xr", "gl", "vulkan", "d3d11", "stbi"],
+  "build_script": "scripts/build.py",
+  "libraries": ["d3d11", "dxgi"]
+}

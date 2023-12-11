@@ -1,0 +1,106 @@
+use std.{math, test.assert_eq};
+use xr;
+
+func orientation(x: f32, y: f32, z: f32, w: f32) -> xr.Quaternionf {
+    return { x, y, z, w };
+}
+
+func orientation_identity() -> xr.Quaternionf {
+    return orientation(0.0, 0.0, 0.0, 1.0);
+}
+
+func axis_angle(angle: f32, x: f32, y: f32, z: f32) -> xr.Quaternionf {
+    var s = math.sin(angle / 2.0);
+    var c = math.cos(angle / 2.0);
+    return orientation(x * s, y * s, z * s, c);
+}
+
+func inverse(q: xr.Quaternionf) -> xr.Quaternionf {
+    return orientation(-q.x, -q.y, -q.z, q.w);
+}
+
+func mul(q1: xr.Quaternionf, q2: xr.Quaternionf) -> xr.Quaternionf {
+    return orientation(
+         q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x,
+        -q1.x * q2.z + q1.y * q2.w + q1.z * q2.x + q1.w * q2.y,
+         q1.x * q2.y - q1.y * q2.x + q1.z * q2.w + q1.w * q2.z,
+        -q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w
+    );
+}
+
+func position(x: f32, y: f32, z: f32) -> xr.Vector3f {
+    return { x, y, z };
+}
+
+func add(v1: xr.Vector3f, v2: xr.Vector3f) -> xr.Vector3f {
+    return position(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
+}
+
+func sub(v1: xr.Vector3f, v2: xr.Vector3f) -> xr.Vector3f {
+    return position(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
+}
+
+func mul(s: f32, v: xr.Vector3f) -> xr.Vector3f {
+    return position(s * v.x, s * v.y, s * v.z);
+}
+
+func dot(v1: xr.Vector3f, v2: xr.Vector3f) -> f32 {
+    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+}
+
+func cross(v1: xr.Vector3f, v2: xr.Vector3f) -> xr.Vector3f {
+    # https://en.wikipedia.org/wiki/Cross_product
+
+    return position(
+        v1.y * v2.z - v1.z * v2.y,
+        v1.z * v2.x - v1.x * v2.z,
+        v1.x * v2.y - v1.y * v2.x  
+    );
+}
+
+func pose(orientation: xr.Quaternionf, position: xr.Vector3f) -> xr.Posef {
+    return { orientation, position };
+}
+
+func rotate(rotation: xr.Quaternionf, vector: xr.Vector3f) -> xr.Vector3f {
+    # https://gamedev.stackexchange.com/questions/28395/rotating-vector3-by-a-quaternion
+    
+    var u = orientation(vector.x, vector.y, vector.z, 0.0);
+    var q = mul(mul(inverse(rotation), u), rotation);
+    return position(q.x, q.y, q.z);
+
+    # var u = position(rotation.x, rotation.y, rotation.z);
+    # var s = rotation.w;
+
+    # return add(
+    #     add(
+    #         mul(2.0 * dot(u, vector), u),
+    #         mul((s * s - dot(u, u)), vector)
+    #     ),
+    #     mul(2.0 * s, cross(u, vector))
+    # );
+}
+
+func apply(parent: xr.Posef, child: xr.Posef) -> xr.Posef {
+    return pose(
+        mul(parent.orientation, child.orientation),
+        add(parent.position, rotate(parent.orientation, child.position))
+    );
+}
+
+func relative(p1: xr.Posef, p2: xr.Posef) -> xr.Posef {
+    return pose(
+        mul(p1.orientation, inverse(p2.orientation)),
+        sub(p2.position, p1.position)
+    );
+}
+
+@test func test_sub() {
+    var v1 = position(1.0, 5.0, -2.0);
+    var v2 = position(-5.0, 3.5, 3.0);
+    var v3 = sub(v1, v2);
+
+    assert_eq(v3.x, 6.0);
+    assert_eq(v3.y, 1.5);
+    assert_eq(v3.z, -5.0);
+}
