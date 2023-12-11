@@ -14,6 +14,9 @@ jobs:
     - name: Install Banjo
       run: Invoke-WebRequest https://raw.githubusercontent.com/Chnoblouch/banjo-releases/main/getbanjo.py | Select-Object -Expand Content | python
 
+    - name: Install libclang
+      run: pip install libclang
+
     - name: Add Banjo to Path
       run: echo "$ENV:USERPROFILE\.banjo\bin" | Out-File -FilePath $ENV:GITHUB_PATH -Encoding utf8 -Append
 
