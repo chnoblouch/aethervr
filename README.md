@@ -11,6 +11,8 @@ If you want to use AetherVR with standalone apps (e.g. from Steam), you can inst
 1. Open the Windows Registry Editor
 2. Navigate to the key ```HKEY_LOCAL_MACHINE\SOFTWARE\Khronos\OpenXR\1```
 3. Set the value ```ActiveRuntime``` to the path to ```openxr_runtime.json```
+4. Run ```aethervr_tracker.exe```
+5. Run your VR application
 
 ### Unity Engine
 
@@ -20,12 +22,14 @@ If you don't want to change your OpenXR runtime globally, you can select AetherV
 2. Go to ```Edit > Project Settings > XR Plug-in Management > OpenXR```
 3. Click ```Play Mode OpenXR Runtime``` and select ```Other```
 4. Enter the path to ```openxr_runtime.json```
+5. Run ```aethervr_tracker.exe```
+6. Enter play mode
 
 ### OpenComposite
 
 AetherVR can be used to play SteamVR games by using [OpenComposite](https://gitlab.com/znixian/OpenOVR) as a translation layer from OpenVR calls to OpenXR calls. You should be able to install AetherVR and OpenComposite on your system and it should Just Work. 
 
-## OpenXR runtime
+## OpenXR Runtime
 
 The OpenXR runtime is a shared library (```aethervr.dll```) written in the Banjo programming language. It currently supports Windows and applications that use Vulkan or D3D11 as their graphics API.
 
