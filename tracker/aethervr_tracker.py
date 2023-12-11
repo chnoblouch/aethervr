@@ -1,4 +1,3 @@
-
 import cv2
 
 from aether.head_tracker import HeadTracker
@@ -45,10 +44,6 @@ def process_hand_tracking_results(results):
 
 def run():
     global head_tracker, hand_tracker, connection, capture, frame
-
-    import threading
-    for thread in threading.enumerate():
-        print(thread.name)
 
     head_tracker = HeadTracker(detection_callback=process_head_tracking_results)
     hand_tracker = HandTracker(detection_callback=process_hand_tracking_results)

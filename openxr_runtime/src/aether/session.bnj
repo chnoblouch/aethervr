@@ -286,7 +286,7 @@ struct Session {
     }
 
     pub func get_current_interaction_profile(self, state: *xr.InteractionProfileState) -> xr.Result {
-        var path = self.instance.path_mapping.get_path("/interaction_profiles/valve/index_controller");
+        var path = self.instance.path_mapping.get_path("/interaction_profiles/oculus/touch_controller");
         log.info("Getting current interaction profile");
         log.info(str("  Path: ") + String.from(path));
 
