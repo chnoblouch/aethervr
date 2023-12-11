@@ -1,4 +1,4 @@
-name: Build
+name: Release
 
 on:
   workflow_dispatch:
@@ -24,10 +24,19 @@ jobs:
       working-directory: "${{ github.workspace }}/openxr_runtime"
       run: banjo build
 
-    - name: Archive artifacts
-      uses: actions/upload-artifact@v3
+    - name: Package
+      run: |
+        mkdir aethervr-x86_64-windows
+        cp openxr_runtime/out/x86_64-windows-debug/aethervr.dll aethervr-x86_64-windows/aethervr.dll
+        cp openxr_runtime/openxr_runtime.json aethervr-x86_64-windows/openxr_runtime.json
+        7z a aethervr-x86_64-windows.zip aethervr-x86_64-windows
+
+    - name: Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: aethervr-x86_64-windows
-        path: |
-          openxr_runtime/out/x86_64-windows-debug/aethervr.dll
-          openxr_runtime/openxr_runtime.json
+        tag_name: v0.0.1
+        release_name: AetherVR 0.0.1
+        draft: false
+        prerelease: false
