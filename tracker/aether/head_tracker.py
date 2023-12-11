@@ -1,10 +1,11 @@
 import mediapipe as mp
 from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python.vision import FaceLandmarker, FaceLandmarkerOptions, RunningMode
+
 import numpy as np
 
-from pose import Position
-import mediapipe_models
+from aether.pose import Position
+from aether import mediapipe_models
 
 
 class HeadDetectionResults:

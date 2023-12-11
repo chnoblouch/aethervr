@@ -1,14 +1,17 @@
+from dataclasses import dataclass
+from threading import Lock
+import math
+
 import mediapipe as mp
 from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python.vision import HandLandmarker, HandLandmarkerOptions, RunningMode
 from mediapipe import solutions
-from dataclasses import dataclass
-from pose import Position, Rotation
-from threading import Lock
+
 import cv2
 import numpy as np
-import math
-import mediapipe_models
+
+from aether.pose import Position, Rotation
+from aether import mediapipe_models
 
 
 @dataclass

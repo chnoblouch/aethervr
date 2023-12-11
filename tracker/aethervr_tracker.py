@@ -1,8 +1,9 @@
 
 import cv2
-from head_tracker import HeadTracker
-from hand_tracker import HandTracker
-from runtime_connection import RuntimeConnection, Keys
+
+from aether.head_tracker import HeadTracker
+from aether.hand_tracker import HandTracker
+from aether.runtime_connection import RuntimeConnection, Keys
 
 
 head_tracker = None
