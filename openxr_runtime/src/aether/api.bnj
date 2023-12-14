@@ -547,6 +547,30 @@ pub func get_d3d11_graphics_requirements_khr(
     return instance.get_d3d11_graphics_reqs(system_id, graphics_requirements);
 }
 
+# ----------------------------------------------------------------
+# XR_KHR_win32_convert_performance_counter_time functions
+# Note: These functions assume that time.now() return QueryPerformanceCounter values directly so they don't
+# perform any conversion and simply return their input.
+# ----------------------------------------------------------------
+
+pub func xr_convert_win32_performance_counter_to_time_khr(
+    instance: *Instance,
+    performance_counter: *u64,
+    time: *u64
+) -> xr.Result {
+    *time = *performance_counter;
+    return xr.Result.SUCCESS;
+}
+
+pub func xr_convert_time_to_win32_performance_counter_khr(
+    instance: *Instance,
+    time: u64,
+    performance_counter: *u64
+) -> xr.Result {
+    *performance_counter = time;
+    return xr.Result.SUCCESS;
+}
+
 pub func dummy() -> xr.Result {
     return xr.Result.MAX_ENUM;
 }

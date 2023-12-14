@@ -88,5 +88,7 @@ func get_func(name: *u8) -> addr {
 	else if eq(name, "xrCreateVulkanInstanceKHR") { return api.create_vulkan_instance_khr as addr; }
 	else if eq(name, "xrCreateVulkanDeviceKHR") { return api.create_vulkan_device_khr as addr; }
 	else if eq(name, "xrGetD3D11GraphicsRequirementsKHR") { return api.get_d3d11_graphics_requirements_khr as addr; }
+	else if eq(name, "xrConvertWin32PerformanceCounterToTimeKHR") { return api.xr_convert_win32_performance_counter_to_time_khr as addr; }
+	else if eq(name, "xrConvertTimeToWin32PerformanceCounterKHR") { return api.xr_convert_time_to_win32_performance_counter_khr as addr; }
 	else { return api.dummy as addr; }
 }

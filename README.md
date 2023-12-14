@@ -35,11 +35,12 @@ The OpenXR runtime is a shared library (```aethervr.dll```) written in the Banjo
 
 The runtime currently supports these extensions:
 
-| Extension             | Version |
-| --------------------- | ------- |
-| XR_KHR_vulkan_enable  | 8       |
-| XR_KHR_vulkan_enable2 | 2       |
-| XR_KHR_D3D11_enable   | 9       |
+| Extension                                     | Version |
+| --------------------------------------------- | ------- |
+| XR_KHR_D3D11_enable                           | 9       |
+| XR_KHR_vulkan_enable                          | 8       |
+| XR_KHR_vulkan_enable2                         | 2       |
+| XR_KHR_win32_convert_performance_counter_time | 1       |
 
 ## Tracker
 
