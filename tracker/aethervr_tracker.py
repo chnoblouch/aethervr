@@ -46,7 +46,7 @@ def run():
     global head_tracker, hand_tracker, connection, capture, frame
 
     head_tracker = HeadTracker(detection_callback=process_head_tracking_results)
-    hand_tracker = HandTracker(detection_callback=process_hand_tracking_results)
+    hand_tracker = HandTracker(head_tracker, detection_callback=process_hand_tracking_results)
 
     print("Opening capture device...")
 
@@ -78,8 +78,12 @@ def run():
 
             cv2.imshow("AetherVR Tracker", frame)
 
-            if cv2.waitKey(1) == 27:
+            key = cv2.waitKey(1)
+            if key == 27:
                 break
+            elif key == ord('c'):
+                head_tracker.calibrate_next_frame = True
+            
         except KeyboardInterrupt:
             print("Interrupt received")
             break

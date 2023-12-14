@@ -4,7 +4,7 @@ use xr;
 use aether.{session.Session, time, pose, constants};
 
 pub func get_view_pose(session: *Session) -> xr.Posef {
-    return session.input_state.get_view_pose();
+    return session.input_state.view;
 }
 
 pub func get_left_eye_pose(session: *Session) -> xr.Posef {

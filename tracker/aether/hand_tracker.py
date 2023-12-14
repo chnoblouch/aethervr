@@ -78,7 +78,8 @@ class HandTracker:
     MODEL_FILE_NAME = "hand_landmarker.task"
     MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"
 
-    def __init__(self, detection_callback) -> None:
+    def __init__(self, head_tracker, detection_callback) -> None:
+        self.head_tracker = head_tracker
         self.detection_callback = detection_callback
 
         model_path = mediapipe_models.download(HandTracker.MODEL_FILE_NAME, HandTracker.MODEL_URL)
@@ -116,6 +117,9 @@ class HandTracker:
             for i, landmarks in enumerate(detection_results.hand_world_landmarks):
                 handedness = detection_results.handedness[i][0].display_name
 
+                # HACK
+                handedness = "Right" if handedness == "Left" else "Left"
+
                 if handedness == "Left":
                     hand = left_hand
                 elif handedness == "Right":
@@ -149,12 +153,13 @@ class HandTracker:
                     flags=cv2.SOLVEPNP_EPNP
                 )
 
-                position = Position(tvec[0], -tvec[1] + 1.0, tvec[2] - 0.75)
+                position = Position(tvec[0], -tvec[1], tvec[2])
+                position -= self.head_tracker.initial_position
 
                 p1 = HandTracker.get_landmark_position(landmarks[0])
                 p2 = HandTracker.get_landmark_position(landmarks[5])
                 p3 = HandTracker.get_landmark_position(landmarks[17])
-                flip = handedness == "Left"
+                flip = handedness == "Right"
                 
                 orientation = Rotation.from_triangle(p1, p2, p3, flip)
                 

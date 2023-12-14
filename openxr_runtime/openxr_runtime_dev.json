@@ -1,7 +1,0 @@
-{
-  "file_format_version": "1.0.0",
-  "runtime": {
-    "name": "AetherVR",
-    "library_path": "out/x86_64-windows-debug/aethervr.dll"
-  }
-}

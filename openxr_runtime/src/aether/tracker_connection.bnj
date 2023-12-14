@@ -1,5 +1,5 @@
 use std.{memory, socket.{Socket, TcpSocket}, math};
-use aether.{pose, logger as log};
+use aether.{pose, time, logger as log};
 use xr;
 
 struct HandState {
@@ -8,23 +8,9 @@ struct HandState {
 }
 
 struct InputState {
-    var x: f32;
-    var y: f32;
-    var z: f32;
-    var pitch: f32;
-    var yaw: f32;
+    var view: xr.Posef;
     var left_hand: HandState;
     var right_hand: HandState;
-
-    func get_view_pose(self) -> xr.Posef {
-        var orientation_pitch = pose.axis_angle(math.deg2rad(self.pitch), 1.0, 0.0, 0.0);
-        var orientation_yaw = pose.axis_angle(math.deg2rad(self.yaw), 0.0, 1.0, 0.0);
-        var orientation = pose.mul(orientation_pitch, orientation_yaw);
-
-        var position = pose.position(self.x, self.y, self.z);
-
-        return pose.pose(orientation, position);
-    }
 }
 
 struct Message {
@@ -55,6 +41,11 @@ struct TrackerConnection {
     var stream: Socket;
     var state: InputState;
 
+    var cur_message: Message;
+    var last_time: i64;
+    var pitch: f32;
+    var yaw: f32;
+
     pub func connect() -> TrackerConnection {
         var stream = TcpSocket.connect("127.0.0.1", 38057).unwrap();
         stream.set_blocking(false);
@@ -64,11 +55,10 @@ struct TrackerConnection {
         return TrackerConnection {
             stream,
             state: {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-                pitch: 0.0,
-                yaw: 0.0,
+                view: {
+                    position: { x: 0.0, y: 0.0, z: 0.0 },
+                    orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+                },
                 left_hand: {
                     pose: {
                         position: { x: 0.0, y: 0.0, z: 0.0 },
@@ -83,7 +73,33 @@ struct TrackerConnection {
                     },
                     select: false
                 }
-            }
+            },
+            cur_message: {
+                head_x: 0.0,
+                head_y: 0.0,
+                head_z: 0.0,
+                head_pitch: 0.0,
+                head_yaw: 0.0,
+                left_hand_position_x: 0.0,
+                left_hand_position_y: 0.0,
+                left_hand_position_z: 0.0,
+                left_hand_orientation_x: 0.0,
+                left_hand_orientation_y: 0.0,
+                left_hand_orientation_z: 0.0,
+                left_hand_orientation_w: 0.0,
+                right_hand_position_x: 0.0,
+                right_hand_position_y: 0.0,
+                right_hand_position_z: 0.0,
+                right_hand_orientation_x: 0.0,
+                right_hand_orientation_y: 0.0,
+                right_hand_orientation_z: 0.0,
+                right_hand_orientation_w: 0.0,
+                left_hand_select: 0,
+                right_hand_select: 0
+            },
+            pitch: 0.0,
+            yaw: 0.0,
+            last_time: time.now()
         };
     }
 
@@ -98,34 +114,64 @@ struct TrackerConnection {
             return self.state;
         }
 
-        self.state.x = message.head_x;
-        self.state.y = message.head_y;
-        self.state.z = message.head_z;
-        self.state.pitch = message.head_pitch;
-        self.state.yaw = message.head_yaw;
+        var now = time.now();
+        var delta_ns = now - self.last_time;
+        self.last_time = now;
+        
+        var delta = delta_ns as f32 / 1000000000 as f32;
 
-        self.state.left_hand.pose.position.x = message.left_hand_position_x;
-        self.state.left_hand.pose.position.y = message.left_hand_position_y;
-        self.state.left_hand.pose.position.z = message.left_hand_position_z;
+        self.pitch = message.head_pitch;
+
+        if message.head_yaw > 8.0 {
+            self.yaw += delta * 3.0 * (message.head_yaw - 8.0);
+        } else if message.head_yaw < -8.0 {
+            self.yaw += delta * 3.0 * (message.head_yaw + 8.0);
+        }
+
+        self.state.view.orientation = self.get_view_orientation();
+        
+        var view_orientation_yaw = pose.axis_angle(math.deg2rad(self.yaw), 0.0, 1.0, 0.0);
+
+        var local_position = pose.position(message.head_x, message.head_y, message.head_z);
+        self.state.view.position = pose.rotate(view_orientation_yaw, local_position);
+        self.state.view.position.x *= 1.5;
+        self.state.view.position.y *= 1.5;
+        self.state.view.position.z *= 1.5;
+        self.state.view.position.y += 1.3;
+
+        self.state.left_hand.pose.position.x = 1.5 * message.left_hand_position_x;
+        self.state.left_hand.pose.position.y = 1.5 * message.left_hand_position_y;
+        self.state.left_hand.pose.position.z = 1.5 * message.left_hand_position_z - 0.3;
+        self.state.left_hand.pose.position = pose.rotate(view_orientation_yaw, self.state.left_hand.pose.position);
+        self.state.left_hand.pose.position.y += 1.3;
+
         self.state.left_hand.pose.orientation.x = message.left_hand_orientation_x;
         self.state.left_hand.pose.orientation.y = message.left_hand_orientation_y;
         self.state.left_hand.pose.orientation.z = message.left_hand_orientation_z;
         self.state.left_hand.pose.orientation.w = message.left_hand_orientation_w;
+        self.state.left_hand.pose.orientation = pose.mul(view_orientation_yaw, self.state.left_hand.pose.orientation);
 
-        self.state.right_hand.pose.position.x = message.right_hand_position_x;
-        self.state.right_hand.pose.position.y = message.right_hand_position_y;
-        self.state.right_hand.pose.position.z = message.right_hand_position_z;
+        self.state.right_hand.pose.position.x = 1.5 * message.right_hand_position_x;
+        self.state.right_hand.pose.position.y = 1.5 * message.right_hand_position_y;
+        self.state.right_hand.pose.position.z = 1.5 * message.right_hand_position_z - 0.3;
+        self.state.right_hand.pose.position = pose.rotate(view_orientation_yaw, self.state.right_hand.pose.position);
+        self.state.right_hand.pose.position.y += 1.3;
+
         self.state.right_hand.pose.orientation.x = message.right_hand_orientation_x;
         self.state.right_hand.pose.orientation.y = message.right_hand_orientation_y;
         self.state.right_hand.pose.orientation.z = message.right_hand_orientation_z;
         self.state.right_hand.pose.orientation.w = message.right_hand_orientation_w;
+        self.state.right_hand.pose.orientation = pose.mul(view_orientation_yaw, self.state.right_hand.pose.orientation);
         
         self.state.left_hand.select = message.left_hand_select != 0;
         self.state.right_hand.select = message.right_hand_select != 0;
 
-        # self.state.left_hand.pose = pose.apply(self.state.get_view_pose(), self.state.left_hand.pose);
-        # self.state.right_hand.pose = pose.apply(self.state.get_view_pose(), self.state.right_hand.pose);
-
         return self.state;
+    }
+
+    func get_view_orientation(self) -> xr.Quaternionf {
+        var orientation_pitch = pose.axis_angle(math.deg2rad(self.pitch), 1.0, 0.0, 0.0);
+        var orientation_yaw = pose.axis_angle(math.deg2rad(self.yaw), 0.0, 1.0, 0.0);
+        return pose.mul(orientation_pitch, orientation_yaw);
     }
 }

@@ -20,6 +20,12 @@ class Position:
         dz = other.z = self.z
         return math.sqrt(dx * dx + dy * dy + dz * dz)
 
+    def copy(self):
+        return Position(self.x, self.y, self.z)
+
+    def __sub__(self, other):
+        return Position(self.x - other.x, self.y - other.y, self.z - other.z)
+
 
 @dataclass
 class Rotation:

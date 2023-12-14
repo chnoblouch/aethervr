@@ -37,6 +37,9 @@ class HeadTracker:
         self.detector = FaceLandmarker.create_from_options(options)
         self.timestamp = 0
 
+        self.initial_position = None
+        self.calibrate_next_frame = True
+
         print("Head tracker initialized")
 
     def detect(self, frame):
@@ -60,10 +63,19 @@ class HeadTracker:
         y = z_axis[1]
         z = x_axis[2]
 
+        position = Position(matrix[0][3] / 100.0, matrix[1][3] / 100.0, -matrix[2][3] / 100.0)
+
+        if self.calibrate_next_frame:
+            self.initial_position = position.copy()
+            print(f"Calibrated at [{position.x}, {position.y}, {position.z}]")
+            self.calibrate_next_frame = False
+        else:
+            position -= self.initial_position
+
         results = HeadDetectionResults()
         results.pitch = float(np.rad2deg(np.arcsin(y)))
         results.yaw = float(np.rad2deg(-np.arctan2(z, x)))
-        results.position = Position(matrix[0][3] / 100.0, matrix[1][3] / 100.0 + 1.1, -matrix[2][3] / 100.0 - 0.5)
+        results.position = position
         self.detection_callback(results)
 
     def close(self):
