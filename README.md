@@ -35,12 +35,12 @@ The OpenXR runtime is a shared library (```aethervr.dll```) written in the Banjo
 
 The runtime currently supports these extensions:
 
-| Extension             | Version       |
-|-----------------------|---------------|
-| XR_KHR_vulkan_enable  | 8             |
-| XR_KHR_vulkan_enable2 | 2             |
-| XR_KHR_D3D11_enable   | 9             |
+| Extension             | Version |
+| --------------------- | ------- |
+| XR_KHR_vulkan_enable  | 8       |
+| XR_KHR_vulkan_enable2 | 2       |
+| XR_KHR_D3D11_enable   | 9       |
 
-## Tracking
+## Tracker
 
-The AetherVR tracker is written in Python and uses OpenCV and MediaPipe. The application performs pose estimation of the users head and hands using MediaPipe and sends them to the OpenXR runtime using a TCP stream. The tracking application can be closed by pressing ESC.
+The AetherVR tracker (```aethervr_tracker.exe```) is a Python application written in Python that uses OpenCV and MediaPipe. It trackslandmarks of the user's head and hands using MediaPipe and sends them to the OpenXR runtime over TCP. The tracking application can be closed by pressing the Escape key.
