@@ -37,7 +37,7 @@ class HeadTracker:
         self.detector = FaceLandmarker.create_from_options(options)
         self.timestamp = 0
 
-        self.initial_position = None
+        self.initial_position = Position(0.0, 0.0, 0.0)
         self.calibrate_next_frame = True
 
         print("Head tracker initialized")

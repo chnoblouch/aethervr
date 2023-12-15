@@ -2,7 +2,7 @@ import cv2
 
 from aether.head_tracker import HeadTracker
 from aether.hand_tracker import HandTracker
-from aether.runtime_connection import RuntimeConnection, Keys
+from aether.runtime_connection import RuntimeConnection
 
 
 head_tracker = None
@@ -12,34 +12,25 @@ capture = None
 
 
 def process_head_tracking_results(results):
-    connection.set_state(Keys.HEAD_PITCH, float(results.pitch))
-    connection.set_state(Keys.HEAD_YAW, -float(results.yaw))
+    connection.lock.acquire()
 
-    connection.set_state(Keys.HEAD_X, results.position.x)
-    connection.set_state(Keys.HEAD_Y, results.position.y)
-    connection.set_state(Keys.HEAD_Z, results.position.z)
+    connection.state.head.position = results.position
+    connection.state.head.pitch = float(results.pitch)
+    connection.state.head.yaw = -float(results.yaw)
+
+    connection.lock.release()
 
 
 def process_hand_tracking_results(results):
-    connection.set_state(Keys.LEFT_HAND_ORIENTATION_X, results.left.orientation.x)
-    connection.set_state(Keys.LEFT_HAND_ORIENTATION_Y, results.left.orientation.y)
-    connection.set_state(Keys.LEFT_HAND_ORIENTATION_Z, results.left.orientation.z)
-    connection.set_state(Keys.LEFT_HAND_ORIENTATION_W, results.left.orientation.w)
-    connection.set_state(Keys.LEFT_HAND_SELECT, results.left.select)
+    connection.lock.acquire()
 
-    connection.set_state(Keys.LEFT_HAND_POSITION_X, results.left.position.x)
-    connection.set_state(Keys.LEFT_HAND_POSITION_Y, results.left.position.y)
-    connection.set_state(Keys.LEFT_HAND_POSITION_Z, results.left.position.z)
+    connection.state.left_hand.add_snapshot(results.left.position, results.left.orientation)
+    connection.state.left_hand.pinching = results.left.select
 
-    connection.set_state(Keys.RIGHT_HAND_ORIENTATION_X, results.right.orientation.x)
-    connection.set_state(Keys.RIGHT_HAND_ORIENTATION_Y, results.right.orientation.y)
-    connection.set_state(Keys.RIGHT_HAND_ORIENTATION_Z, results.right.orientation.z)
-    connection.set_state(Keys.RIGHT_HAND_ORIENTATION_W, results.right.orientation.w)
-    connection.set_state(Keys.RIGHT_HAND_SELECT, results.right.select)
+    connection.state.right_hand.add_snapshot(results.right.position, results.right.orientation)
+    connection.state.right_hand.pinching = results.right.select
 
-    connection.set_state(Keys.RIGHT_HAND_POSITION_X, results.right.position.x)
-    connection.set_state(Keys.RIGHT_HAND_POSITION_Y, results.right.position.y)
-    connection.set_state(Keys.RIGHT_HAND_POSITION_Z, results.right.position.z)
+    connection.lock.release()
 
 
 def run():

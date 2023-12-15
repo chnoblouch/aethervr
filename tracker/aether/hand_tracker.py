@@ -153,7 +153,7 @@ class HandTracker:
                     flags=cv2.SOLVEPNP_EPNP
                 )
 
-                position = Position(tvec[0], -tvec[1], tvec[2])
+                position = Position(float(tvec[0]), float(-tvec[1]), float(tvec[2]))
                 position -= self.head_tracker.initial_position
 
                 p1 = HandTracker.get_landmark_position(landmarks[0])

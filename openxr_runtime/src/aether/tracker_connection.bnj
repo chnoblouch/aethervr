@@ -136,12 +136,12 @@ struct TrackerConnection {
         self.state.view.position = pose.rotate(view_orientation_yaw, local_position);
         self.state.view.position.x *= 1.5;
         self.state.view.position.y *= 1.5;
-        self.state.view.position.z *= 1.5;
+        self.state.view.position.z *= 2.0;
         self.state.view.position.y += 1.3;
 
         self.state.left_hand.pose.position.x = 1.5 * message.left_hand_position_x;
         self.state.left_hand.pose.position.y = 1.5 * message.left_hand_position_y;
-        self.state.left_hand.pose.position.z = 1.5 * message.left_hand_position_z - 0.3;
+        self.state.left_hand.pose.position.z = 2.0 * message.left_hand_position_z - 0.5;
         self.state.left_hand.pose.position = pose.rotate(view_orientation_yaw, self.state.left_hand.pose.position);
         self.state.left_hand.pose.position.y += 1.3;
 
@@ -149,11 +149,11 @@ struct TrackerConnection {
         self.state.left_hand.pose.orientation.y = message.left_hand_orientation_y;
         self.state.left_hand.pose.orientation.z = message.left_hand_orientation_z;
         self.state.left_hand.pose.orientation.w = message.left_hand_orientation_w;
-        self.state.left_hand.pose.orientation = pose.mul(view_orientation_yaw, self.state.left_hand.pose.orientation);
+        self.state.left_hand.pose.orientation = pose.mul(self.state.left_hand.pose.orientation, view_orientation_yaw);
 
         self.state.right_hand.pose.position.x = 1.5 * message.right_hand_position_x;
         self.state.right_hand.pose.position.y = 1.5 * message.right_hand_position_y;
-        self.state.right_hand.pose.position.z = 1.5 * message.right_hand_position_z - 0.3;
+        self.state.right_hand.pose.position.z = 2.0 * message.right_hand_position_z - 0.5;
         self.state.right_hand.pose.position = pose.rotate(view_orientation_yaw, self.state.right_hand.pose.position);
         self.state.right_hand.pose.position.y += 1.3;
 
@@ -161,7 +161,7 @@ struct TrackerConnection {
         self.state.right_hand.pose.orientation.y = message.right_hand_orientation_y;
         self.state.right_hand.pose.orientation.z = message.right_hand_orientation_z;
         self.state.right_hand.pose.orientation.w = message.right_hand_orientation_w;
-        self.state.right_hand.pose.orientation = pose.mul(view_orientation_yaw, self.state.right_hand.pose.orientation);
+        self.state.right_hand.pose.orientation = pose.mul(self.state.right_hand.pose.orientation, view_orientation_yaw);
         
         self.state.left_hand.select = message.left_hand_select != 0;
         self.state.right_hand.select = message.right_hand_select != 0;
