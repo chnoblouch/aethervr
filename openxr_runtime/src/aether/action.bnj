@@ -16,10 +16,12 @@ struct ActionSet {
 
     pub func create(instance: *Instance, create_info: *xr.ActionSetCreateInfo) -> (*ActionSet, xr.Result) {
         log.info("Creating action set");
-        log.info(str("  Name: ") + str(&create_info.action_set_name as *u8));
-        log.info(str("  Localized Name: ") + str(&create_info.localized_action_set_name as *u8));
-        log.info(str("  Priority: ") + String.from(create_info.priority as u64));
-    
+        log.enter_scope();
+        log.info("Name: %", &create_info.action_set_name as *u8);
+        log.info("Localized Name: %", &create_info.localized_action_set_name as *u8);
+        log.info("Priority: %", create_info.priority);
+        log.exit_scope();
+
         var action_set = memory.box(ActionSet {
             instance,
             active: false
@@ -45,7 +47,7 @@ struct Action {
 
     pub func create(action_set: *ActionSet, create_info: *xr.ActionCreateInfo) -> (*Action, xr.Result) {
         log.info("Creating action");
-        log.info(str("  Name: ") + str(&create_info.action_name as *u8));
+        log.info("  Name: %", &create_info.action_name as *u8);
     
         if create_info.action_type == xr.ActionType.BOOLEAN_INPUT {
             log.info("  Type: XR_ACTION_TYPE_BOOLEAN_INPUT");
@@ -59,7 +61,7 @@ struct Action {
             log.info("  Type: XR_ACTION_TYPE_VIBRATION_OUTPUT");
         }
 
-        log.info(str("  Localized Name: ") + str(&create_info.localized_action_name as *u8));
+        log.info("  Localized Name: %", &create_info.localized_action_name as *u8);
 
         if create_info.count_subaction_paths != 0 {
             log.info("  Subaction paths:");
@@ -69,7 +71,7 @@ struct Action {
                 var string = action_set.instance.path_mapping.get_string(path);
 
                 if string.has_value {
-                    log.info(str("    - ") + str(string.value));
+                    log.info("    - %", string.value);
                 }
             }
         }

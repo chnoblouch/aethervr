@@ -25,7 +25,7 @@ pub func get_extension_properties() -> [xr.ExtensionProperties] {
 
     log.info("Enumerating instance extension properties");
     for extension in extensions {
-        log.info(str("  - ") + str(extension.0));
+        log.info("  - %", extension.0);
     }
 
     return properties;

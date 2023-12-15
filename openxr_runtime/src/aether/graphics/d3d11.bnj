@@ -45,7 +45,7 @@ pub func get_reqs(reqs: *xr.GraphicsRequirementsD3D11KHR) -> xr.Result {
         log.error("Failed to get DXGI adapter description");
     }
 
-    log.info(str("Using adapter with LUID ") + String.from(desc.adapter_luid));
+    log.info("Using adapter with LUID %", desc.adapter_luid);
 
     reqs.min_feature_level = 0xB100;  # D3D_FEATURE_LEVEL_11_1
     reqs.adapter_luid = desc.adapter_luid;

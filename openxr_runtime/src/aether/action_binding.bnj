@@ -44,11 +44,11 @@ pub func set_action_bindings(
     log.enter_scope();
 
     var profile = instance.path_mapping.get_string(suggested_bindings.interaction_profile).value;
-    log.info(str("Interaction Profile: ") + str(profile));
+    log.info("Interaction Profile: %", profile);
 
     var profile_path = suggested_bindings.interaction_profile;
-    if !instance.path_mapping.is_path(profile_path, "/interaction_profiles/oculus/touch_controller") {
-        log.info("Not Oculus Touch Controller Profile -> Ignored");
+    if !instance.path_mapping.is_path(profile_path, "/interaction_profiles/valve/index_controller") {
+        log.info("Not Valve Index Controller Profile -> Ignored");
         log.exit_scope();
         return xr.Result.SUCCESS;
     }
@@ -65,7 +65,7 @@ pub func set_action_bindings(
 
         var string = instance.path_mapping.get_string(path).value;
 
-        log.info(str("- ") + action.name.copy() + str(" -> ") + str(string));
+        log.info("- % -> %", action.name.copy(), string);
 
         var tokens: [String] = [];
         var token = String.new();
@@ -153,7 +153,7 @@ pub func set_action_bindings(
         else if action.binding.location == InputLocation.VALUE { binding_str.append_str("value"); }
         else if action.binding.location == InputLocation.POSE { binding_str.append_str("pose"); }
 
-        log.info(action.name + str(": ") + binding_str);
+        log.info("%: %", action.name, binding_str);
     }
 
     log.exit_scope();

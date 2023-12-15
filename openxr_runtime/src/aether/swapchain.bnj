@@ -40,13 +40,13 @@ struct Swapchain {
 
         log.enter_scope();
 
-        log.info(str("Format: ") + String.from(create_info.format));
-        log.info(str("Sample count: ") + String.from(create_info.sample_count as u64));
-        log.info(str("Width: ") + String.from(create_info.width as u64));
-        log.info(str("Height: ") + String.from(create_info.height as u64));
-        log.info(str("Face count: ") + String.from(create_info.face_count as u64));
-        log.info(str("Array size: ") + String.from(create_info.array_size as u64));
-        log.info(str("Mip count: ") + String.from(create_info.mip_count as u64));
+        log.info("Format: %", create_info.format);
+        log.info("Sample count: %", create_info.sample_count);
+        log.info("Width: %", create_info.width);
+        log.info("Height: %", create_info.height);
+        log.info("Face count: %", create_info.face_count);
+        log.info("Array size: %", create_info.array_size);
+        log.info("Mip count: %", create_info.mip_count);
         
         var images: [SwapchainImage] = [];
         
@@ -70,8 +70,8 @@ struct Swapchain {
             }
 
             var binding = session.graphics_binding as *xr.GraphicsBindingVulkanKHR;
-            log.info(str("Vulkan queue family index: ") + String.from(binding.queue_family_index as u64));
-            log.info(str("Vulkan queue index: ") + String.from(binding.queue_index as u64));
+            log.info("Vulkan queue family index: %", binding.queue_family_index);
+            log.info("Vulkan queue index: %", binding.queue_index);
         
             for i in 0..constants.NUM_SWAPCHAIN_IMAGES {
                 var image: SwapchainImage;

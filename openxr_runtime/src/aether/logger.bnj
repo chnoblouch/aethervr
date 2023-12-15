@@ -14,20 +14,7 @@ func create_instance(path: Path) {
 	instance = memory.box(Logger { file, writer, depth: 0 });
 }
 
-pub func info(message: String) {
-	instance.writer.write_cstr("[info ] ");
-	
-	for i in 0..instance.depth {
-		instance.writer.write_byte(' ');
-		instance.writer.write_byte(' ');
-	}
-	
-	instance.writer.write_cstr(message.cstr());
-	instance.writer.write_byte('\n');
-	instance.writer.flush();
-}
-
-pub func infof<Args>(format: *u8, args: Args) {
+pub func info<Args: ...>(format: *u8, args: Args) {
 	var string = String.from("");
 
 	var i = 0;
@@ -47,7 +34,16 @@ pub func infof<Args>(format: *u8, args: Args) {
 		i += 1;
 	}
 
-	info(string);
+	instance.writer.write_cstr("[info ] ");
+	
+	for i in 0..instance.depth {
+		instance.writer.write_byte(' ');
+		instance.writer.write_byte(' ');
+	}
+	
+	instance.writer.write_cstr(string.cstr());
+	instance.writer.write_byte('\n');
+	instance.writer.flush();
 }
 
 pub func warn(message: String) {
@@ -82,6 +78,5 @@ func to_string<T>(value: T) -> String {
 	meta if type(T) == type(i32) { return String.from(value as i64); }
 	else if type(T) == type(u32) { return String.from(value as u64); }
 	else if type(T) == type(String) { return value; }
-
-	return String.from(value);
+	else { return String.from(value); }
 }

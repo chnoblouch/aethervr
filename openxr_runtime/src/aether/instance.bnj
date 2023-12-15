@@ -22,12 +22,12 @@ struct Instance {
 
     pub func create(create_info: xr.InstanceCreateInfo) -> (*Instance, xr.Result) {
         log.info("Creating instance");
-        log.info(str("  App name: ") + str(&create_info.application_info.application_name as *u8));
-        log.info(str("  Engine name: ") + str(&create_info.application_info.engine_name as *u8));
+        log.info("  App name: %", &create_info.application_info.application_name as *u8);
+        log.info("  Engine name: %", &create_info.application_info.engine_name as *u8);
 
         log.info("  Extensions:");
         for i in 0..create_info.enabled_extension_count {
-            log.info(str("    - ") + str(create_info.enabled_extension_names[i]));
+            log.info("    - %", create_info.enabled_extension_names[i]);
         }
 
         var instance = memory.box(Instance {
@@ -58,7 +58,7 @@ struct Instance {
         strcpy(&properties.runtime_name as *u8, "AetherVR Runtime");
 
         log.info("Getting instance properties");
-        log.info(str("  Runtime name: ") + str(&properties.runtime_name as *u8));
+        log.info("  Runtime name: %", &properties.runtime_name as *u8);
 
         return xr.Result.SUCCESS;
     }
@@ -71,7 +71,7 @@ struct Instance {
             return (0 as u64, xr.Result.ERROR_FORM_FACTOR_UNSUPPORTED);
         }
 
-        log.info(str("  ID: ") + String.from(constants.SYSTEM_ID));
+        log.info("  ID: %", constants.SYSTEM_ID);
         return (constants.SYSTEM_ID as u64, xr.Result.SUCCESS);
     }
 
@@ -92,8 +92,8 @@ struct Instance {
         properties.tracking_properties.orientation_tracking = 1;
         properties.tracking_properties.position_tracking = 1;
 
-        log.info(str("  System ID: ") + String.from(system_id as i64));
-        log.info(str("  System Name: ") + str(&properties.system_name as *u8));
+        log.info("  System ID: %", system_id);
+        log.info("  System Name: %", &properties.system_name as *u8);
 
         return xr.Result.SUCCESS;
     }
@@ -102,8 +102,8 @@ struct Instance {
         var path = self.path_mapping.get_path(string);
         
         log.info("Converting string to path");
-        log.info(str("  String: ") + str(string));
-        log.info(str("  Path: ") + String.from(path));
+        log.info("  String: %", string);
+        log.info("  Path: %", path);
     
         return (path, xr.Result.SUCCESS);
     }
@@ -112,8 +112,8 @@ struct Instance {
         var string = self.path_mapping.get_string(path).value;
         
         log.info("Converting path to string");
-        log.info(str("  Path: ") + String.from(path));
-        log.info(str("  String: ") + str(string));
+        log.info("  Path: %", path);
+        log.info("  String: %", string);
     
         return (string, xr.Result.SUCCESS);
     }
@@ -247,7 +247,7 @@ struct Instance {
 
     pub func check_system(system_id: u64) -> bool {
         if system_id != constants.SYSTEM_ID {
-            log.info(str("Invalid system ID ") + String.from(system_id));
+            log.info("Invalid system ID %", system_id);
             return false;
         }
 

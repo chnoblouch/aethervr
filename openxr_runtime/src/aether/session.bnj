@@ -197,9 +197,6 @@ struct Session {
             next_frame = now + constants.NS_PER_FRAME - remainder;
         }
 
-        # var wait_duration_ms = (next_frame - now) / 1000000;
-        # log.info(str("Waiting ") + String.from(wait_duration_ms) + str(" ms for frame"));
-
         while time.now() < next_frame {}
 
         state.predicted_display_time = time.now() + constants.NS_PER_FRAME;
@@ -286,17 +283,15 @@ struct Session {
     }
 
     pub func get_current_interaction_profile(self, state: *xr.InteractionProfileState) -> xr.Result {
-        var path = self.instance.path_mapping.get_path("/interaction_profiles/oculus/touch_controller");
+        var path = self.instance.path_mapping.get_path("/interaction_profiles/valve/index_controller");
         log.info("Getting current interaction profile");
-        log.info(str("  Path: ") + String.from(path));
+        log.info("  Path: %", path);
 
         state.interaction_profile = path;
         return xr.Result.SUCCESS;
     }
 
     pub func sync_actions(self, info: *xr.ActionsSyncInfo) -> xr.Result {
-        # log.info("Syncing actions");
-
         for i in 0..info.count_active_action_sets {
             var action_set = info.active_action_sets[i].action_set as *ActionSet;
             action_set.active = true;

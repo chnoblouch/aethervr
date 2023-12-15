@@ -31,7 +31,7 @@ pub func get_device(vk_instance: addr, vk_physical_device: *addr) -> xr.Result {
         log.error("No Vulkan devices have been found");
         return xr.Result.ERROR_RUNTIME_FAILURE;
     }
-    log.info(str("  ") + String.from(device_count as u64) + str(" Vulkan device(s) available"));
+    log.info("% Vulkan device(s) available", device_count);
 
     var devices: [addr] = [];
     devices.resize(device_count);
@@ -144,11 +144,11 @@ pub func create_swapchain_image(
 
     log.info("Image format properties");
     log.enter_scope();
-    log.info(str("Max width: ") + String.from(format_props.max_extent.width as u64));
-    log.info(str("Max height: ") + String.from(format_props.max_extent.height as u64));
-    log.info(str("Max depth: ") + String.from(format_props.max_extent.depth as u64));
-    log.info(str("Max mip levels: ") + String.from(format_props.max_mip_levels as u64));
-    log.info(str("Max array layers: ") + String.from(format_props.max_array_layers as u64));
+    log.info("Max width: %", format_props.max_extent.width);
+    log.info("Max height: %", format_props.max_extent.height);
+    log.info("Max depth: %", format_props.max_extent.depth);
+    log.info("Max mip levels: %", format_props.max_mip_levels);
+    log.info("Max array layers: %", format_props.max_array_layers);
     log.exit_scope();
 
     var image_create_info = vk.ImageCreateInfo {
@@ -213,7 +213,7 @@ pub func read_image(
     var image_height = image.create_info.height;
     var image_size = image_width as u64 * image_height as u64 * 4;
 
-    log.info(str("Image size on host: ") + String.from(image_size) + str(" bytes"));
+    log.info("Image size on host: % bytes", image_size);
 
     var buffer_create_info = vk.BufferCreateInfo {
         s_type: vk.StructureType.BUFFER_CREATE_INFO,
@@ -327,7 +327,7 @@ func allocate(
     log.info("Allocating memory");
     log.enter_scope();
 
-    log.info(str("Size: ") + String.from(mem_reqs.size) + str(" bytes"));
+    log.info("Size: % bytes", mem_reqs.size);
 
     var mem_type_index = find_memory_type(binding, mem_reqs, prop_flags);
 
@@ -336,7 +336,7 @@ func allocate(
         log.exit_scope();
         return none;
     }
-    log.info(str("Memory type index: ") + String.from(mem_type_index.value as u64));
+    log.info("Memory type index: %", mem_type_index.value);
 
     var alloc_info = vk.MemoryAllocateInfo {
         s_type: vk.StructureType.MEMORY_ALLOCATE_INFO,

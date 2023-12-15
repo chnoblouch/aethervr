@@ -23,7 +23,7 @@ struct EventQueue {
         self.push_index = next_index(self.push_index);
         self.buffer[self.push_index] = event_data;
 
-        log.info(str("Event pushed with type ") + String.from(event_data.type_ as i64));
+        log.info("Event pushed with type %", event_data.type_ as i64);
     }
 
     pub func poll(self, event_data: *xr.EventDataBuffer) -> xr.Result {
@@ -34,7 +34,7 @@ struct EventQueue {
         self.poll_index = next_index(self.poll_index);
         *event_data = self.buffer[self.poll_index];
 
-        log.info(str("Event polled with type ") + String.from(event_data.type_ as i64));
+        log.info("Event polled with type %", event_data.type_ as i64);
 
         return xr.Result.SUCCESS;
     }
