@@ -4,12 +4,15 @@ AetherVR allows you to play VR applications on PC without a VR headset. A wecam 
 hand movements, which are then translated into virtual headset and controller inputs.
 These inputs are passed to a VR application via the AetherVR OpenXR runtime.
 
+> [!NOTE]
+> The OpenXR runtime is incomplete and non-conformant and might crash with some applications
+
 ## Usage
 
 ### System-Wide Installation
 
 If you want to use AetherVR with standalone apps (e.g. from Steam), you can install it globally on your system by
-modifying a registry key. Notice that this will replace your previous OpenXR driver (if you had one).
+modifying a registry key. Note that this will replace your previous OpenXR driver (if you had one).
 You can set the registry key to the previous value in order to use your previous OpenXR runtime.
 
 1. Open the Windows Registry Editor
@@ -42,10 +45,11 @@ You should be able to install AetherVR and OpenComposite on your system and it s
 
 ### OpenXR Runtime
 
-The OpenXR runtime is a shared library (```aethervr.dll```) written in the Banjo programming language.
+The OpenXR runtime is a shared library (```aethervr.dll```) written in the
+[Banjo programming language](https://chnoblouch.github.io/banjo-docs/).
 It currently supports Windows and applications that use Vulkan or D3D11 as their graphics API.
 
-The runtime currently supports these extensions:
+The runtime currently implements these extensions:
 
 | Extension                                     | Version |
 | --------------------------------------------- | ------- |
@@ -56,6 +60,6 @@ The runtime currently supports these extensions:
 
 ### Tracker
 
-The AetherVR tracker (```aethervr_tracker.exe```) is a Python application written in Python that uses OpenCV and MediaPipe.
+The AetherVR tracker (```aethervr_tracker.exe```) is an application written in Python that uses OpenCV and MediaPipe.
 It tracks landmarks of the user's head and hands using MediaPipe and sends them to the OpenXR runtime over TCP.
 The tracking application can be closed by pressing the Escape key.
