@@ -19,6 +19,7 @@ struct Instance {
     var event_queue: EventQueue;
     var path_mapping: PathMapping;
     var graphics_reqs_queried: bool;
+    var interaction_profile: u64;
 
     pub func create(create_info: xr.InstanceCreateInfo) -> (*Instance, xr.Result) {
         log.info("Creating instance");
@@ -33,7 +34,8 @@ struct Instance {
         var instance = memory.box(Instance {
             event_queue: EventQueue.new(),
             path_mapping: PathMapping.new(),
-            graphics_reqs_queried: false
+            graphics_reqs_queried: false,
+            interaction_profile: 0
         });
 
         # Process.spawn({

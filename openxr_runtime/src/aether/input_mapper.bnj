@@ -41,10 +41,8 @@ struct InputMapper {
         var hand_state = self.get_hand_state(binding.device);
 
         if hand_state.has_value {
-            if binding.identifier == InputIdentifier.TRIGGER {
-                if binding.location == InputLocation.CLICK {
-                    if hand_state.value.select { return 1; } else { return 0; }
-                }
+            if binding.identifier == InputIdentifier.TRIGGER || binding.identifier == InputIdentifier.SQUEEZE {
+                if hand_state.value.select { return 1; } else { return 0; }
             }
         }
 
@@ -56,10 +54,8 @@ struct InputMapper {
         var hand_state = self.get_hand_state(binding.device);
 
         if hand_state.has_value {
-            if binding.identifier == InputIdentifier.TRIGGER {
-                if binding.location == InputLocation.VALUE {
-                    if hand_state.value.select { return 1.0; } else { return 0.0; }
-                }
+            if binding.identifier == InputIdentifier.TRIGGER || binding.identifier == InputIdentifier.SQUEEZE {
+                if hand_state.value.select { return 1.0; } else { return 0.0; }
             }
         }
 
@@ -69,8 +65,6 @@ struct InputMapper {
     pub func get_action_vector2f(self, action: *Action, subaction_path: u64) -> ?f32 {
         var binding = self.get_concrete_binding(action.binding, subaction_path);
         var hand_state = self.get_hand_state(binding.device);
-
-        
 
         return none;
     }
