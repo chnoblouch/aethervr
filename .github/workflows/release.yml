@@ -9,12 +9,11 @@ on:
         type: string
 
 jobs:
-  build:
+  release:
     runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v3
-    - uses: ilammy/msvc-dev-cmd@v1
 
     - name: Install Banjo
       run: Invoke-WebRequest https://raw.githubusercontent.com/Chnoblouch/banjo-releases/main/getbanjo.py | Select-Object -Expand Content | python
