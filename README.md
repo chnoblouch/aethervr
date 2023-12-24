@@ -1,7 +1,6 @@
 # AetherVR
 
-AetherVR allows you to play VR applications on PC without a VR headset. A wecam is used to track head and
-hand movements, which are then translated into virtual headset and controller inputs.
+AetherVR allows you to play VR applications on PC without a VR headset. Only a camera is required to track head and hand movements, which are then translated into virtual headset and controller inputs.
 These inputs are passed to a VR application via the AetherVR OpenXR runtime.
 
 > [!NOTE]
@@ -11,9 +10,8 @@ These inputs are passed to a VR application via the AetherVR OpenXR runtime.
 
 ### System-Wide Installation
 
-If you want to use AetherVR with standalone apps (e.g. from Steam), you can install it globally on your system by
-modifying a registry key. Note that this will replace your previous OpenXR driver (if you had one).
-You can set the registry key to the previous value in order to use your previous OpenXR runtime.
+If you want to use AetherVR with standalone apps (e.g. from Steam), you can install it globally on your system by modifying a registry key. Note that this will replace your previous OpenXR driver (if you had one)
+and all OpenXR apps will use AetherVR from now on. You can set the registry key to the previous value in order to use your previous driver.
 
 1. Open the Windows Registry Editor
 2. Navigate to the key ```HKEY_LOCAL_MACHINE\SOFTWARE\Khronos\OpenXR\1```
@@ -37,7 +35,7 @@ OpenXR runtime.
 
 AetherVR can be used to play SteamVR games by using [OpenComposite](https://gitlab.com/znixian/OpenOVR)
 as a translation layer from OpenVR calls to OpenXR calls.
-You should be able to install AetherVR and OpenComposite on your system and it should Just Work.
+You should be able to install AetherVR and OpenComposite on your system and it should _Just Work_.
 
 ## Architecture
 
