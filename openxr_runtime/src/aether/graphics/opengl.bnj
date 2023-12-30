@@ -26,11 +26,11 @@ pub func create_swapchain_image(
     log.enter_scope();
 
     var texture: u32;
-    gl.gen_textures(1, &texture);
-    gl.bind_texture(gl.TEXTURE_2D, texture);
-    gl.tex_image2_d(gl.TEXTURE_2D, 0, create_info.format as u32, create_info.width, create_info.height, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
-    gl.tex_parameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.tex_parameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    # gl.gen_textures(1, &texture);
+    # gl.bind_texture(gl.TEXTURE_2D, texture);
+    # gl.tex_image2_d(gl.TEXTURE_2D, 0, create_info.format as u32, create_info.width, create_info.height, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
+    # gl.tex_parameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    # gl.tex_parameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
     *swapchain_image = SwapchainImage {
         create_info: *create_info,

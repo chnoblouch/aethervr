@@ -21,7 +21,7 @@ pub func handle_buffer_size(count: u32, count_out: *u32, capacity: u32) -> (bool
     return (false, xr.Result.SUCCESS);
 }
 
-func handle_buffer<T>(array: *[T], capacity: u32, count_out: *u32, buffer: *T) -> xr.Result {
+func handle_buffer[T](array: *[T], capacity: u32, count_out: *u32, buffer: *T) -> xr.Result {
     var count = array.length as u32;
 
     *count_out = count;

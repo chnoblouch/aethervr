@@ -1,5 +1,5 @@
 use xr;
-use std.memory;
+use std.{memory, convert.str};
 
 use aether.{
     instance.Instance,

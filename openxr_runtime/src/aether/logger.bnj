@@ -14,7 +14,7 @@ func create_instance(path: Path) {
 	instance = memory.box(Logger { file, writer, depth: 0 });
 }
 
-pub func info<Args: ...>(format: *u8, args: Args) {
+pub func info[Args: ...](format: *u8, args: Args) {
 	var string = String.from("");
 
 	var i = 0;
@@ -74,7 +74,7 @@ pub func exit_scope() {
 	instance.depth -= 1;
 }
 
-func to_string<T>(value: T) -> String {
+func to_string[T](value: T) -> String {
 	meta if type(T) == type(i32) { return String.from(value as i64); }
 	else if type(T) == type(u32) { return String.from(value as u64); }
 	else if type(T) == type(String) { return value; }

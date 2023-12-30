@@ -59,8 +59,8 @@ pub func set_action_bindings(
 
     log.info("Suggested bindings:");
     log.enter_scope();
-
-    var actions = Set!<*Action>.new();
+    
+    var actions = Set[*Action].new();
 
     for i in 0..suggested_bindings.count_suggested_bindings {
         var binding = suggested_bindings.suggested_bindings[i];
