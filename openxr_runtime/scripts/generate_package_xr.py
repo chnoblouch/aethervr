@@ -7,7 +7,7 @@ import shutil
 def generate():
     os.chdir(Path(__file__).parent / "xr")
 
-    for repo in ("OpenXR-SDK", "OpenXR-SDK-Source", "Vulkan-Headers"):
+    for repo in ("OpenXR-SDK", "Vulkan-Headers"):
         if not Path(repo).exists():
             subprocess.run(["git", "clone", "https://github.com/KhronosGroup/" + repo])
 
@@ -18,7 +18,6 @@ def generate():
             "--generator",
             "bindgen.py",
             "-IOpenXR-SDK/include",
-            "-IOpenXR-SDK-Source/src/common",
             "-IVulkan-Headers/include",
             "xr.c",
         ]
