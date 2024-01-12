@@ -29,7 +29,7 @@ class HandDetectionResults:
 
 class HandAverager:
     def __init__(self):
-        self.count = 3
+        self.count = 2
         self.positions = []
         self.orientations = []
         self.index = 0
@@ -150,17 +150,19 @@ class HandTracker:
                     image_points,
                     camera_matrix,
                     dist_coeffs,
-                    flags=cv2.SOLVEPNP_EPNP
+                    flags=cv2.SOLVEPNP_SQPNP
                 )
 
-                position = Position(float(tvec[0]), float(-tvec[1]), float(tvec[2]))
-                position -= self.head_tracker.initial_position
+                hand_x = float(landmarks_2d[0].x) - 0.5
+                hand_y = -float(landmarks_2d[0].y) + 0.5
+                hand_z = float(tvec[2]) - 1.0
+                position = Position(hand_x, hand_y, hand_z)
 
-                p1 = HandTracker.get_landmark_position(landmarks[0])
-                p2 = HandTracker.get_landmark_position(landmarks[5])
-                p3 = HandTracker.get_landmark_position(landmarks[17])
+                p1 = HandTracker.get_landmark_position(landmarks_2d[0])
+                p2 = HandTracker.get_landmark_position(landmarks_2d[5])
+                p3 = HandTracker.get_landmark_position(landmarks_2d[17])
                 flip = handedness == "Right"
-                
+
                 orientation = Rotation.from_triangle(p1, p2, p3, flip)
                 
                 if handedness == "Left":
@@ -201,7 +203,13 @@ class HandTracker:
             for j, landmark in enumerate(pose):
                 is_key_point = j in (5, 17)
                 radius = max(int(10 + 50 * landmark.z), 0) if is_key_point else 4
-                color = (0, 0, 255) if is_key_point else (255, 0, 0)
+
+                if j == 5:
+                    color = (0, 255, 255)
+                elif j == 17:
+                    color = (0, 0, 255)
+                else:
+                    color = (255, 0, 0)
 
                 x = int(width * landmark.x)
                 y = int(height * landmark.y)

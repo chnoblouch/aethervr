@@ -284,9 +284,15 @@ struct Session {
 
     pub func get_current_interaction_profile(self, state: *xr.InteractionProfileState) -> xr.Result {
         var path = self.instance.interaction_profile;
+        var string = self.instance.path_mapping.get_string(path);
 
         log.info("Getting current interaction profile");
-        log.info("  Path: %", self.instance.path_mapping.get_string(path).value);
+        
+        if string.has_value {
+            log.info("  Path: %", self.instance.path_mapping.get_string(path).value);
+        } else {
+            log.info("  Path: unknown");
+        }
 
         state.interaction_profile = path;
         return xr.Result.SUCCESS;
