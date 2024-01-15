@@ -11,7 +11,7 @@ use aether.{
     swapchain.Swapchain,
     action.{ActionSet, Action},
     graphics,
-    graphics.GraphicsAPI,
+    graphics.GraphicsBackend,
     tracker_connection.{InputState, TrackerConnection},
     input_mapper.InputMapper,
     pose,
@@ -32,8 +32,7 @@ struct Session {
     var instance: *Instance;
     var state: xr.SessionState;
 
-    var graphics_api: GraphicsAPI;
-    var graphics_binding: addr;
+    var graphics_backend: GraphicsBackend;
     var frame_state: FrameState;
 
     var view_configuration_type: xr.ViewConfigurationType;
@@ -59,44 +58,15 @@ struct Session {
             return (null as *Session, xr.Result.ERROR_GRAPHICS_DEVICE_INVALID);
         }
 
-        var next = create_info.next as *xr.BaseInStructure;
-        var graphics_api: GraphicsAPI;
-        var binding_copy = null;
-
-        if next.type_ == xr.StructureType.GRAPHICS_BINDING_OPENGL_XLIB_KHR {
-            log.info("Graphics binding: OpenGL (Xlib)");
-
-            graphics_api = GraphicsAPI.OPENGL;
-            var binding = next as *xr.GraphicsBindingOpenGLXcbKHR;
-            binding_copy = memory.box(*binding) as addr;
-            
-            if gl.load_auto() {
-                log.info("OpenGL loaded");
-            } else {
-                log.error("Failed to load OpenGL");
-            }
-        } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_VULKAN_KHR {
-            log.info("Graphics binding: Vulkan");
-
-            graphics_api = GraphicsAPI.VULKAN;
-            var binding = next as *xr.GraphicsBindingVulkanKHR;
-            binding_copy = memory.box(*binding) as addr;
-        } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_D3D11_KHR {
-            log.info("Graphics binding: D3D11");
-
-            graphics_api = GraphicsAPI.D3D11;
-            var binding = next as *xr.GraphicsBindingD3D11KHR;
-            binding_copy = memory.box(*binding) as addr;
-        } else {
-            log.error("Graphics binding is unsupported");
-            return (null as *Session, xr.Result.ERROR_GRAPHICS_DEVICE_INVALID);
+        var graphics_backend = graphics.create_backend(create_info);
+        if !graphics_backend.has_value {
+            return (null as *Session, xr.Result.ERROR_GRAPHICS_DEVICE_INVALID); 
         }
 
         var session = memory.box(Session {
             instance,
             state: xr.SessionState.UNKNOWN,
-            graphics_api,
-            graphics_binding: binding_copy,
+            graphics_backend: graphics_backend.value,
             frame_state: FrameState.ENDED,
             view_configuration_type: undefined,
             tracker_connection: TrackerConnection.connect(),
@@ -257,14 +227,7 @@ struct Session {
 
     pub func enumerate_swapchain_formats(self) -> [i64] {
         log.info("Enumerating swapchain formats");
-
-        if self.graphics_api == GraphicsAPI.OPENGL {
-            return graphics.opengl.get_supported_formats();
-        } else if self.graphics_api == GraphicsAPI.VULKAN {
-            return graphics.vulkan.get_supported_formats();
-        } else if self.graphics_api == GraphicsAPI.D3D11 {
-            return graphics.d3d11.get_supported_formats();
-        }
+        return graphics.get_supported_formats(self.graphics_backend);
     }
 
     pub func create_swapchain(self, create_info: *xr.SwapchainCreateInfo) -> (*Swapchain, xr.Result) {

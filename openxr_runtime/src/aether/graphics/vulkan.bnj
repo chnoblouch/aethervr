@@ -93,6 +93,9 @@ pub func create_swapchain_image(
     log.info("Creating Vulkan image");
     log.enter_scope();
 
+    log.info("Vulkan queue family index: %", binding.queue_family_index);
+    log.info("Vulkan queue index: %", binding.queue_index);
+
     var flags: u32 = 0;
     var usage: u32 = 0;
 

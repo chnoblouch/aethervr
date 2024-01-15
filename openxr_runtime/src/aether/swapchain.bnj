@@ -5,7 +5,6 @@ use vulkan as vk;
 use aether.{
     session.Session,
     graphics,
-    graphics.GraphicsAPI,
     constants,
     logger as log,
     utils.handle_buffer_size
@@ -48,54 +47,32 @@ struct Swapchain {
         log.info("Array size: %", create_info.array_size);
         log.info("Mip count: %", create_info.mip_count);
         
+        var supported_formats = graphics.get_supported_formats(session.graphics_backend);
+        var format_supported = false;
+
+        for supported_format in supported_formats {
+            if create_info.format == supported_format {
+                format_supported = true;
+                break;
+            }
+        }
+
+        if !format_supported {
+            log.error("Unsupported swapchain format");
+            return (null as *Swapchain, xr.Result.ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED);
+        }
+
         var images: [SwapchainImage] = [];
-        
-        if session.graphics_api == GraphicsAPI.OPENGL {
-            var binding = session.graphics_binding as *xr.GraphicsBindingOpenGLXlibKHR;
 
-            for i in 0..constants.NUM_SWAPCHAIN_IMAGES {
-                var image: SwapchainImage;
-                if graphics.opengl.create_swapchain_image(create_info, binding, &image) != xr.Result.SUCCESS {
-                    # TODO: This is a memory leak
-                    log.exit_scope();
-                    return (null as *Swapchain, xr.Result.ERROR_RUNTIME_FAILURE);
-                }
-
-                images.append(image);
-            }
-        } else if session.graphics_api == GraphicsAPI.VULKAN {
-            if create_info.format != vk.Format.R8G8B8A8_SRGB as i64 {
-                log.error("Swapchain format is unsupported");
-                return (null as *Swapchain, xr.Result.ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED);
+        for i in 0..constants.NUM_SWAPCHAIN_IMAGES {
+            var image: SwapchainImage;
+            if graphics.create_image(session.graphics_backend, create_info, &image) != xr.Result.SUCCESS {
+                # TODO: This is a memory leak
+                log.exit_scope();
+                return (null as *Swapchain, xr.Result.ERROR_RUNTIME_FAILURE);
             }
 
-            var binding = session.graphics_binding as *xr.GraphicsBindingVulkanKHR;
-            log.info("Vulkan queue family index: %", binding.queue_family_index);
-            log.info("Vulkan queue index: %", binding.queue_index);
-        
-            for i in 0..constants.NUM_SWAPCHAIN_IMAGES {
-                var image: SwapchainImage;
-                if graphics.vulkan.create_swapchain_image(create_info, binding, &image) != xr.Result.SUCCESS {
-                    # TODO: This is a memory leak
-                    log.exit_scope();
-                    return (null as *Swapchain, xr.Result.ERROR_RUNTIME_FAILURE);
-                }
-
-                images.append(image);
-            }
-        } else if session.graphics_api == GraphicsAPI.D3D11 {
-            var binding = session.graphics_binding as *xr.GraphicsBindingD3D11KHR;
-
-            for i in 0..constants.NUM_SWAPCHAIN_IMAGES {
-                var image: SwapchainImage;
-                if graphics.d3d11.create_swapchain_image(create_info, binding, &image) != xr.Result.SUCCESS {
-                    # TODO: This is a memory leak
-                    log.exit_scope();
-                    return (null as *Swapchain, xr.Result.ERROR_RUNTIME_FAILURE);
-                }
-
-                images.append(image);
-            }
+            images.append(image);
         }
 
         var swapchain = memory.box(Swapchain {
@@ -121,21 +98,8 @@ struct Swapchain {
             return buffer_info.1;
         }
 
-        if self.session.graphics_api == GraphicsAPI.OPENGL {
-            var opengl_images = images as *xr.SwapchainImageOpenGLKHR;
-            for i in 0..self.images.length {
-                opengl_images[i].image = self.images[i].api_handle as u32;
-            }
-        } else if self.session.graphics_api == GraphicsAPI.VULKAN {
-            var vulkan_images = images as *xr.SwapchainImageVulkanKHR;
-            for i in 0..self.images.length {
-                vulkan_images[i].image = self.images[i].api_handle;
-            }
-        } else if self.session.graphics_api == GraphicsAPI.D3D11 {
-            var d3d11_images = images as *xr.SwapchainImageD3D11KHR;
-            for i in 0..self.images.length {
-                d3d11_images[i].texture = self.images[i].api_handle;
-            }
+        for i in 0..self.images.length {
+            graphics.store_image(self.session.graphics_backend, self.images[i].api_handle, &images[i]);
         }
 
         return xr.Result.SUCCESS;
