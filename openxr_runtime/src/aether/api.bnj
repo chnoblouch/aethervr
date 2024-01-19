@@ -553,7 +553,7 @@ pub func get_d3d11_graphics_requirements_khr(
 # perform any conversion and simply return their input.
 # ----------------------------------------------------------------
 
-pub func xr_convert_win32_performance_counter_to_time_khr(
+pub func convert_win32_performance_counter_to_time_khr(
     instance: *Instance,
     performance_counter: *u64,
     time: *u64
@@ -562,7 +562,7 @@ pub func xr_convert_win32_performance_counter_to_time_khr(
     return xr.Result.SUCCESS;
 }
 
-pub func xr_convert_time_to_win32_performance_counter_khr(
+pub func convert_time_to_win32_performance_counter_khr(
     instance: *Instance,
     time: u64,
     performance_counter: *u64

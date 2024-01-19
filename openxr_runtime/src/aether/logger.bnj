@@ -11,7 +11,12 @@ var instance: *Logger = null;
 func create_instance(path: Path) {
 	var file = File.open(path, FileMode.WRITE).unwrap();
 	var writer = file.writer();
-	instance = memory.box(Logger { file, writer, depth: 0 });
+	
+	instance = memory.box(Logger {
+		file,
+		writer,
+		depth: 0
+	});
 }
 
 pub func info[Args: ...](format: *u8, args: Args) {

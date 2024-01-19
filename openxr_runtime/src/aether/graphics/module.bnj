@@ -21,17 +21,17 @@ pub func create_backend(info: *xr.SessionCreateInfo) -> ?GraphicsBackend {
         }
 
         var binding = next as *xr.GraphicsBindingOpenGLXcbKHR;
-        return Optional[GraphicsBackend].new_some(GraphicsBackend.OpenGL(*binding));
+        return GraphicsBackend.OpenGL(*binding);
     } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_VULKAN_KHR {
         log.info("Graphics binding: Vulkan");
 
         var binding = next as *xr.GraphicsBindingVulkanKHR;
-        return Optional[GraphicsBackend].new_some(GraphicsBackend.Vulkan(*binding));
+        return GraphicsBackend.Vulkan(*binding);
     } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_D3D11_KHR {
         log.info("Graphics binding: D3D11");
 
         var binding = next as *xr.GraphicsBindingD3D11KHR;
-        return Optional[GraphicsBackend].new_some(GraphicsBackend.D3D11(*binding));
+        return GraphicsBackend.D3D11(*binding);
     } else {
         log.error("Graphics binding is unsupported");
         return none;
