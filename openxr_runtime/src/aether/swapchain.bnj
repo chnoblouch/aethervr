@@ -47,7 +47,7 @@ struct Swapchain {
         log.info("Array size: %", create_info.array_size);
         log.info("Mip count: %", create_info.mip_count);
         
-        var supported_formats = graphics.get_supported_formats(session.graphics_backend);
+        var supported_formats = session.graphics_backend.get_supported_formats();
         var format_supported = false;
 
         for supported_format in supported_formats {
@@ -66,7 +66,7 @@ struct Swapchain {
 
         for i in 0..constants.NUM_SWAPCHAIN_IMAGES {
             var image: SwapchainImage;
-            if graphics.create_image(session.graphics_backend, create_info, &image) != xr.Result.SUCCESS {
+            if session.graphics_backend.create_image(create_info, &image) != xr.Result.SUCCESS {
                 # TODO: This is a memory leak
                 log.exit_scope();
                 return (null as *Swapchain, xr.Result.ERROR_RUNTIME_FAILURE);
@@ -99,7 +99,7 @@ struct Swapchain {
         }
 
         for i in 0..self.images.length {
-            graphics.store_image(self.session.graphics_backend, self.images[i].api_handle, &images[i]);
+            self.session.graphics_backend.store_image(self.images[i].api_handle, images, i as u32);
         }
 
         return xr.Result.SUCCESS;

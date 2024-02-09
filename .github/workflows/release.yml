@@ -42,7 +42,7 @@ jobs:
     - name: Package
       run: |
         mkdir aethervr-x86_64-windows
-        cp openxr_runtime/out/x86_64-windows-debug/aethervr.dll aethervr-x86_64-windows/aethervr.dll
+        cp openxr_runtime/out/x86_64-windows-msvc-debug/aethervr.dll aethervr-x86_64-windows/aethervr.dll
         cp openxr_runtime/openxr_runtime.json aethervr-x86_64-windows/openxr_runtime.json
         cp tracker/build/dist/aethervr_tracker/aethervr_tracker.exe aethervr-x86_64-windows/aethervr_tracker.exe
         cp -r tracker/build/dist/aethervr_tracker/_internal aethervr-x86_64-windows/_internal

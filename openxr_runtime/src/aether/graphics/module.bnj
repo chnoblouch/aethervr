@@ -6,73 +6,73 @@ union GraphicsBackend {
     case OpenGL(binding: xr.GraphicsBindingOpenGLXlibKHR);
     case Vulkan(binding: xr.GraphicsBindingVulkanKHR);
     case D3D11(binding: xr.GraphicsBindingD3D11KHR);
-}
 
-pub func create_backend(info: *xr.SessionCreateInfo) -> ?GraphicsBackend {
-    var next = info.next as *xr.BaseInStructure;
+    pub func new(info: *xr.SessionCreateInfo) -> ?GraphicsBackend {
+        var next = info.next as *xr.BaseInStructure;
 
-    if next.type_ == xr.StructureType.GRAPHICS_BINDING_OPENGL_XLIB_KHR {
-        log.info("Graphics binding: OpenGL (Xlib)");
+        if next.type_ == xr.StructureType.GRAPHICS_BINDING_OPENGL_XLIB_KHR {
+            log.info("Graphics binding: OpenGL (Xlib)");
 
-        if gl.load_auto() {
-            log.info("OpenGL loaded");
+            if gl.load_auto() {
+                log.info("OpenGL loaded");
+            } else {
+                log.error("Failed to load OpenGL");
+            }
+
+            var binding = next as *xr.GraphicsBindingOpenGLXcbKHR;
+            return GraphicsBackend.OpenGL(*binding);
+        } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_VULKAN_KHR {
+            log.info("Graphics binding: Vulkan");
+
+            var binding = next as *xr.GraphicsBindingVulkanKHR;
+            return GraphicsBackend.Vulkan(*binding);
+        } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_D3D11_KHR {
+            log.info("Graphics binding: D3D11");
+
+            var binding = next as *xr.GraphicsBindingD3D11KHR;
+            return GraphicsBackend.D3D11(*binding);
         } else {
-            log.error("Failed to load OpenGL");
-        }
-
-        var binding = next as *xr.GraphicsBindingOpenGLXcbKHR;
-        return GraphicsBackend.OpenGL(*binding);
-    } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_VULKAN_KHR {
-        log.info("Graphics binding: Vulkan");
-
-        var binding = next as *xr.GraphicsBindingVulkanKHR;
-        return GraphicsBackend.Vulkan(*binding);
-    } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_D3D11_KHR {
-        log.info("Graphics binding: D3D11");
-
-        var binding = next as *xr.GraphicsBindingD3D11KHR;
-        return GraphicsBackend.D3D11(*binding);
-    } else {
-        log.error("Graphics binding is unsupported");
-        return none;
-    }
-}
-
-pub func get_supported_formats(backend: GraphicsBackend) -> [i64] {
-    switch backend {
-        case opengl_backend: GraphicsBackend.OpenGL {
-            return opengl.get_supported_formats();
-        } case vulkan_backend: GraphicsBackend.Vulkan {
-            return vulkan.get_supported_formats();
-        } case d3d11_backend: GraphicsBackend.D3D11 {
-            return d3d11.get_supported_formats();
+            log.error("Graphics binding is unsupported");
+            return none;
         }
     }
-}
 
-pub func create_image(backend: GraphicsBackend, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result {
-    switch backend {
-        case opengl_backend: GraphicsBackend.OpenGL {
-            return opengl.create_swapchain_image(info, &opengl_backend.binding, image);
-        } case vulkan_backend: GraphicsBackend.Vulkan {
-            return vulkan.create_swapchain_image(info, &vulkan_backend.binding, image);
-        } case d3d11_backend: GraphicsBackend.D3D11 {
-            return d3d11.create_swapchain_image(info, &d3d11_backend.binding, image);
+    pub func get_supported_formats(self) -> [i64] {
+        switch *self {
+            case opengl_backend: GraphicsBackend.OpenGL {
+                return opengl.get_supported_formats();
+            } case vulkan_backend: GraphicsBackend.Vulkan {
+                return vulkan.get_supported_formats();
+            } case d3d11_backend: GraphicsBackend.D3D11 {
+                return d3d11.get_supported_formats();
+            }
         }
     }
-}
 
-pub func store_image(backend: GraphicsBackend, handle: addr, out_image: *xr.SwapchainImageBaseHeader) {
-    switch backend {
-        case opengl_backend: GraphicsBackend.OpenGL {
-            var out_image_opengl = out_image as *xr.SwapchainImageOpenGLKHR;
-            out_image_opengl.image = handle as u32;
-        } case vulkan_backend: GraphicsBackend.Vulkan {
-            var out_image_vulkan = out_image as *xr.SwapchainImageVulkanKHR;
-            out_image_vulkan.image = handle;
-        } case d3d11_backend: GraphicsBackend.D3D11 {
-            var out_image_d3d11 = out_image as *xr.SwapchainImageD3D11KHR;
-            out_image_d3d11.texture = handle;
+    pub func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result {
+        switch *self {
+            case opengl_backend: GraphicsBackend.OpenGL {
+                return opengl.create_swapchain_image(info, &opengl_backend.binding, image);
+            } case vulkan_backend: GraphicsBackend.Vulkan {
+                return vulkan.create_swapchain_image(info, &vulkan_backend.binding, image);
+            } case d3d11_backend: GraphicsBackend.D3D11 {
+                return d3d11.create_swapchain_image(info, &d3d11_backend.binding, image);
+            }
+        }
+    }
+
+    pub func store_image(self, handle: addr, out_images: *xr.SwapchainImageBaseHeader, out_index: u32) {
+        switch *self {
+            case opengl_backend: GraphicsBackend.OpenGL {
+                var out_images_opengl = out_images as *xr.SwapchainImageOpenGLKHR;
+                out_images_opengl[out_index].image = handle as u32;
+            } case vulkan_backend: GraphicsBackend.Vulkan {
+                var out_images_vulkan = out_images as *xr.SwapchainImageVulkanKHR;
+                out_images_vulkan[out_index].image = handle;
+            } case d3d11_backend: GraphicsBackend.D3D11 {
+                var out_images_d3d11 = out_images as *xr.SwapchainImageD3D11KHR;
+                out_images_d3d11[out_index].texture = handle;
+            }
         }
     }
 }

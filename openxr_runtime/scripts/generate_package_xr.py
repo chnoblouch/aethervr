@@ -25,7 +25,7 @@ def generate():
 
     package_dir = Path("../../packages/xr")
     package_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy("package.json", package_dir)
+    shutil.copy("banjo.json", package_dir)
 
     src_dir = package_dir / "src"
     src_dir.mkdir(exist_ok=True)

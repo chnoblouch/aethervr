@@ -4,7 +4,9 @@ import math
 
 import mediapipe as mp
 from mediapipe.tasks.python import BaseOptions
+# fmt: off
 from mediapipe.tasks.python.vision import HandLandmarker, HandLandmarkerOptions, RunningMode
+# fmt: on
 from mediapipe import solutions
 
 import cv2
@@ -51,7 +53,11 @@ class HandAverager:
             sum_position.y += position.y
             sum_position.z += position.z
 
-        return Position(sum_position.x / self.count, sum_position.y / self.count, sum_position.z / self.count)
+        return Position(
+            sum_position.x / self.count,
+            sum_position.y / self.count,
+            sum_position.z / self.count,
+        )
 
     def get_average_orientation(self):
         # https://github.com/christophhagen/averaging-quaternions/blob/master/averageQuaternions.py
@@ -61,20 +67,19 @@ class HandAverager:
         a = np.zeros(shape=(4, 4))
 
         for i in range(0, m):
-            q = quaternions[i,:]
+            q = quaternions[i, :]
             a = np.outer(q, q) + a
 
         a = (1.0 / m) * a
         eigen_values, eigen_vectors = np.linalg.eig(a)
-        eigen_vectors = eigen_vectors[:,eigen_values.argsort()[::-1]]
+        eigen_vectors = eigen_vectors[:, eigen_values.argsort()[::-1]]
 
-        avg = np.real(eigen_vectors[:,0])
+        avg = np.real(eigen_vectors[:, 0])
 
         return Rotation(avg[1], avg[2], avg[3], avg[0])
 
 
 class HandTracker:
-
     MODEL_FILE_NAME = "hand_landmarker.task"
     MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"
 
@@ -82,13 +87,15 @@ class HandTracker:
         self.head_tracker = head_tracker
         self.detection_callback = detection_callback
 
-        model_path = mediapipe_models.download(HandTracker.MODEL_FILE_NAME, HandTracker.MODEL_URL)
+        model_path = mediapipe_models.download(
+            HandTracker.MODEL_FILE_NAME, HandTracker.MODEL_URL
+        )
 
         options = HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(model_path)),
             num_hands=2,
             running_mode=RunningMode.LIVE_STREAM,
-            result_callback=self._process_results
+            result_callback=self._process_results,
         )
         self.detector = HandLandmarker.create_from_options(options)
         self.timestamp = 0
@@ -99,8 +106,8 @@ class HandTracker:
         self.averagers = [HandAverager(), HandAverager()]
 
         print("Hand tracker initialized")
-    
-    def detect(self, frame):        
+
+    def detect(self, frame):
         image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
         self.detector.detect_async(image, self.timestamp)
         self.timestamp += 1
@@ -109,7 +116,7 @@ class HandTracker:
         self.lock.acquire()
         self.mp_results = detection_results
         self.lock.release()
-        
+
         left_hand = Hand(Position(0.0, 0.0, 0.0), Rotation(0.0, 0.0, 0.0, 1.0), False)
         right_hand = Hand(Position(0.0, 0.0, 0.0), Rotation(0.0, 0.0, 0.0, 1.0), False)
 
@@ -133,29 +140,34 @@ class HandTracker:
                 width, height = image.width, image.height
                 focal_length = 0.75 * width
                 center = (0.5 * width, 0.5 * height)
-                
-                camera_matrix = np.array([
-                    [focal_length, 0, center[0]],
-                    [0, focal_length, center[1]],
-                    [0, 0, 1],
-                ], dtype="double")
-                
+
+                camera_matrix = np.array(
+                    [
+                        [focal_length, 0, center[0]],
+                        [0, focal_length, center[1]],
+                        [0, 0, 1],
+                    ],
+                    dtype="double",
+                )
+
                 dist_coeffs = np.array([0.0, 0.0, 0.0, 0.0])
 
                 object_points = np.array([[l.x, l.y, l.z] for l in landmarks_3d])
-                image_points = np.array([[l.x * width, l.y * height] for l in landmarks_2d])
+                image_points = np.array(
+                    [[l.x * width, l.y * height] for l in landmarks_2d]
+                )
 
                 retval, rvec, tvec = cv2.solvePnP(
                     object_points,
                     image_points,
                     camera_matrix,
                     dist_coeffs,
-                    flags=cv2.SOLVEPNP_SQPNP
+                    flags=cv2.SOLVEPNP_SQPNP,
                 )
 
                 hand_x = float(landmarks_2d[0].x) - 0.5
                 hand_y = -float(landmarks_2d[0].y) + 0.5
-                hand_z = float(tvec[2]) - 1.0
+                hand_z = -0.3
                 position = Position(hand_x, hand_y, hand_z)
 
                 p1 = HandTracker.get_landmark_position(landmarks_2d[0])
@@ -164,7 +176,7 @@ class HandTracker:
                 flip = handedness == "Right"
 
                 orientation = Rotation.from_triangle(p1, p2, p3, flip)
-                
+
                 if handedness == "Left":
                     averager = self.averagers[0]
                 elif handedness == "Right":
@@ -188,7 +200,7 @@ class HandTracker:
         if self.mp_results is None:
             self.lock.release()
             return
-        
+
         for i, pose in enumerate(self.mp_results.hand_landmarks):
             for a, b in solutions.hands_connections.HAND_CONNECTIONS:
                 is_pinching = HandTracker.is_pinching(self.mp_results.hand_landmarks[i])
@@ -199,7 +211,7 @@ class HandTracker:
                 x2 = int(width * pose[b].x)
                 y2 = int(height * pose[b].y)
                 cv2.line(image, (x1, y1), (x2, y2), color, 2)
-            
+
             for j, landmark in enumerate(pose):
                 is_key_point = j in (5, 17)
                 radius = max(int(10 + 50 * landmark.z), 0) if is_key_point else 4
@@ -224,9 +236,9 @@ class HandTracker:
     @staticmethod
     def get_landmark_position(landmark):
         return Position(landmark.x, -landmark.y, landmark.z)
-    
+
     @staticmethod
     def is_pinching(landmarks_2d):
         tip1 = landmarks_2d[4]
         tip2 = landmarks_2d[8]
-        return math.sqrt((tip2.x - tip1.x) ** 2 + (tip2.y - tip1.y) ** 2) < 0.05
+        return math.sqrt((tip2.x - tip1.x) ** 2 + (tip2.y - tip1.y) ** 2) < 0.06

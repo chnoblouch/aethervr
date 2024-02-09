@@ -10,7 +10,6 @@ use aether.{
     space.{Space, SpaceType},
     swapchain.Swapchain,
     action.{ActionSet, Action},
-    graphics,
     graphics.GraphicsBackend,
     tracker_connection.{InputState, TrackerConnection},
     input_mapper.InputMapper,
@@ -58,7 +57,7 @@ struct Session {
             return (null as *Session, xr.Result.ERROR_GRAPHICS_DEVICE_INVALID);
         }
 
-        var graphics_backend = graphics.create_backend(create_info);
+        var graphics_backend = GraphicsBackend.new(create_info);
         if !graphics_backend.has_value {
             return (null as *Session, xr.Result.ERROR_GRAPHICS_DEVICE_INVALID); 
         }
@@ -227,7 +226,7 @@ struct Session {
 
     pub func enumerate_swapchain_formats(self) -> [i64] {
         log.info("Enumerating swapchain formats");
-        return graphics.get_supported_formats(self.graphics_backend);
+        return self.graphics_backend.get_supported_formats();
     }
 
     pub func create_swapchain(self, create_info: *xr.SwapchainCreateInfo) -> (*Swapchain, xr.Result) {
