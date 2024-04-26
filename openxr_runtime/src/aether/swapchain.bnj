@@ -99,7 +99,8 @@ struct Swapchain {
         }
 
         for i in 0..self.images.length {
-            self.session.graphics_backend.store_image(self.images[i].api_handle, images, i as u32);
+            var handle = self.images[i as u32].api_handle;
+            self.session.graphics_backend.store_image(handle, images, i as u32);
         }
 
         return xr.Result.SUCCESS;
@@ -107,9 +108,9 @@ struct Swapchain {
 
     pub func acquire_image(self, info: *xr.SwapchainImageAcquireInfo, index: *u32) -> xr.Result {  
         for i in 0..self.images.length {
-            if self.images[i].state == SwapchainImageState.AVAILABLE {
+            if self.images[i as u32].state == SwapchainImageState.AVAILABLE {
                 *index = i as u32;
-                self.images[i].state = SwapchainImageState.ACQUIRED;
+                self.images[i as u32].state = SwapchainImageState.ACQUIRED;
                 return xr.Result.SUCCESS;
             }
         }
@@ -119,8 +120,8 @@ struct Swapchain {
 
     pub func wait_image(self, info: *xr.SwapchainImageWaitInfo) -> xr.Result {
         for i in 0..self.images.length {
-            if self.images[i].state == SwapchainImageState.ACQUIRED {
-                self.images[i].state = SwapchainImageState.WAITED;
+            if self.images[i as u32].state == SwapchainImageState.ACQUIRED {
+                self.images[i as u32].state = SwapchainImageState.WAITED;
                 return xr.Result.SUCCESS;
             }
         }
@@ -130,8 +131,8 @@ struct Swapchain {
 
     pub func release_image(self, info: *xr.SwapchainImageReleaseInfo) -> xr.Result {
         for i in 0..self.images.length {
-            if self.images[i].state == SwapchainImageState.WAITED {
-                self.images[i].state = SwapchainImageState.AVAILABLE;
+            if self.images[i as u32].state == SwapchainImageState.WAITED {
+                self.images[i as u32].state = SwapchainImageState.AVAILABLE;
                 return xr.Result.SUCCESS;
             }
         }

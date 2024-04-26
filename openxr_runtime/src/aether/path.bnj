@@ -25,7 +25,7 @@ struct PathMapping {
         var string = str(cstr);
     
         for i in 0..self.paths.length {
-            if self.paths[i] == string {
+            if self.paths[i as u32] == string {
                 return i as u64 + 1;
             }
         }
@@ -35,9 +35,9 @@ struct PathMapping {
     }
 
     pub func get_string(self, path: u64) -> ?*u8 {
-        var index = path - 1;
+        var index = path as u32 - 1;
 
-        if index < 0 || index as u32 >= self.paths.length {
+        if index < 0 || index >= self.paths.length {
             return none;
         }
 
