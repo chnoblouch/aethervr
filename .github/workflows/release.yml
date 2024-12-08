@@ -12,7 +12,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: 3.13
+          python-version: 3.12
 
       - name: Download Banjo toolchain
         run: Invoke-WebRequest -OutFile banjo-x86_64-windows.zip https://github.com/chnoblouch/banjo-lang/releases/latest/download/banjo-x86_64-windows.zip
