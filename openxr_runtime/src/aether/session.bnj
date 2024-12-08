@@ -266,7 +266,10 @@ struct Session {
             action_set.active = true;
         }
 
-        self.input_state = self.tracker_connection.poll();
+        try input_state in self.tracker_connection.poll() {
+            self.input_state = input_state;
+        }
+        
         return xr.Result.SUCCESS;
     }
 

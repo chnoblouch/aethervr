@@ -1,94 +1,101 @@
-import cv2
-
+from aether.gui import GUI
+from aether.camera_capture import CameraCapture
+from aether.runtime_connection import RuntimeConnection
 from aether.head_tracker import HeadTracker
 from aether.hand_tracker import HandTracker
-from aether.runtime_connection import RuntimeConnection
+from aether.tracking_state import TrackingState, HeadState, HandState
+from aether.input_state import InputState
+from aether.gesture_detector import GestureDetector
+from aether.config import Config, ControllerConfig
+import numpy as np
+import time
 
 
-head_tracker = None
-hand_tracker = None
-connection = None
-capture = None
+class Application:
 
+    def __init__(self):
+        self.config = Config(
+            left_controller_config=ControllerConfig(),
+            right_controller_config=ControllerConfig(),
+        )
 
-def process_head_tracking_results(results):
-    connection.lock.acquire()
+        self.tracking_state = TrackingState()
+        self.input_state = InputState()
 
-    connection.state.head.position = results.position
-    connection.state.head.pitch = float(results.pitch)
-    connection.state.head.yaw = -float(results.yaw)
+        self.camera_capture = CameraCapture(self.on_frame)
+        self.connection = RuntimeConnection(38057, self.input_state)
 
-    connection.lock.release()
+        self.head_tracker = HeadTracker(
+            self.on_head_tracking_results,
+        )
 
+        self.hand_tracker = HandTracker(
+            self.head_tracker,
+            self.on_hand_tracking_results,
+        )
 
-def process_hand_tracking_results(results):
-    connection.lock.acquire()
+        self.gesture_detector = GestureDetector(
+            self.config, self.tracking_state, self.input_state
+        )
 
-    connection.state.left_hand.add_snapshot(results.left.position, results.left.orientation)
-    connection.state.left_hand.pinching = results.left.select
+        self.last_head_tracking_result = time.time()
+        self.last_hand_tracking_result = time.time()
 
-    connection.state.right_hand.add_snapshot(results.right.position, results.right.orientation)
-    connection.state.right_hand.pinching = results.right.select
+        self.gui = GUI(self.config, self.connection)
+        self.gui.run()
 
-    connection.lock.release()
+    def on_frame(self, frame):
+        now = time.time()
 
+        if now - self.last_head_tracking_result > 0.05:
+            self.last_head_tracking_result = now
+            self.head_tracker.detect(frame)
 
-def run():
-    global head_tracker, hand_tracker, connection, capture, frame
+        if now - self.last_hand_tracking_result > 0.05:
+            self.last_hand_tracking_result = now
+            self.hand_tracker.detect(frame)
 
-    head_tracker = HeadTracker(detection_callback=process_head_tracking_results)
-    hand_tracker = HandTracker(head_tracker, detection_callback=process_hand_tracking_results)
+        self.gui.update_camera_frame(frame)
 
-    print("Opening capture device...")
+    def on_head_tracking_results(self, state: HeadState):
+        self.tracking_state.head = state
 
-    capture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.connection.lock.acquire()
+        self.input_state.headset_state.position = state.position
+        self.input_state.headset_state.pitch = state.pitch
+        self.input_state.headset_state.yaw = state.yaw
+        self.connection.lock.release()
 
-    if not capture.isOpened():
-        print("Failed to open capture device")
-        exit(1)
+    def on_hand_tracking_results(self, left_state: HandState, right_state: HandState):
+        self.tracking_state.left_hand = left_state
+        self.tracking_state.right_hand = right_state
 
-    print("Capture device opened")
+        self.connection.lock.acquire()
 
-    connection = RuntimeConnection(38057)
-    connection.run()
+        left_controller_state = self.input_state.left_controller_state
+        left_controller_state.position = left_state.position
+        left_controller_state.orientation = left_state.orientation
+        left_controller_state.timestamp = left_state.timestamp
 
-    while capture.isOpened():
-        try:
-            ret, frame = capture.read()
-            if not ret:
-                raise Exception()
+        right_controller_state = self.input_state.right_controller_state
+        right_controller_state.position = right_state.position
+        right_controller_state.orientation = right_state.orientation
+        right_controller_state.timestamp = right_state.timestamp
 
-            cv2.flip(frame, 1, frame)
+        self.gesture_detector.detect()
+        self.gui.update_camera_overlay(self.tracking_state)
 
-            mp_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            head_tracker.detect(mp_frame)
-            hand_tracker.detect(mp_frame)
-            hand_tracker.draw(frame)
+        self.connection.lock.release()
 
-            cv2.imshow("AetherVR Tracker", frame)
-
-            key = cv2.waitKey(1)
-            if key == 27:
-                break
-            elif key == ord('c'):
-                head_tracker.calibrate_next_frame = True
-            
-        except KeyboardInterrupt:
-            print("Interrupt received")
-            break
-        except Exception as e:
-            print(e)
-            break
-
-    connection.close()
-    head_tracker.close()
-    hand_tracker.close()
-    capture.release()
-    print("Capture device closed")
-    cv2.destroyAllWindows()
+    def close(self):
+        self.connection.close()
+        self.camera_capture.close()
+        self.head_tracker.close()
+        self.hand_tracker.close()
 
 
 if __name__ == "__main__":
-    run()
+    try:
+        app = Application()
+    finally:
+        app.close()

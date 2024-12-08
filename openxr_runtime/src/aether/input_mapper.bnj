@@ -41,8 +41,22 @@ struct InputMapper {
         var hand_state = self.get_hand_state(binding.device);
 
         if hand_state.has_value {
-            if binding.identifier == InputIdentifier.TRIGGER || binding.identifier == InputIdentifier.SQUEEZE {
-                if hand_state.value.select { return 1; } else { return 0; }
+            if binding.identifier == InputIdentifier.TRIGGER {
+                if hand_state.value.trigger_presed { return 1; } else { return 0; }
+            } else if binding.identifier == InputIdentifier.SQUEEZE {
+                if hand_state.value.squeeze_pressed { return 1; } else { return 0; }
+            } else if binding.identifier == InputIdentifier.A_BUTTON {
+                if hand_state.value.a_pressed { return 1; } else { return 0; }
+            } else if binding.identifier == InputIdentifier.B_BUTTON {
+                if hand_state.value.b_pressed { return 1; } else { return 0; }
+            } else if binding.identifier == InputIdentifier.X_BUTTON {
+                if hand_state.value.x_pressed { return 1; } else { return 0; }
+            } else if binding.identifier == InputIdentifier.Y_BUTTON {
+                if hand_state.value.y_pressed { return 1; } else { return 0; }
+            } else if binding.identifier == InputIdentifier.MENU {
+                if hand_state.value.menu_pressed { return 1; } else { return 0; }
+            } else if binding.identifier == InputIdentifier.SYSTEM {
+                if hand_state.value.system_pressed { return 1; } else { return 0; }
             }
         }
 
@@ -54,8 +68,10 @@ struct InputMapper {
         var hand_state = self.get_hand_state(binding.device);
 
         if hand_state.has_value {
-            if binding.identifier == InputIdentifier.TRIGGER || binding.identifier == InputIdentifier.SQUEEZE {
-                if hand_state.value.select { return 1.0; } else { return 0.0; }
+            if binding.identifier == InputIdentifier.TRIGGER {
+                if hand_state.value.trigger_presed { return 1.0; } else { return 0.0; }
+            } else if binding.identifier == InputIdentifier.SQUEEZE {
+                if hand_state.value.squeeze_pressed { return 1.0; } else { return 0.0; }
             }
         }
 
@@ -93,9 +109,9 @@ struct InputMapper {
 
     func get_hand_state(self, device: InputDevice) -> ?*HandState {
         if device == InputDevice.LEFT_HAND {
-            return self.state.left_hand;
+            return &self.state.left_hand;
         } else if device == InputDevice.RIGHT_HAND {
-            return self.state.right_hand;
+            return &self.state.right_hand;
         } else {
             return none;
         }

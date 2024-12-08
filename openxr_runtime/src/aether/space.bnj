@@ -1,5 +1,5 @@
 use xr;
-use std.{memory, math, convert.str};
+use std.{memory, math};
 use aether.{session.Session, action.Action, pose, input, logger as log};
 
 enum SpaceType {
@@ -108,7 +108,7 @@ struct Space {
 
     func str(self) -> String {
         if self.type_ == SpaceType.REFERENCE_SPACE {
-            return str("reference space ") + type_to_str(self.reference_space_type);
+            return "reference space " + type_to_str(self.reference_space_type);
         } else if self.type_ == SpaceType.ACTION_SPACE {
             return "action space";
         } else {

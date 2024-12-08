@@ -32,7 +32,7 @@ func handle_buffer[T](array: *[T], capacity: u32, count_out: *u32, buffer: *T) -
     }
 
     for i in 0..count {
-        buffer[i] = array.get(i as u32);
+        buffer[i] = (*array)[i as usize];
     }
 
     return xr.Result.SUCCESS;

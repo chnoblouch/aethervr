@@ -1,10 +1,17 @@
-use std.{memory, socket.{Socket, TcpSocket}, math};
+use std.{memory, socket.Socket, file.Error, math, convert.to_string};
 use aether.{pose, time, logger as log};
 use xr;
 
 struct HandState {
     var pose: xr.Posef;
-    var select: bool;
+    var trigger_presed: bool;
+    var squeeze_pressed: bool;
+    var a_pressed: bool;
+    var b_pressed: bool;
+    var x_pressed: bool;
+    var y_pressed: bool;
+    var menu_pressed: bool;
+    var system_pressed: bool;
 }
 
 struct InputState {
@@ -33,8 +40,22 @@ struct Message {
     var right_hand_orientation_y: f32;
     var right_hand_orientation_z: f32;
     var right_hand_orientation_w: f32;
-    var left_hand_select: u8;
-    var right_hand_select: u8;
+    var left_hand_trigger_pressed: u8;
+    var left_hand_squeeze_pressed: u8;
+    var left_hand_a_pressed: u8;
+    var left_hand_b_pressed: u8;
+    var left_hand_x_pressed: u8;
+    var left_hand_y_pressed: u8;
+    var left_hand_menu_pressed: u8;
+    var left_hand_system_pressed: u8;
+    var right_hand_trigger_pressed: u8;
+    var right_hand_squeeze_pressed: u8;
+    var right_hand_a_pressed: u8;
+    var right_hand_b_pressed: u8;
+    var right_hand_x_pressed: u8;
+    var right_hand_y_pressed: u8;
+    var right_hand_menu_pressed: u8;
+    var right_hand_system_pressed: u8;
 }
 
 struct TrackerConnection {
@@ -47,10 +68,17 @@ struct TrackerConnection {
     var yaw: f32;
 
     pub func connect() -> TrackerConnection {
-        var stream = TcpSocket.connect("127.0.0.1", 38057).unwrap();
-        stream.set_blocking(false);
+        # var stream = TcpSocket.connect("127.0.0.1", 38057).unwrap();
+        # stream.set_blocking(false);
+        
+        var stream = Socket.new(Socket.AddressFamily.IPV4, Socket.Protocol.TCP).unwrap();
+        var result = stream.connect("127.0.0.1", 38057);
 
-        log.info("Client connected");
+        if result {
+            log.info("Connected to tracker");
+        } else {
+            log.error("Failed to connect to tracker");
+        }
 
         return TrackerConnection {
             stream,
@@ -64,14 +92,28 @@ struct TrackerConnection {
                         position: { x: 0.0, y: 0.0, z: 0.0 },
                         orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
                     },
-                    select: false
+                    trigger_presed: false,
+                    squeeze_pressed: false,
+                    a_pressed: false,
+                    b_pressed: false,
+                    x_pressed: false,
+                    y_pressed: false,
+                    menu_pressed: false,
+                    system_pressed: false,
                 },
                 right_hand: {
                     pose: {
                         position: { x: 0.0, y: 0.0, z: 0.0 },
                         orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
                     },
-                    select: false
+                    trigger_presed: false,
+                    squeeze_pressed: false,
+                    a_pressed: false,
+                    b_pressed: false,
+                    x_pressed: false,
+                    y_pressed: false,
+                    menu_pressed: false,
+                    system_pressed: false,
                 }
             },
             cur_message: {
@@ -94,8 +136,22 @@ struct TrackerConnection {
                 right_hand_orientation_y: 0.0,
                 right_hand_orientation_z: 0.0,
                 right_hand_orientation_w: 0.0,
-                left_hand_select: 0,
-                right_hand_select: 0
+                left_hand_trigger_pressed: 0,
+                left_hand_squeeze_pressed: 0,
+                left_hand_a_pressed: 0,
+                left_hand_b_pressed: 0,
+                left_hand_x_pressed: 0,
+                left_hand_y_pressed: 0,
+                left_hand_menu_pressed: 0,
+                left_hand_system_pressed: 0,
+                right_hand_trigger_pressed: 0,
+                right_hand_squeeze_pressed: 0,
+                right_hand_a_pressed: 0,
+                right_hand_b_pressed: 0,
+                right_hand_x_pressed: 0,
+                right_hand_y_pressed: 0,
+                right_hand_menu_pressed: 0,
+                right_hand_system_pressed: 0,
             },
             pitch: 0.0,
             yaw: 0.0,
@@ -103,17 +159,25 @@ struct TrackerConnection {
         };
     }
 
-    pub func poll(self) -> InputState {
+    pub func poll(self) -> ?InputState {
         var poll_message: u8 = 0;
-        self.stream.send(&poll_message, 1);
-
-        var message: Message;
-        var size = meta.size(Message);
-
-        if self.stream.recv(&message as *u8, size as u32) != size as i32 {
-            return self.state;
+        
+        try bytes_sent in self.stream.send(&poll_message, 1) {
+        } except error: Error {
+            log.error("Failed to send tracking state request: " + to_string(&error));
+            return none;
         }
 
+        var message: Message;
+        var size = meta(Message).size as usize;
+
+        try bytes_received in self.stream.recv(&message as *u8, size) {
+            if bytes_received != size {
+                log.info("Received too few bytes of tracking state: %/%", bytes_received, size);
+            }
+        } except error: Error {
+            return none;
+        }
         var now = time.now();
         var delta_ns = now - self.last_time;
         self.last_time = now;
@@ -159,9 +223,26 @@ struct TrackerConnection {
         self.state.right_hand.pose.orientation.z = message.right_hand_orientation_z;
         self.state.right_hand.pose.orientation.w = message.right_hand_orientation_w;
         self.state.right_hand.pose.orientation = pose.mul(self.state.right_hand.pose.orientation, view_orientation_yaw);
-        
-        self.state.left_hand.select = message.left_hand_select != 0;
-        self.state.right_hand.select = message.right_hand_select != 0;
+
+        self.state.left_hand.trigger_presed = message.left_hand_trigger_pressed != 0;
+        self.state.left_hand.squeeze_pressed = message.left_hand_squeeze_pressed != 0;
+        self.state.left_hand.a_pressed = message.left_hand_a_pressed != 0;
+        self.state.left_hand.b_pressed = message.left_hand_b_pressed != 0;
+        self.state.left_hand.x_pressed = message.left_hand_x_pressed != 0;
+        self.state.left_hand.y_pressed = message.left_hand_y_pressed != 0;
+        self.state.left_hand.menu_pressed = message.left_hand_menu_pressed != 0;
+        self.state.left_hand.system_pressed = message.left_hand_system_pressed != 0;
+
+        self.state.right_hand.trigger_presed = message.right_hand_trigger_pressed != 0;
+        self.state.right_hand.squeeze_pressed = message.right_hand_squeeze_pressed != 0;
+        self.state.right_hand.a_pressed = message.right_hand_a_pressed != 0;
+        self.state.right_hand.b_pressed = message.right_hand_b_pressed != 0;
+        self.state.right_hand.x_pressed = message.right_hand_x_pressed != 0;
+        self.state.right_hand.y_pressed = message.right_hand_y_pressed != 0;
+        self.state.right_hand.menu_pressed = message.right_hand_menu_pressed != 0;
+        self.state.right_hand.system_pressed = message.right_hand_system_pressed != 0;
+
+        log.info("%", meta(Message).size);
 
         return self.state;
     }

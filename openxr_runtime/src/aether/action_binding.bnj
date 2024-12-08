@@ -21,7 +21,13 @@ enum InputIdentifier {
     AIM,
     THUMBSTICK,
     TRIGGER,
-    SQUEEZE
+    SQUEEZE,
+    A_BUTTON,
+    B_BUTTON,
+    X_BUTTON,
+    Y_BUTTON,
+    MENU,
+    SYSTEM,
 }
 
 enum InputLocation {
@@ -59,7 +65,7 @@ pub func set_action_bindings(
 
     log.info("Suggested bindings:");
     log.enter_scope();
-    
+
     var actions = Set[*Action].new();
 
     for i in 0..suggested_bindings.count_suggested_bindings {
@@ -115,6 +121,18 @@ pub func set_action_bindings(
                     action.binding.identifier = InputIdentifier.TRIGGER;
                 } else if eq(identifier, "squeeze") {
                     action.binding.identifier = InputIdentifier.SQUEEZE;
+                } else if eq(identifier, "a") {
+                    action.binding.identifier = InputIdentifier.A_BUTTON;
+                } else if eq(identifier, "b") {
+                    action.binding.identifier = InputIdentifier.B_BUTTON;
+                } else if eq(identifier, "x") {
+                    action.binding.identifier = InputIdentifier.X_BUTTON;
+                } else if eq(identifier, "y") {
+                    action.binding.identifier = InputIdentifier.Y_BUTTON;
+                } else if eq(identifier, "menu") {
+                    action.binding.identifier = InputIdentifier.MENU;
+                } else if eq(identifier, "system") {
+                    action.binding.identifier = InputIdentifier.SYSTEM;
                 }
 
                 if tokens.length >= 6 {
@@ -144,24 +162,30 @@ pub func set_action_bindings(
     for action in actions.elements {
         var binding_str = String.new();
 
-        if action.binding.device == InputDevice.UNKNOWN { binding_str.append_str("unknown."); }
-        else if action.binding.device == InputDevice.HEAD { binding_str.append_str("head."); }
-        else if action.binding.device == InputDevice.LEFT_HAND { binding_str.append_str("left_hand."); }
-        else if action.binding.device == InputDevice.RIGHT_HAND { binding_str.append_str("right_hand."); }
-        else if action.binding.device == InputDevice.ANY_HAND { binding_str.append_str("any_hand."); }
+        if action.binding.device == InputDevice.UNKNOWN { binding_str.append("unknown."); }
+        else if action.binding.device == InputDevice.HEAD { binding_str.append("head."); }
+        else if action.binding.device == InputDevice.LEFT_HAND { binding_str.append("left_hand."); }
+        else if action.binding.device == InputDevice.RIGHT_HAND { binding_str.append("right_hand."); }
+        else if action.binding.device == InputDevice.ANY_HAND { binding_str.append("any_hand."); }
 
-        if action.binding.identifier == InputIdentifier.UNKNOWN { binding_str.append_str("unknown."); }
-        else if action.binding.identifier == InputIdentifier.GRIP { binding_str.append_str("grip."); }
-        else if action.binding.identifier == InputIdentifier.AIM { binding_str.append_str("aim."); }
-        else if action.binding.identifier == InputIdentifier.THUMBSTICK { binding_str.append_str("thumbstick."); }
-        else if action.binding.identifier == InputIdentifier.TRIGGER { binding_str.append_str("trigger."); }
-        else if action.binding.identifier == InputIdentifier.SQUEEZE { binding_str.append_str("squeeze."); }
+        if action.binding.identifier == InputIdentifier.UNKNOWN { binding_str.append("unknown."); }
+        else if action.binding.identifier == InputIdentifier.GRIP { binding_str.append("grip."); }
+        else if action.binding.identifier == InputIdentifier.AIM { binding_str.append("aim."); }
+        else if action.binding.identifier == InputIdentifier.THUMBSTICK { binding_str.append("thumbstick."); }
+        else if action.binding.identifier == InputIdentifier.TRIGGER { binding_str.append("trigger."); }
+        else if action.binding.identifier == InputIdentifier.SQUEEZE { binding_str.append("squeeze."); }
+        else if action.binding.identifier == InputIdentifier.A_BUTTON { binding_str.append("a."); }
+        else if action.binding.identifier == InputIdentifier.B_BUTTON { binding_str.append("b."); }
+        else if action.binding.identifier == InputIdentifier.X_BUTTON { binding_str.append("x."); }
+        else if action.binding.identifier == InputIdentifier.Y_BUTTON { binding_str.append("y."); }
+        else if action.binding.identifier == InputIdentifier.MENU { binding_str.append("menu."); }
+        else if action.binding.identifier == InputIdentifier.SYSTEM { binding_str.append("system."); }
 
-        if action.binding.location == InputLocation.UNKNOWN { binding_str.append_str("unknown"); }
-        else if action.binding.location == InputLocation.CLICK { binding_str.append_str("click"); }
-        else if action.binding.location == InputLocation.TOUCH { binding_str.append_str("touch"); }
-        else if action.binding.location == InputLocation.VALUE { binding_str.append_str("value"); }
-        else if action.binding.location == InputLocation.POSE { binding_str.append_str("pose"); }
+        if action.binding.location == InputLocation.UNKNOWN { binding_str.append("unknown"); }
+        else if action.binding.location == InputLocation.CLICK { binding_str.append("click"); }
+        else if action.binding.location == InputLocation.TOUCH { binding_str.append("touch"); }
+        else if action.binding.location == InputLocation.VALUE { binding_str.append("value"); }
+        else if action.binding.location == InputLocation.POSE { binding_str.append("pose"); }
 
         log.info("%: %", action.name.copy(), binding_str);
     }

@@ -1,62 +1,29 @@
+from aether.input_state import InputState, ControllerButton
+from threading import Thread, Lock
+from typing import Optional
 import socket
 import struct
-from threading import Thread, Lock
-import traceback
-
-from aether.tracking_state import *
-
-
-# class Keys:
-#     HEAD_X = 0
-#     HEAD_Y = 1
-#     HEAD_Z = 2
-#     HEAD_PITCH = 3
-#     HEAD_YAW = 4
-#     LEFT_HAND_POSITION_X = 5
-#     LEFT_HAND_POSITION_Y = 6
-#     LEFT_HAND_POSITION_Z = 7
-#     LEFT_HAND_ORIENTATION_X = 8
-#     LEFT_HAND_ORIENTATION_Y = 9
-#     LEFT_HAND_ORIENTATION_Z = 10
-#     LEFT_HAND_ORIENTATION_W = 11
-#     RIGHT_HAND_POSITION_X = 12
-#     RIGHT_HAND_POSITION_Y = 13
-#     RIGHT_HAND_POSITION_Z = 14
-#     RIGHT_HAND_ORIENTATION_X = 15
-#     RIGHT_HAND_ORIENTATION_Y = 16
-#     RIGHT_HAND_ORIENTATION_Z = 17
-#     RIGHT_HAND_ORIENTATION_W = 18
-#     LEFT_HAND_SELECT = 19
-#     RIGHT_HAND_SELECT = 20
+import errno
 
 
 class RuntimeConnection:
 
-    TIMEOUT = 0.1
+    TIMEOUT = 1.0
 
-    def __init__(self, port):
+    def __init__(self, port: int, input_state: InputState):
+        self.state = input_state
+
+        self.on_connected = lambda: None
+        self.on_disconnected = lambda: None
+
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.settimeout(RuntimeConnection.TIMEOUT)
-        self.socket.bind(("0.0.0.0", port))
+        self.socket.bind(("127.0.0.1", port))
         self.socket.listen()
 
         self.stream = None
-        self.running = False
         self.lock = Lock()
 
-        self.state = TrackingState()
-
-        # self.state = [
-        #     0.0, 0.0, 0.0,       # head position
-        #     0.0, 0.0,            # head rotation
-        #     0.0, 0.0, 0.0,       # left hand position
-        #     0.0, 0.0, 0.0, 1.0,  # left hand orientation
-        #     0.0, 0.0, 0.0,       # right hand position
-        #     0.0, 0.0, 0.0, 1.0,  # right hand orientation
-        #     0, 0,                # buttons
-        # ]
-
-    def run(self):
         print("Starting OpenXR runtime connection...")
 
         self.running = True
@@ -68,52 +35,77 @@ class RuntimeConnection:
 
         while self.running:
             print("Waiting for OpenXR runtime to connect")
-            
+
             while self.running and not connected:
                 try:
                     self.stream, _ = self.socket.accept()
-                    self.stream.settimeout(RuntimeConnection.TIMEOUT)
+                    # self.stream.settimeout(RuntimeConnection.TIMEOUT)
+                    self.stream.setblocking(False)
                     connected = True
                 except socket.timeout:
                     continue
 
             print("OpenXR runtime connected")
+            self.on_connected()
 
             while self.running and connected:
                 try:
                     self.stream.recv(1)
-                    
+
                     self.lock.acquire()
-                    
-                    left_hand_position, left_hand_orientation = self.state.left_hand.get_interpolated_pose()
-                    right_hand_position, right_hand_orientation = self.state.right_hand.get_interpolated_pose()
-
-                    values = [
-                        self.state.head.position.x,
-                        self.state.head.position.y,
-                        self.state.head.position.z,
-                        self.state.head.pitch,
-                        self.state.head.yaw,
-                        left_hand_position.x, left_hand_position.y, left_hand_position.z,
-                        left_hand_orientation.x, left_hand_orientation.y, left_hand_orientation.z, left_hand_orientation.w,
-                        right_hand_position.x, right_hand_position.y, right_hand_position.z,
-                        right_hand_orientation.x, right_hand_orientation.y, right_hand_orientation.z, right_hand_orientation.w,
-                        1 if self.state.left_hand.pinching else 0,
-                        1 if self.state.right_hand.pinching else 0,
-                    ]
-
-                    format = "fff" + "ff" + "fff" + "ffff" + "fff" + "ffff" + "BB" + "xx"
-                    data = struct.pack(format, *values)
-                    self.stream.send(data)
-                    
+                    self.stream.send(self.serialize_state())
                     self.lock.release()
-                except socket.timeout:
-                    continue
-                except:
-                    print("OpenXR runtime disconnected")
-                    connected = False
+                except OSError as error:
+                    if error.errno == errno.EAGAIN or error.errno == errno.EWOULDBLOCK:
+                        pass
+                    else:
+                        print("OpenXR runtime disconnected")
+                        connected = False
+                        self.on_disconnected()
 
         self.socket.close()
+
+    def serialize_state(self):
+        values = [
+            self.state.headset_state.position.x,
+            self.state.headset_state.position.y,
+            self.state.headset_state.position.z,
+            self.state.headset_state.pitch,
+            self.state.headset_state.yaw,
+            self.state.left_controller_state.position.x,
+            self.state.left_controller_state.position.y,
+            self.state.left_controller_state.position.z,
+            self.state.left_controller_state.orientation.x,
+            self.state.left_controller_state.orientation.y,
+            self.state.left_controller_state.orientation.z,
+            self.state.left_controller_state.orientation.w,
+            self.state.right_controller_state.position.x,
+            self.state.right_controller_state.position.y,
+            self.state.right_controller_state.position.z,
+            self.state.right_controller_state.orientation.x,
+            self.state.right_controller_state.orientation.y,
+            self.state.right_controller_state.orientation.z,
+            self.state.right_controller_state.orientation.w,
+            int(self.state.left_controller_state.buttons[ControllerButton.TRIGGER]),
+            int(self.state.left_controller_state.buttons[ControllerButton.SQUEEZE]),
+            int(self.state.left_controller_state.buttons[ControllerButton.A_BUTTON]),
+            int(self.state.left_controller_state.buttons[ControllerButton.B_BUTTON]),
+            int(self.state.left_controller_state.buttons[ControllerButton.X_BUTTON]),
+            int(self.state.left_controller_state.buttons[ControllerButton.Y_BUTTON]),
+            int(self.state.left_controller_state.buttons[ControllerButton.MENU]),
+            int(self.state.left_controller_state.buttons[ControllerButton.SYSTEM]),
+            int(self.state.right_controller_state.buttons[ControllerButton.TRIGGER]),
+            int(self.state.right_controller_state.buttons[ControllerButton.SQUEEZE]),
+            int(self.state.right_controller_state.buttons[ControllerButton.A_BUTTON]),
+            int(self.state.right_controller_state.buttons[ControllerButton.B_BUTTON]),
+            int(self.state.right_controller_state.buttons[ControllerButton.X_BUTTON]),
+            int(self.state.right_controller_state.buttons[ControllerButton.Y_BUTTON]),
+            int(self.state.right_controller_state.buttons[ControllerButton.MENU]),
+            int(self.state.right_controller_state.buttons[ControllerButton.SYSTEM]),
+        ]
+
+        format = "fff" + "ff" + "fff" + "ffff" + "fff" + "ffff" + "BBBBBBBB" + "BBBBBBBB"
+        return struct.pack(format, *values)
 
     def set_state(self, key, value):
         self.lock.acquire()

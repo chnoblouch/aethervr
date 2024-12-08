@@ -1,5 +1,5 @@
 use xr;
-use std.{memory, convert.str};
+use std.memory;
 
 use aether.{
     instance.Instance,
@@ -68,17 +68,16 @@ struct Action {
 
             for i in 0..create_info.count_subaction_paths {
                 var path = create_info.subaction_paths[i];
-                var string = action_set.instance.path_mapping.get_string(path);
 
-                if string.has_value {
-                    log.info("    - %", string.value);
+                try string in action_set.instance.path_mapping.get_string(path) {
+                    log.info("    - %", string);
                 }
             }
         }
 
         var action = memory.box(Action {
             action_set,
-            name: str(&create_info.action_name as *u8),
+            name: String.from_cstr(&create_info.action_name as *u8),
             type_: create_info.action_type,
             binding: {
                 device: InputDevice.UNKNOWN,

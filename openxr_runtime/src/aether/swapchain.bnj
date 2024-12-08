@@ -93,7 +93,7 @@ struct Swapchain {
     ) -> xr.Result {
         log.info("Enumerating swapchain images");
 
-        var buffer_info = handle_buffer_size(self.images.length, image_count_output, image_capacity_input);
+        var buffer_info = handle_buffer_size(self.images.length as u32, image_count_output, image_capacity_input);
         if buffer_info.0 {
             return buffer_info.1;
         }

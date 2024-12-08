@@ -1,4 +1,4 @@
-use std.{memory, process.{Process, Stdio}};
+use std.memory;
 use xr;
 use vulkan as vk;
 use c.lib.string.strcpy;
@@ -37,14 +37,6 @@ struct Instance {
             graphics_reqs_queried: false,
             interaction_profile: 0
         });
-
-        # Process.spawn({
-        #     program: "K:/vwm1/Development/aethervr/tracker/venv/Scripts/pythonw",
-        #     args: ["K:/vwm1/Development/aethervr/tracker/aethervr_tracker"],
-        #     stdin: Stdio.INHERIT,
-        #     stdout: Stdio.INHERIT,
-        #     stderr: Stdio.INHERIT,
-        # });
 
         return (instance, xr.Result.SUCCESS);
     }
@@ -102,21 +94,13 @@ struct Instance {
 
     pub func string_to_path(self, string: *u8) -> (u64, xr.Result) {
         var path = self.path_mapping.get_path(string);
-        
-        log.info("Converting string to path");
-        log.info("  String: %", string);
-        log.info("  Path: %", path);
-    
+        log.info("Converting string to path: % -> %", string, path);
         return (path, xr.Result.SUCCESS);
     }
 
     pub func path_to_string(self, path: u64) -> (*u8, xr.Result) {
         var string = self.path_mapping.get_string(path).value;
-        
-        log.info("Converting path to string");
-        log.info("  Path: %", path);
-        log.info("  String: %", string);
-    
+        log.info("Converting path to string: % -> %", path, string);
         return (string, xr.Result.SUCCESS);
     }
 
@@ -194,7 +178,7 @@ struct Instance {
         }
 
         var extensions = graphics.vulkan.get_instance_extensions();        
-        handle_buffer(&extensions, buffer_capacity_input, buffer_count_output, buffer);
+        handle_buffer(&extensions, buffer_capacity_input, buffer_count_output, &buffer);
         return xr.Result.SUCCESS;
     }
 
@@ -212,7 +196,7 @@ struct Instance {
         }
 
         var extensions = graphics.vulkan.get_device_extensions();
-        handle_buffer(&extensions, buffer_capacity_input, buffer_count_output, buffer);
+        handle_buffer(&extensions, buffer_capacity_input, buffer_count_output, &buffer);
         return xr.Result.SUCCESS;    
     }
 

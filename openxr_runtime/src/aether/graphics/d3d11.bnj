@@ -187,16 +187,16 @@ pub func read_image(
     var context: *d3d11.DeviceContext;
     device.lp_vtbl.get_immediate_context(device, &context);
 
-    context.lp_vtbl.copy_resource(context, staging_texture, image.api_handle);
+    context.lp_vtbl.copy_resource(context, staging_texture as *d3d11.Resource, image.api_handle as *d3d11.Resource);
 
     var mapped_resource: d3d11.MappedSubresource;
-    if context.lp_vtbl.map(context, staging_texture, 0, d3d11.Map.READ, 0, &mapped_resource) != 0 {
+    if context.lp_vtbl.map(context, staging_texture as *d3d11.Resource, 0, d3d11.Map.READ, 0, &mapped_resource) != 0 {
         log.error("Failed to map staging texture");
     }
 
     if mapped_resource.p_data != null && (image.create_info.usage_flags & xr.SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT) != 0 {
         stbi.write_png(
-            "K:/vwm1/Development/aethervr/out.png",
+            "out.png",
             image.create_info.width as i32,
             image.create_info.height as i32,
             4,
@@ -205,7 +205,7 @@ pub func read_image(
         );
     }
 
-    context.lp_vtbl.unmap(context, staging_texture, 0);
+    context.lp_vtbl.unmap(context, staging_texture as *d3d11.Resource, 0);
 
     context.lp_vtbl.release(context);
 }

@@ -10,7 +10,7 @@ struct EventQueue {
     var poll_index: u32;
 
     pub func new() -> EventQueue {
-        var buffer_size = LENGTH as usize * meta.size(xr.EventDataBuffer);
+        var buffer_size = LENGTH as usize * meta(xr.EventDataBuffer).size;
 
         return EventQueue {
             buffer: memory.alloc(buffer_size) as *xr.EventDataBuffer,

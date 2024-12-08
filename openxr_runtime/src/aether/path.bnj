@@ -1,4 +1,4 @@
-use std.{test.{assert_eq, assert_ne}, convert.str};
+use std.{test.{assert_eq, assert_ne}};
 use aether.utils.streq as eq;
 
 const NULL_PATH: u64 = 0;
@@ -22,7 +22,7 @@ struct PathMapping {
     }
 
     pub func get_path(self, cstr: *u8) -> u64 {
-        var string = str(cstr);
+        var string = String.from_cstr(cstr);
     
         for i in 0..self.paths.length {
             if self.paths[i as u32] == string {
@@ -76,7 +76,7 @@ struct PathMapping {
 @test func test_same_string() {
     var mapping = PathMapping.new();
     var id = mapping.get_path("/user/hand/left");
-    var string = str(mapping.get_string(id).value);
-
-    assert_eq(string, str("/user/hand/left"));
+    var string = String.from(mapping.get_string(id).unwrap());
+    
+    assert_eq(string, "/user/hand/right");
 }

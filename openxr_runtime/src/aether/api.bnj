@@ -19,7 +19,7 @@ pub func enumerate_instance_extension_properties(
     property_capacity_input: u32,
     property_count_output: *u32,
     properties: *xr.ExtensionProperties
-) -> xr.Result {    
+) -> xr.Result {
     var extensions = ext.get_extension_properties();
     return handle_buffer(&extensions, property_capacity_input, property_count_output, properties);
 }

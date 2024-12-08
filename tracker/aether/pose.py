@@ -38,7 +38,7 @@ class Position:
 
 
 @dataclass
-class Rotation:
+class Orientation:
     x: float
     y: float
     z: float
@@ -46,7 +46,7 @@ class Rotation:
 
     def slerp(self, other, t):
         q = quaternion.slerp(self.to_np_array(), other.to_np_array(), 0.0, 1.0, t)
-        return Rotation(q.x, q.y, q.z, q.w)
+        return Orientation(q.x, q.y, q.z, q.w)
 
     def to_np_array(self):
         return quaternion.quaternion(self.w, self.x, self.y, self.z)
@@ -55,12 +55,8 @@ class Rotation:
         v1 = normalize(p2.to_np_array() - p1.to_np_array())
         v2 = normalize(p3.to_np_array() - p1.to_np_array())
 
-        # z_axis = -v1
-        # y_axis = normalize(np.cross(v1, v2))
-        # x_axis = normalize(np.cross(y_axis, z_axis))
-
         y_axis = v1
-        z_axis = normalize(np.cross(v1, v2))
+        z_axis = normalize(np.cross(v2, v1))
         x_axis = normalize(np.cross(y_axis, z_axis))
 
         if flip:
@@ -70,7 +66,10 @@ class Rotation:
         matrix = np.array([x_axis, y_axis, z_axis])
         q = quaternion.from_rotation_matrix(matrix)
 
-        return Rotation(q.x, q.y, q.z, q.w)
+        return Orientation(q.x, q.y, q.z, q.w)
+    
+    def copy(self):
+        return Orientation(self.x, self.y, self.z, self.w)
 
 
 def normalize(vector):

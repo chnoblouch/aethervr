@@ -1,6 +1,4 @@
 use std;
-use std.convert.str;
-
 use c.lib.string.strcpy;
 use xr;
 use vulkan as vk;
@@ -36,7 +34,7 @@ pub func get_device(vk_instance: addr, vk_physical_device: *addr) -> xr.Result {
     log.info("% Vulkan device(s) available", device_count);
 
     var devices: [addr] = [];
-    devices.resize(device_count);
+    devices.resize(device_count as usize);
     vk.enumerate_physical_devices(vk_instance, &device_count, devices.data);
 
     log.info("  Picking first device");
@@ -142,7 +140,7 @@ pub func create_swapchain_image(
     if vk.get_physical_device_image_format_properties(
         binding.physical_device, format, image_type, tiling, usage, flags, &format_props
     ) != vk.Result.SUCCESS {
-        log.error(str("Unsupported image format: ") + String.from(create_info.format));
+        # log.error(str("Unsupported image format: ") + String.from(create_info.format));
         log.exit_scope();
         return xr.Result.ERROR_RUNTIME_FAILURE;
     }
@@ -308,13 +306,13 @@ pub func read_image(
     log.info("Copying buffer data to host");
 
     var host_mem: addr;
-    var data = std.memory.alloc(image_size);
+    var data = std.memory.alloc(image_size as usize);
 
     vk.map_memory(binding.device, memory.value, 0, image_size, 0, &host_mem);
-    std.memory.copy(host_mem, data, image_size);
+    std.memory.copy(host_mem, data, image_size as usize);
     vk.unmap_memory(binding.device, memory.value);
     
-    var path = "K:/vwm1/Development/aethervr/out.png";
+    var path: *u8 = "out.png";
     stbi.write_png(path, image_width as i32, image_height as i32, 4, data as *u8, image_width as i32 * 4);
     std.memory.free(data);
 

@@ -6,14 +6,7 @@ import numpy as np
 
 from aether.pose import Position
 from aether import mediapipe_models
-
-
-class HeadDetectionResults:
-
-    def __init__(self):
-        self.position = Position(0.0, 0.0, 0.0)
-        self.pitch = 0.0
-        self.yaw = 0.0
+from aether.tracking_state import HeadState
 
 
 class HeadTracker:
@@ -37,9 +30,6 @@ class HeadTracker:
         self.detector = FaceLandmarker.create_from_options(options)
         self.timestamp = 0
 
-        self.initial_position = Position(0.0, 0.0, 0.0)
-        self.calibrate_next_frame = True
-
         print("Head tracker initialized")
 
     def detect(self, frame):
@@ -52,6 +42,10 @@ class HeadTracker:
             return
         
         matrix = detection_results.facial_transformation_matrixes[0]
+        
+        # position = Position(matrix[0][3] / 100.0, matrix[1][3] / 100.0, -matrix[2][3] / 100.0)
+        position = Position(0.0, 0.0, 0.0)
+
         x_axis = matrix[0][0:3]
         x_axis = x_axis / np.linalg.norm(x_axis)
         y_axis = matrix[1][0:3]
@@ -63,20 +57,10 @@ class HeadTracker:
         y = z_axis[1]
         z = x_axis[2]
 
-        position = Position(matrix[0][3] / 100.0, matrix[1][3] / 100.0, -matrix[2][3] / 100.0)
+        pitch = float(np.rad2deg(np.arcsin(y)))
+        yaw = float(np.rad2deg(np.arctan2(z, x)))
 
-        if self.calibrate_next_frame:
-            self.initial_position = position.copy()
-            print(f"Calibrated at [{position.x}, {position.y}, {position.z}]")
-            self.calibrate_next_frame = False
-        else:
-            position -= self.initial_position
-
-        results = HeadDetectionResults()
-        results.pitch = float(np.rad2deg(np.arcsin(y)))
-        results.yaw = float(np.rad2deg(-np.arctan2(z, x)))
-        results.position = position
-        self.detection_callback(results)
+        self.detection_callback(HeadState(position, pitch, yaw))
 
     def close(self):
         self.detector.close()

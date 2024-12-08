@@ -1,6 +1,11 @@
 use xr;
 use gl;
-use aether.{swapchain.SwapchainImage, logger as log};
+
+use aether.{
+    swapchain.SwapchainImage,
+    logger as log,
+    graphics.{opengl, vulkan, d3d11},
+};
 
 union GraphicsBackend {
     case OpenGL(binding: xr.GraphicsBindingOpenGLXlibKHR);
@@ -19,7 +24,7 @@ union GraphicsBackend {
                 log.error("Failed to load OpenGL");
             }
 
-            var binding = next as *xr.GraphicsBindingOpenGLXcbKHR;
+            var binding = next as *xr.GraphicsBindingOpenGLXlibKHR;
             return GraphicsBackend.OpenGL(*binding);
         } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_VULKAN_KHR {
             log.info("Graphics binding: Vulkan");
