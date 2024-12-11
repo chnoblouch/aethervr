@@ -1,22 +1,134 @@
 use std.{math, test.assert_eq};
 use xr;
 
+struct Vec3 {
+    var x: f32;
+    var y: f32;
+    var z: f32;
+
+    pub func new(x: f32, y: f32, z: f32) -> Vec3 {
+        return Vec3 { x, y, z };
+    }
+
+    pub func zero() -> Vec3 {
+        return new(0.0, 0.0, 0.0);
+    }
+
+    pub func lerp(a: Vec3, b: Vec3, t: f32) -> Vec3 {
+        return new(
+            a.x + t * (b.x - a.x),
+            a.y + t * (b.y - a.y),
+            a.z + t * (b.z - a.z),
+        );
+    }
+
+    pub func to_xr(self) -> xr.Vector3f {
+        return xr.Vector3f {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+        };
+    }
+}
+
+struct Quat {
+    var x: f32;
+    var y: f32;
+    var z: f32;
+    var w: f32;
+
+    pub func new(x: f32, y: f32, z: f32, w: f32) -> Quat {
+        return Quat { x, y, z, w };
+    }
+
+    pub func identity() -> Quat {
+        return new(0.0, 0.0, 0.0, 1.0);
+    }
+
+    pub func axis_angle(angle: f32, x: f32, y: f32, z: f32) -> Quat {
+        var s = math.sin(0.5 * angle);
+        var c = math.cos(0.5 * angle);
+        return new(x * s, y * s, z * s, c);
+    }
+
+    pub func mul(q1: Quat, q2: Quat) -> Quat {
+        return new(
+            q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x,
+            -q1.x * q2.z + q1.y * q2.w + q1.z * q2.x + q1.w * q2.y,
+            q1.x * q2.y - q1.y * q2.x + q1.z * q2.w + q1.w * q2.z,
+            -q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w
+        );
+    }
+
+    pub func slerp(a: Quat, b: Quat, t: f32) -> Quat {
+        return b;
+    }
+
+    pub func inverse(self) -> Quat {
+        return new(-self.x, -self.y, -self.z, self.w);
+    }
+
+    pub func rotate(self, vector: Vec3) -> Vec3 {
+        # https://gamedev.stackexchange.com/questions/28395/rotating-vector3-by-a-quaternion
+        
+        var u = new(vector.x, vector.y, vector.z, 0.0);
+        var q = mul(mul(self.inverse(), u), *self);
+        return Vec3.new(q.x, q.y, q.z);
+
+        # var u = position(rotation.x, rotation.y, rotation.z);
+        # var s = rotation.w;
+
+        # return add(
+        #     add(
+        #         mul(2.0 * dot(u, vector), u),
+        #         mul((s * s - dot(u, u)), vector)
+        #     ),
+        #     mul(2.0 * s, cross(u, vector))
+        # );
+    }
+
+    pub func to_xr(self) -> xr.Quaternionf {
+        return xr.Quaternionf {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+            w: self.w,
+        };
+    }
+}
+
+struct Pose {
+    var position: Vec3;
+    var orientation: Quat;
+
+    pub func identity() -> Pose {
+        return Pose {
+            position: Vec3.zero(),
+            orientation: Quat.identity(),
+        };
+    }
+
+    pub func interpolate(a: Pose, b: Pose, t: f32) -> Pose {
+        return Pose {
+            position: Vec3.lerp(a.position, b.position, t),
+            orientation: Quat.slerp(a.orientation, b.orientation, t),
+        };
+    }
+
+    pub func to_xr(self) -> xr.Posef {
+        return xr.Posef {
+            position: self.position.to_xr(),
+            orientation: self.orientation.to_xr(),
+        };
+    }
+}
+
 func orientation(x: f32, y: f32, z: f32, w: f32) -> xr.Quaternionf {
     return { x, y, z, w };
 }
 
 func orientation_identity() -> xr.Quaternionf {
     return orientation(0.0, 0.0, 0.0, 1.0);
-}
-
-func axis_angle(angle: f32, x: f32, y: f32, z: f32) -> xr.Quaternionf {
-    var s = math.sin(angle / 2.0);
-    var c = math.cos(angle / 2.0);
-    return orientation(x * s, y * s, z * s, c);
-}
-
-func inverse(q: xr.Quaternionf) -> xr.Quaternionf {
-    return orientation(-q.x, -q.y, -q.z, q.w);
 }
 
 func mul(q1: xr.Quaternionf, q2: xr.Quaternionf) -> xr.Quaternionf {
@@ -62,30 +174,11 @@ func pose(orientation: xr.Quaternionf, position: xr.Vector3f) -> xr.Posef {
     return { orientation, position };
 }
 
-func rotate(rotation: xr.Quaternionf, vector: xr.Vector3f) -> xr.Vector3f {
-    # https://gamedev.stackexchange.com/questions/28395/rotating-vector3-by-a-quaternion
-    
-    var u = orientation(vector.x, vector.y, vector.z, 0.0);
-    var q = mul(mul(inverse(rotation), u), rotation);
-    return position(q.x, q.y, q.z);
-
-    # var u = position(rotation.x, rotation.y, rotation.z);
-    # var s = rotation.w;
-
-    # return add(
-    #     add(
-    #         mul(2.0 * dot(u, vector), u),
-    #         mul((s * s - dot(u, u)), vector)
-    #     ),
-    #     mul(2.0 * s, cross(u, vector))
-    # );
-}
-
 func apply(parent: xr.Posef, child: xr.Posef) -> xr.Posef {
-    return pose(
-        mul(parent.orientation, child.orientation),
-        add(parent.position, rotate(parent.orientation, child.position))
-    );
+    # return pose(
+    #     mul(parent.orientation, child.orientation),
+    #     add(parent.position, rotate(parent.orientation, child.position))
+    # );
 }
 
 func relative(p1: xr.Posef, p2: xr.Posef) -> xr.Posef {
@@ -93,4 +186,8 @@ func relative(p1: xr.Posef, p2: xr.Posef) -> xr.Posef {
         mul(p1.orientation, inverse(p2.orientation)),
         sub(p2.position, p1.position)
     );
+}
+
+func inverse(q: xr.Quaternionf) -> xr.Quaternionf {
+    return orientation(-q.x, -q.y, -q.z, q.w);
 }

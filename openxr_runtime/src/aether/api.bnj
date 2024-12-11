@@ -345,7 +345,7 @@ pub func create_action_space(
 pub func locate_space(
     space: *Space,
     base_space: *Space,
-    time: u64,
+    time: i64,
     location: *xr.SpaceLocation
 ) -> xr.Result {
     return space.locate(base_space, time, location);

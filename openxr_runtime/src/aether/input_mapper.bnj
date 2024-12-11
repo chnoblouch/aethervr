@@ -1,6 +1,7 @@
 use xr;
 
 use aether.{
+    input.ControllerState,
     session.Session,
     path.PathMapping,
     tracker_connection.{InputState, HandState},
@@ -21,14 +22,14 @@ struct InputMapper {
         };
     }
 
-    pub func get_space_pose(self, action: *Action, subaction_path: u64) -> xr.Posef {
+    pub func get_space_pose(self, action: *Action, subaction_path: u64, time: i64) -> xr.Posef {
         var binding = self.get_concrete_binding(action.binding, subaction_path);
         var hand_state = self.get_hand_state(binding.device);
 
         if hand_state.has_value {
             if binding.identifier == InputIdentifier.GRIP || binding.identifier == InputIdentifier.AIM {
                 if binding.location == InputLocation.POSE {
-                    return hand_state.value.pose;
+                    return hand_state.value.pose_buffer.interpolate(time).to_xr();
                 }
             }
         }
@@ -107,7 +108,7 @@ struct InputMapper {
         return device;
     }
 
-    func get_hand_state(self, device: InputDevice) -> ?*HandState {
+    func get_hand_state(self, device: InputDevice) -> ?*ControllerState {
         if device == InputDevice.LEFT_HAND {
             return &self.state.left_hand;
         } else if device == InputDevice.RIGHT_HAND {

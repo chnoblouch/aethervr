@@ -76,8 +76,8 @@ struct Space {
         return (space, xr.Result.SUCCESS);
     }
 
-    pub func locate(self, base: *Space, time: u64, location: *xr.SpaceLocation) -> xr.Result {
-        location.pose = base.get_relative_pose(self.locate_in_world_space());
+    pub func locate(self, base: *Space, time: i64, location: *xr.SpaceLocation) -> xr.Result {
+        location.pose = base.get_relative_pose(self.locate_in_world_space(time), time);
         
         location.location_flags =
             xr.SPACE_LOCATION_ORIENTATION_VALID_BIT |
@@ -88,22 +88,20 @@ struct Space {
         return xr.Result.SUCCESS;
     }
 
-    pub func locate_in_world_space(self) -> xr.Posef {                
+    pub func locate_in_world_space(self, time: i64) -> xr.Posef {                
         if self.type_ == SpaceType.REFERENCE_SPACE {
             if self.reference_space_type == xr.ReferenceSpaceType.VIEW {
                 return input.get_view_pose(self.session);
-            }
-
-            return pose.pose(pose.orientation_identity(), pose.position(0.0, 0.0, 0.0));        
+            }     
         } else if self.type_ == SpaceType.ACTION_SPACE {
-            return self.session.input_mapper.get_space_pose(self.action, self.subaction_path);
+            return self.session.input_mapper.get_space_pose(self.action, self.subaction_path, time);
         }
 
         return pose.pose(pose.orientation_identity(), pose.position(0.0, 0.0, 0.0));
     }
 
-    pub func get_relative_pose(self, p: xr.Posef) -> xr.Posef {
-        return pose.relative(self.locate_in_world_space(), p);
+    pub func get_relative_pose(self, p: xr.Posef, time: i64) -> xr.Posef {
+        return pose.relative(self.locate_in_world_space(time), p);
     }
 
     func str(self) -> String {

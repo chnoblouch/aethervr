@@ -1,18 +1,17 @@
-from aether.input_state import InputState, ControllerButton
-from threading import Thread, Lock
+from aether.input_state import InputState, HeadsetState, ControllerState, ControllerButton
+from threading import Thread, Lock, Condition
 from typing import Optional
 import socket
 import struct
 import errno
+import time
 
 
 class RuntimeConnection:
 
     TIMEOUT = 1.0
 
-    def __init__(self, port: int, input_state: InputState):
-        self.state = input_state
-
+    def __init__(self, port: int):
         self.on_connected = lambda: None
         self.on_disconnected = lambda: None
 
@@ -22,56 +21,89 @@ class RuntimeConnection:
         self.socket.listen()
 
         self.stream = None
+
         self.lock = Lock()
+        self.state = InputState()
+        self.headset_state_available = False
+        self.controller_state_available = False
 
         print("Starting OpenXR runtime connection...")
 
         self.running = True
-        thread = Thread(target=self.loop, args=())
+        self.connected = False
+
+        thread = Thread(target=self.loop)
         thread.start()
 
     def loop(self):
-        connected = False
-
         while self.running:
             print("Waiting for OpenXR runtime to connect")
 
-            while self.running and not connected:
+            while self.running and not self.connected:
                 try:
                     self.stream, _ = self.socket.accept()
-                    # self.stream.settimeout(RuntimeConnection.TIMEOUT)
-                    self.stream.setblocking(False)
-                    connected = True
+                    self.connected = True
                 except socket.timeout:
                     continue
 
             print("OpenXR runtime connected")
             self.on_connected()
 
-            while self.running and connected:
+            while self.running and self.connected:
                 try:
                     self.stream.recv(1)
+                    
+                    with self.lock:
+                        if self.headset_state_available and self.controller_state_available:
+                            self.stream.send(b'\x03')
+                            self.stream.send(self.serialize_headset_state())
+                            self.stream.send(self.serialize_controller_state())
+                        elif self.headset_state_available:
+                            self.stream.send(b'\x01')
+                            self.stream.send(self.serialize_headset_state())
+                        elif self.controller_state_available:
+                            self.stream.send(b'\x02')
+                            self.stream.send(self.serialize_controller_state())
+                        else:
+                            self.stream.send(b'\x00')
 
-                    self.lock.acquire()
-                    self.stream.send(self.serialize_state())
-                    self.lock.release()
+                        self.headset_state_available = False
+                        self.controller_state_available = False
                 except OSError as error:
                     if error.errno == errno.EAGAIN or error.errno == errno.EWOULDBLOCK:
                         pass
                     else:
                         print("OpenXR runtime disconnected")
-                        connected = False
+                        self.connected = False
                         self.on_disconnected()
 
         self.socket.close()
 
-    def serialize_state(self):
+    def update_headset_state(self, state: HeadsetState):
+        with self.lock:
+            self.state.headset_state = state
+            self.headset_state_available = True
+    
+    def update_controller_state(self, left_state: ControllerState, right_state: ControllerState):
+        with self.lock:
+            self.state.left_controller_state = left_state
+            self.state.right_controller_state = right_state
+            self.controller_state_available = True
+
+    def serialize_headset_state(self):
         values = [
             self.state.headset_state.position.x,
             self.state.headset_state.position.y,
             self.state.headset_state.position.z,
             self.state.headset_state.pitch,
             self.state.headset_state.yaw,
+        ]
+
+        format = "fffff"
+        return struct.pack(format, *values)
+
+    def serialize_controller_state(self):
+        values = [
             self.state.left_controller_state.position.x,
             self.state.left_controller_state.position.y,
             self.state.left_controller_state.position.z,
@@ -104,17 +136,9 @@ class RuntimeConnection:
             int(self.state.right_controller_state.buttons[ControllerButton.SYSTEM]),
         ]
 
-        format = "fff" + "ff" + "fff" + "ffff" + "fff" + "ffff" + "BBBBBBBB" + "BBBBBBBB"
+        format = "fffffff" + "fffffff" + "BBBBBBBB" + "BBBBBBBB"
         return struct.pack(format, *values)
 
-    def set_state(self, key, value):
-        self.lock.acquire()
-        self.state[key] = value
-        self.lock.release()
-
     def close(self):
-        self.lock.acquire()
         self.running = False
-        self.lock.release()
-
         print("OpenXR runtime connection closed")

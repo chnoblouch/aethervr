@@ -1,6 +1,13 @@
 use std.{memory, socket.Socket, file.Error, math, convert.to_string};
-use aether.{pose, time, logger as log};
 use xr;
+
+use aether.{
+    pose,
+    pose.{Pose, Vec3, Quat},
+    input.{HeadsetState, ControllerState, PoseSnapshot},
+    time,
+    logger as log
+};
 
 struct HandState {
     var pose: xr.Posef;
@@ -15,62 +22,63 @@ struct HandState {
 }
 
 struct InputState {
-    var view: xr.Posef;
-    var left_hand: HandState;
-    var right_hand: HandState;
+    var headset: HeadsetState;
+    var left_hand: ControllerState;
+    var right_hand: ControllerState;
 }
 
-struct Message {
-    var head_x: f32;
-    var head_y: f32;
-    var head_z: f32;
-    var head_pitch: f32;
-    var head_yaw: f32;
-    var left_hand_position_x: f32;
-    var left_hand_position_y: f32;
-    var left_hand_position_z: f32;
-    var left_hand_orientation_x: f32;
-    var left_hand_orientation_y: f32;
-    var left_hand_orientation_z: f32;
-    var left_hand_orientation_w: f32;
-    var right_hand_position_x: f32;
-    var right_hand_position_y: f32;
-    var right_hand_position_z: f32;
-    var right_hand_orientation_x: f32;
-    var right_hand_orientation_y: f32;
-    var right_hand_orientation_z: f32;
-    var right_hand_orientation_w: f32;
-    var left_hand_trigger_pressed: u8;
-    var left_hand_squeeze_pressed: u8;
-    var left_hand_a_pressed: u8;
-    var left_hand_b_pressed: u8;
-    var left_hand_x_pressed: u8;
-    var left_hand_y_pressed: u8;
-    var left_hand_menu_pressed: u8;
-    var left_hand_system_pressed: u8;
-    var right_hand_trigger_pressed: u8;
-    var right_hand_squeeze_pressed: u8;
-    var right_hand_a_pressed: u8;
-    var right_hand_b_pressed: u8;
-    var right_hand_x_pressed: u8;
-    var right_hand_y_pressed: u8;
-    var right_hand_menu_pressed: u8;
-    var right_hand_system_pressed: u8;
+struct HeadsetStateMsg {
+    var x: f32;
+    var y: f32;
+    var z: f32;
+    var pitch: f32;
+    var yaw: f32;
 }
+
+struct ControllerStateMsg {
+    var left_position_x: f32;
+    var left_position_y: f32;
+    var left_position_z: f32;
+    var left_orientation_x: f32;
+    var left_orientation_y: f32;
+    var left_orientation_z: f32;
+    var left_orientation_w: f32;
+    var right_position_x: f32;
+    var right_position_y: f32;
+    var right_position_z: f32;
+    var right_orientation_x: f32;
+    var right_orientation_y: f32;
+    var right_orientation_z: f32;
+    var right_orientation_w: f32;
+    var left_trigger_pressed: u8;
+    var left_squeeze_pressed: u8;
+    var left_a_pressed: u8;
+    var left_b_pressed: u8;
+    var left_x_pressed: u8;
+    var left_y_pressed: u8;
+    var left_menu_pressed: u8;
+    var left_system_pressed: u8;
+    var right_trigger_pressed: u8;
+    var right_squeeze_pressed: u8;
+    var right_a_pressed: u8;
+    var right_b_pressed: u8;
+    var right_x_pressed: u8;
+    var right_y_pressed: u8;
+    var right_menu_pressed: u8;
+    var right_system_pressed: u8;
+}
+
+use std.platform_impl;
 
 struct TrackerConnection {
     var stream: Socket;
     var state: InputState;
 
-    var cur_message: Message;
     var last_time: i64;
     var pitch: f32;
     var yaw: f32;
 
     pub func connect() -> TrackerConnection {
-        # var stream = TcpSocket.connect("127.0.0.1", 38057).unwrap();
-        # stream.set_blocking(false);
-        
         var stream = Socket.new(Socket.AddressFamily.IPV4, Socket.Protocol.TCP).unwrap();
         var result = stream.connect("127.0.0.1", 38057);
 
@@ -83,75 +91,9 @@ struct TrackerConnection {
         return TrackerConnection {
             stream,
             state: {
-                view: {
-                    position: { x: 0.0, y: 0.0, z: 0.0 },
-                    orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
-                },
-                left_hand: {
-                    pose: {
-                        position: { x: 0.0, y: 0.0, z: 0.0 },
-                        orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
-                    },
-                    trigger_presed: false,
-                    squeeze_pressed: false,
-                    a_pressed: false,
-                    b_pressed: false,
-                    x_pressed: false,
-                    y_pressed: false,
-                    menu_pressed: false,
-                    system_pressed: false,
-                },
-                right_hand: {
-                    pose: {
-                        position: { x: 0.0, y: 0.0, z: 0.0 },
-                        orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
-                    },
-                    trigger_presed: false,
-                    squeeze_pressed: false,
-                    a_pressed: false,
-                    b_pressed: false,
-                    x_pressed: false,
-                    y_pressed: false,
-                    menu_pressed: false,
-                    system_pressed: false,
-                }
-            },
-            cur_message: {
-                head_x: 0.0,
-                head_y: 0.0,
-                head_z: 0.0,
-                head_pitch: 0.0,
-                head_yaw: 0.0,
-                left_hand_position_x: 0.0,
-                left_hand_position_y: 0.0,
-                left_hand_position_z: 0.0,
-                left_hand_orientation_x: 0.0,
-                left_hand_orientation_y: 0.0,
-                left_hand_orientation_z: 0.0,
-                left_hand_orientation_w: 0.0,
-                right_hand_position_x: 0.0,
-                right_hand_position_y: 0.0,
-                right_hand_position_z: 0.0,
-                right_hand_orientation_x: 0.0,
-                right_hand_orientation_y: 0.0,
-                right_hand_orientation_z: 0.0,
-                right_hand_orientation_w: 0.0,
-                left_hand_trigger_pressed: 0,
-                left_hand_squeeze_pressed: 0,
-                left_hand_a_pressed: 0,
-                left_hand_b_pressed: 0,
-                left_hand_x_pressed: 0,
-                left_hand_y_pressed: 0,
-                left_hand_menu_pressed: 0,
-                left_hand_system_pressed: 0,
-                right_hand_trigger_pressed: 0,
-                right_hand_squeeze_pressed: 0,
-                right_hand_a_pressed: 0,
-                right_hand_b_pressed: 0,
-                right_hand_x_pressed: 0,
-                right_hand_y_pressed: 0,
-                right_hand_menu_pressed: 0,
-                right_hand_system_pressed: 0,
+                headset: HeadsetState.new(),
+                left_hand: ControllerState.new(),
+                right_hand: ControllerState.new(),
             },
             pitch: 0.0,
             yaw: 0.0,
@@ -168,88 +110,149 @@ struct TrackerConnection {
             return none;
         }
 
-        var message: Message;
-        var size = meta(Message).size as usize;
-
-        try bytes_received in self.stream.recv(&message as *u8, size) {
-            if bytes_received != size {
-                log.info("Received too few bytes of tracking state: %/%", bytes_received, size);
-            }
+        var header_byte: u8;
+        try received in self.stream.recv(&header_byte, 1) {
         } except error: Error {
+            log.error("Failed to receive tracking state header: " + to_string(&error));
             return none;
         }
-        var now = time.now();
-        var delta_ns = now - self.last_time;
-        self.last_time = now;
         
-        var delta = delta_ns as f32 / 1000000000 as f32;
-
-        self.pitch = message.head_pitch;
-
-        if message.head_yaw > 8.0 {
-            self.yaw += delta * 3.0 * (message.head_yaw - 8.0);
-        } else if message.head_yaw < -8.0 {
-            self.yaw += delta * 3.0 * (message.head_yaw + 8.0);
+        if header_byte == 1 || header_byte ==3 {
+            if !self.read_headset_state() {
+                return none;
+            }
         }
 
-        self.state.view.orientation = self.get_view_orientation();
-        
-        var view_orientation_yaw = pose.axis_angle(math.deg2rad(self.yaw), 0.0, 1.0, 0.0);
-
-        var local_position = pose.position(message.head_x, message.head_y, message.head_z);
-        self.state.view.position = pose.rotate(view_orientation_yaw, local_position);
-        self.state.view.position.y += 1.3;
-
-        self.state.left_hand.pose.position.x = message.left_hand_position_x;
-        self.state.left_hand.pose.position.y = message.left_hand_position_y;
-        self.state.left_hand.pose.position.z = message.left_hand_position_z;
-        self.state.left_hand.pose.position = pose.rotate(view_orientation_yaw, self.state.left_hand.pose.position);
-        self.state.left_hand.pose.position.y += 1.3;
-
-        self.state.left_hand.pose.orientation.x = message.left_hand_orientation_x;
-        self.state.left_hand.pose.orientation.y = message.left_hand_orientation_y;
-        self.state.left_hand.pose.orientation.z = message.left_hand_orientation_z;
-        self.state.left_hand.pose.orientation.w = message.left_hand_orientation_w;
-        self.state.left_hand.pose.orientation = pose.mul(self.state.left_hand.pose.orientation, view_orientation_yaw);
-
-        self.state.right_hand.pose.position.x = message.right_hand_position_x;
-        self.state.right_hand.pose.position.y = message.right_hand_position_y;
-        self.state.right_hand.pose.position.z = message.right_hand_position_z;
-        self.state.right_hand.pose.position = pose.rotate(view_orientation_yaw, self.state.right_hand.pose.position);
-        self.state.right_hand.pose.position.y += 1.3;
-
-        self.state.right_hand.pose.orientation.x = message.right_hand_orientation_x;
-        self.state.right_hand.pose.orientation.y = message.right_hand_orientation_y;
-        self.state.right_hand.pose.orientation.z = message.right_hand_orientation_z;
-        self.state.right_hand.pose.orientation.w = message.right_hand_orientation_w;
-        self.state.right_hand.pose.orientation = pose.mul(self.state.right_hand.pose.orientation, view_orientation_yaw);
-
-        self.state.left_hand.trigger_presed = message.left_hand_trigger_pressed != 0;
-        self.state.left_hand.squeeze_pressed = message.left_hand_squeeze_pressed != 0;
-        self.state.left_hand.a_pressed = message.left_hand_a_pressed != 0;
-        self.state.left_hand.b_pressed = message.left_hand_b_pressed != 0;
-        self.state.left_hand.x_pressed = message.left_hand_x_pressed != 0;
-        self.state.left_hand.y_pressed = message.left_hand_y_pressed != 0;
-        self.state.left_hand.menu_pressed = message.left_hand_menu_pressed != 0;
-        self.state.left_hand.system_pressed = message.left_hand_system_pressed != 0;
-
-        self.state.right_hand.trigger_presed = message.right_hand_trigger_pressed != 0;
-        self.state.right_hand.squeeze_pressed = message.right_hand_squeeze_pressed != 0;
-        self.state.right_hand.a_pressed = message.right_hand_a_pressed != 0;
-        self.state.right_hand.b_pressed = message.right_hand_b_pressed != 0;
-        self.state.right_hand.x_pressed = message.right_hand_x_pressed != 0;
-        self.state.right_hand.y_pressed = message.right_hand_y_pressed != 0;
-        self.state.right_hand.menu_pressed = message.right_hand_menu_pressed != 0;
-        self.state.right_hand.system_pressed = message.right_hand_system_pressed != 0;
-
-        log.info("%", meta(Message).size);
+        if header_byte == 2 || header_byte == 3 {
+            if !self.read_controller_state() {
+                return none;
+            }
+        }
 
         return self.state;
     }
 
-    func get_view_orientation(self) -> xr.Quaternionf {
-        var orientation_pitch = pose.axis_angle(math.deg2rad(self.pitch), 1.0, 0.0, 0.0);
-        var orientation_yaw = pose.axis_angle(math.deg2rad(self.yaw), 0.0, 1.0, 0.0);
-        return pose.mul(orientation_pitch, orientation_yaw);
+    pub func read_headset_state(self) -> bool {
+        var message: HeadsetStateMsg;
+        var size: usize = meta(HeadsetStateMsg).size;
+
+        try received in self.stream.recv(&message as *u8, size) {
+            if received != size {
+                log.info("Received too few bytes of tracking state: %/%", received, size);
+            }
+        } except error: Error {
+            log.info("Failed to read headset state: %", error);
+            return false;
+        }
+
+        var now = time.now();
+        var delta_ns = now - self.last_time;
+        var delta = delta_ns as f32 / 1000000000 as f32;
+        self.last_time = now;
+        
+        self.pitch = message.pitch;
+
+        if message.yaw > 8.0 {
+            self.yaw += delta * 3.0 * (message.yaw - 8.0);
+        } else if message.yaw < -8.0 {
+            self.yaw += delta * 3.0 * (message.yaw + 8.0);
+        }
+
+        var view_orientation_pitch = Quat.axis_angle(math.deg2rad(self.pitch), 1.0, 0.0, 0.0);
+        var view_orientation_yaw = Quat.axis_angle(math.deg2rad(self.yaw), 0.0, 1.0, 0.0);
+        self.state.headset.pose.orientation = Quat.mul(view_orientation_pitch, view_orientation_yaw);
+        
+        var local_position = Vec3.new(message.x, message.y, message.z);
+        self.state.headset.pose.position = view_orientation_yaw.rotate(local_position);
+        self.state.headset.pose.position.y += 1.3;
+
+        return true;
+    }
+
+    pub func read_controller_state(self) -> bool {
+        var message: ControllerStateMsg;
+        var size: usize = meta(ControllerStateMsg).size;
+
+        try received in self.stream.recv(&message as *u8, size) {
+            if received != size {
+                log.info("Received too few bytes of tracking state: %/%", received, size);
+            }
+        } except error: Error {
+            log.info("Failed to read controller state: %", error);
+            return false;
+        }
+
+        var left_position = Vec3.new(
+            message.left_position_x,
+            message.left_position_y,
+            message.left_position_z,
+        );
+
+        var left_orientation = Quat.new(
+            message.left_orientation_x,
+            message.left_orientation_y,
+            message.left_orientation_z,
+            message.left_orientation_w,
+        );
+
+        var right_position = Vec3.new(
+            message.right_position_x,
+            message.right_position_y,
+            message.right_position_z,
+        );
+
+        var right_orientation = Quat.new(
+            message.right_orientation_x,
+            message.right_orientation_y,
+            message.right_orientation_z,
+            message.right_orientation_w,
+        );
+
+        left_position.y += 1.3;
+        right_position.y += 1.3;
+
+        var view_orientation_yaw = Quat.axis_angle(math.deg2rad(self.yaw), 0.0, 1.0, 0.0);
+        left_position = view_orientation_yaw.rotate(left_position);
+        right_position = view_orientation_yaw.rotate(right_position);
+        left_orientation = Quat.mul(left_orientation, view_orientation_yaw);
+        right_orientation = Quat.mul(right_orientation, view_orientation_yaw);
+
+        var now = time.now() + 100000000;
+
+        self.state.left_hand.pose_buffer.insert(PoseSnapshot{
+            pose: Pose {
+                position: left_position,
+                orientation: left_orientation,
+            },
+            timestamp: now,
+        });
+
+        self.state.right_hand.pose_buffer.insert(PoseSnapshot{
+            pose: Pose {
+                position: right_position,
+                orientation: right_orientation,
+            },
+            timestamp: now,
+        });
+
+        self.state.left_hand.trigger_presed = message.left_trigger_pressed != 0;
+        self.state.left_hand.squeeze_pressed = message.left_squeeze_pressed != 0;
+        self.state.left_hand.a_pressed = message.left_a_pressed != 0;
+        self.state.left_hand.b_pressed = message.left_b_pressed != 0;
+        self.state.left_hand.x_pressed = message.left_x_pressed != 0;
+        self.state.left_hand.y_pressed = message.left_y_pressed != 0;
+        self.state.left_hand.menu_pressed = message.left_menu_pressed != 0;
+        self.state.left_hand.system_pressed = message.left_system_pressed != 0;
+
+        self.state.right_hand.trigger_presed = message.right_trigger_pressed != 0;
+        self.state.right_hand.squeeze_pressed = message.right_squeeze_pressed != 0;
+        self.state.right_hand.a_pressed = message.right_a_pressed != 0;
+        self.state.right_hand.b_pressed = message.right_b_pressed != 0;
+        self.state.right_hand.x_pressed = message.right_x_pressed != 0;
+        self.state.right_hand.y_pressed = message.right_y_pressed != 0;
+        self.state.right_hand.menu_pressed = message.right_menu_pressed != 0;
+        self.state.right_hand.system_pressed = message.right_system_pressed != 0;
+
+        return true;
     }
 }

@@ -1,10 +1,16 @@
 use std.math;
 use xr;
 
-use aether.{session.Session, time, pose, constants};
+use aether.{
+    session.Session,
+    pose.Pose,
+    time,
+    constants,
+    logger as log,
+};
 
 pub func get_view_pose(session: *Session) -> xr.Posef {
-    return session.input_state.view;
+    return session.input_state.headset.pose.to_xr();
 }
 
 pub func get_left_eye_pose(session: *Session) -> xr.Posef {
@@ -17,4 +23,115 @@ pub func get_right_eye_pose(session: *Session) -> xr.Posef {
     var pose = get_view_pose(session);
     # pose.position.x += 0.1;
     return pose;
+}
+
+struct PoseSnapshot {
+    var pose: Pose;
+    var timestamp: i64;
+}
+
+struct PoseBuffer {
+    const NUM_SNAPSHOTS: u32 = 8;
+    var snapshots: [PoseSnapshot; NUM_SNAPSHOTS];
+
+    pub func new() -> PoseBuffer {
+        var snapshots: [PoseSnapshot; NUM_SNAPSHOTS];
+        
+        for i in 0..NUM_SNAPSHOTS {
+            snapshots[i] = PoseSnapshot {
+                pose: Pose.identity(),
+            };
+        }
+
+        return PoseBuffer { snapshots };
+    }
+
+    pub func insert(self, snapshot: PoseSnapshot) {
+        for i in 0..NUM_SNAPSHOTS - 1 {
+            self.snapshots[i] = self.snapshots[i + 1];
+        }
+
+        self.snapshots[NUM_SNAPSHOTS - 1] = snapshot;
+    }
+
+    pub func interpolate(self, timestamp: i64) -> Pose {
+        # If the timestamp is newer than the latest pose, there is nothing to interpolate as we don't have the tracking
+        # data yet, so just return the latest pose.
+        
+        if timestamp <= self.snapshots[0].timestamp {
+            return self.snapshots[0].pose;
+        } else if timestamp >= self.snapshots[NUM_SNAPSHOTS - 1].timestamp {
+            return self.snapshots[NUM_SNAPSHOTS - 1].pose;
+        }
+
+        # Otherwise, find the pose before and after the timestamp and interpolate between them.
+
+        var index_before: u32 = 0;
+        var index_after: u32 = 0;
+
+        for i in 1 as u32..NUM_SNAPSHOTS {
+            if self.snapshots[i].timestamp > timestamp {
+                index_after = i;
+                index_before = i - 1;
+            }
+        }
+
+        var before = self.snapshots[index_before];
+        var after = self.snapshots[index_after];
+        var t = (timestamp - before.timestamp) as f32 / (after.timestamp - before.timestamp) as f32;
+
+        log.info("%", t);
+
+        return Pose.interpolate(before.pose, after.pose, t);
+    }
+}
+
+struct HeadsetState {
+    var pose: Pose;
+
+    pub func new() -> HeadsetState {
+        return HeadsetState {
+            pose: Pose.identity(),
+        };
+    }
+}
+
+struct ControllerState {
+    var pose_buffer: PoseBuffer;
+    var trigger_presed: bool;
+    var squeeze_pressed: bool;
+    var a_pressed: bool;
+    var b_pressed: bool;
+    var x_pressed: bool;
+    var y_pressed: bool;
+    var menu_pressed: bool;
+    var system_pressed: bool;
+
+    pub func new() -> ControllerState {
+        return ControllerState {
+            pose_buffer: PoseBuffer.new(),
+            trigger_presed: false,
+            squeeze_pressed: false,
+            a_pressed: false,
+            b_pressed: false,
+            x_pressed: false,
+            y_pressed: false,
+            menu_pressed: false,
+            system_pressed: false,
+        };
+    }
+}
+
+struct InputState {
+    var headset: HeadsetState;
+    var left_controller: ControllerState;
+    var right_controller: ControllerState;
+
+    pub func new() -> InputState {
+        return InputState {
+            headset: HeadsetState.new(),
+            left_controller: ControllerState.new(),
+            right_controller: ControllerState.new(),
+        };
+    }
 }

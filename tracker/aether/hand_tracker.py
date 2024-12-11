@@ -47,8 +47,8 @@ class HandTracker:
 
     def _process_results(self, detection_results, image, timestamp):
         try:
-            left_hand = HandState(timestamp=time.time_ns())
-            right_hand = HandState(timestamp=time.time_ns())
+            left_hand = HandState(timestamp=time.time_ns(), visible=False)
+            right_hand = HandState(timestamp=time.time_ns(), visible=False)
 
             for i, landmarks in enumerate(detection_results.hand_landmarks):
                 handedness = detection_results.handedness[i][0].display_name
@@ -70,16 +70,17 @@ class HandTracker:
                 p3 = HandTracker.get_landmark_position(landmarks[17])
                 flip = handedness == "Left"
 
-                dx = landmarks[17].x - landmarks[5].x
-                dy = landmarks[17].y - landmarks[5].y
-                depth_estimate = math.sqrt(dx * dx + dy * dy)
+                dx = landmarks[9].x - landmarks[0].x
+                dy = landmarks[9].y - landmarks[0].y
+                nonlinear_depth_estimate = math.sqrt(dx * dx + dy * dy)
+                linear_depth_estimate = math.sqrt(nonlinear_depth_estimate)
 
                 raw_x = float(landmarks[0].x)
                 raw_y = float(landmarks[0].y)
 
                 hand_x = offset[0] + 2.0 * (raw_x - tracking_origin[0])
                 hand_y = offset[1] - 2.0 * (raw_y - tracking_origin[1])
-                hand_z = 0.1 - 7.0 * depth_estimate
+                hand_z = 1.3 - 4.0 * linear_depth_estimate
                 position = Position(hand_x, hand_y, hand_z)
 
                 orientation = Orientation.from_triangle(p1, p2, p3, flip)

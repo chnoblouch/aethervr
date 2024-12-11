@@ -23,7 +23,7 @@ class Application:
         self.input_state = InputState()
 
         self.camera_capture = CameraCapture(self.on_frame)
-        self.connection = RuntimeConnection(38057, self.input_state)
+        self.connection = RuntimeConnection(38057)
 
         self.head_tracker = HeadTracker(
             self.on_head_tracking_results,
@@ -60,32 +60,33 @@ class Application:
     def on_head_tracking_results(self, state: HeadState):
         self.tracking_state.head = state
 
-        self.connection.lock.acquire()
         self.input_state.headset_state.position = state.position
         self.input_state.headset_state.pitch = state.pitch
         self.input_state.headset_state.yaw = state.yaw
-        self.connection.lock.release()
+        
+        self.connection.update_headset_state(self.input_state.headset_state)
 
     def on_hand_tracking_results(self, left_state: HandState, right_state: HandState):
         self.tracking_state.left_hand = left_state
         self.tracking_state.right_hand = right_state
 
-        self.connection.lock.acquire()
-
         left_controller_state = self.input_state.left_controller_state
-        left_controller_state.position = left_state.position
-        left_controller_state.orientation = left_state.orientation
-        left_controller_state.timestamp = left_state.timestamp
-
         right_controller_state = self.input_state.right_controller_state
-        right_controller_state.position = right_state.position
-        right_controller_state.orientation = right_state.orientation
-        right_controller_state.timestamp = right_state.timestamp
+        
+        if left_state.visible:
+            left_controller_state.position = left_state.position
+            left_controller_state.orientation = left_state.orientation
+            left_controller_state.timestamp = left_state.timestamp
+
+        if right_state.visible:
+            right_controller_state.position = right_state.position
+            right_controller_state.orientation = right_state.orientation
+            right_controller_state.timestamp = right_state.timestamp
 
         self.gesture_detector.detect()
         self.gui.update_camera_overlay(self.tracking_state)
 
-        self.connection.lock.release()
+        self.connection.update_controller_state(left_controller_state, right_controller_state)
 
     def close(self):
         self.connection.close()
