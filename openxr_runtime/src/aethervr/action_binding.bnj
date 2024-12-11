@@ -1,0 +1,197 @@
+use xr;
+
+use aethervr.{
+    log,
+    instance.Instance,
+    action.Action,
+    utils.streq as eq,
+};
+
+enum InputDevice {
+    UNKNOWN,
+    HEAD,
+    LEFT_HAND,
+    RIGHT_HAND,
+    ANY_HAND
+}
+
+enum InputIdentifier {
+    UNKNOWN,
+    GRIP,
+    AIM,
+    THUMBSTICK,
+    TRIGGER,
+    SQUEEZE,
+    A_BUTTON,
+    B_BUTTON,
+    X_BUTTON,
+    Y_BUTTON,
+    MENU,
+    SYSTEM,
+}
+
+enum InputLocation {
+    UNKNOWN,
+    CLICK,
+    TOUCH,
+    VALUE,
+    POSE
+}
+
+struct ActionBinding {
+    var device: InputDevice;
+    var identifier: InputIdentifier;
+    var location: InputLocation;
+}
+
+pub func set_action_bindings(
+    instance: *Instance,
+    suggested_bindings: *xr.InteractionProfileSuggestedBinding
+) -> xr.Result {
+    log.info("Suggesting interaction profile bindings");
+    log.enter_scope();
+
+    var profile = instance.path_mapping.get_string(suggested_bindings.interaction_profile).value;
+    log.info("Interaction Profile: %", profile);
+
+    var profile_path = suggested_bindings.interaction_profile;
+    if !instance.path_mapping.is_path(profile_path, "/interaction_profiles/oculus/touch_controller") {
+        log.info("Not Oculus Touch Controller Profile -> Ignored");
+        log.exit_scope();
+        return xr.Result.SUCCESS;
+    }
+
+    instance.interaction_profile = profile_path;
+
+    log.info("Suggested bindings:");
+    log.enter_scope();
+
+    var actions = Set[*Action].new();
+
+    for i in 0..suggested_bindings.count_suggested_bindings {
+        var binding = suggested_bindings.suggested_bindings[i];
+        var action = binding.action as *Action;
+        var path = binding.binding;
+
+        var string = instance.path_mapping.get_string(path).value;
+
+        log.info("- % -> %", action.name.copy(), string);
+
+        var tokens: [String] = [];
+        var token = String.new();
+        var index = 1;  # The first slash is skipped
+
+        while true {
+            var char = string[index];
+
+            if char == '\0' {
+                tokens.append(token.copy());
+                break;
+            } else if char == '/' {
+                tokens.append(token.copy());
+                token = String.new();
+            } else {
+                token.append(char);
+            }
+
+            index += 1;
+        }
+
+        if eq(tokens[0].cstr(), "user") && eq(tokens[3].cstr(), "input") {
+            if eq(tokens[1].cstr(), "hand") {
+                var hand = tokens[2].cstr();
+                var identifier = tokens[4].cstr();
+
+                if action.binding.device == InputDevice.LEFT_HAND || action.binding.device == InputDevice.RIGHT_HAND {
+                    # If an action has already been bound to a hand, it will be bound to any hand
+                    action.binding.device = InputDevice.ANY_HAND;
+                } else if eq(hand, "left") {
+                    action.binding.device = InputDevice.LEFT_HAND;
+                } else if eq(hand, "right") {
+                    action.binding.device = InputDevice.RIGHT_HAND;
+                }
+
+                if eq(identifier, "grip") {
+                    action.binding.identifier = InputIdentifier.GRIP;
+                } else if eq(identifier, "aim") {
+                    action.binding.identifier = InputIdentifier.AIM;
+                } else if eq(identifier, "thumbstick") {
+                    action.binding.identifier = InputIdentifier.THUMBSTICK;
+                } else if eq(identifier, "trigger") {
+                    action.binding.identifier = InputIdentifier.TRIGGER;
+                } else if eq(identifier, "squeeze") {
+                    action.binding.identifier = InputIdentifier.SQUEEZE;
+                } else if eq(identifier, "a") {
+                    action.binding.identifier = InputIdentifier.A_BUTTON;
+                } else if eq(identifier, "b") {
+                    action.binding.identifier = InputIdentifier.B_BUTTON;
+                } else if eq(identifier, "x") {
+                    action.binding.identifier = InputIdentifier.X_BUTTON;
+                } else if eq(identifier, "y") {
+                    action.binding.identifier = InputIdentifier.Y_BUTTON;
+                } else if eq(identifier, "menu") {
+                    action.binding.identifier = InputIdentifier.MENU;
+                } else if eq(identifier, "system") {
+                    action.binding.identifier = InputIdentifier.SYSTEM;
+                }
+
+                if tokens.length >= 6 {
+                    var location = tokens[5].cstr();
+
+                    if eq(location, "click") {
+                        action.binding.location = InputLocation.CLICK;
+                    } else if eq(location, "touch") {
+                        action.binding.location = InputLocation.TOUCH;
+                    } else if eq(location, "value") {
+                        action.binding.location = InputLocation.VALUE;
+                    } else if eq(location, "pose") {
+                        action.binding.location = InputLocation.POSE;
+                    }
+                }
+            }
+        }
+
+        actions.insert(action);
+    }
+
+    log.exit_scope();
+
+    log.info("Resulting bindings:");
+    log.enter_scope();
+
+    for action in actions.elements {
+        var binding_str = String.new();
+
+        if action.binding.device == InputDevice.UNKNOWN { binding_str.append("unknown."); }
+        else if action.binding.device == InputDevice.HEAD { binding_str.append("head."); }
+        else if action.binding.device == InputDevice.LEFT_HAND { binding_str.append("left_hand."); }
+        else if action.binding.device == InputDevice.RIGHT_HAND { binding_str.append("right_hand."); }
+        else if action.binding.device == InputDevice.ANY_HAND { binding_str.append("any_hand."); }
+
+        if action.binding.identifier == InputIdentifier.UNKNOWN { binding_str.append("unknown."); }
+        else if action.binding.identifier == InputIdentifier.GRIP { binding_str.append("grip."); }
+        else if action.binding.identifier == InputIdentifier.AIM { binding_str.append("aim."); }
+        else if action.binding.identifier == InputIdentifier.THUMBSTICK { binding_str.append("thumbstick."); }
+        else if action.binding.identifier == InputIdentifier.TRIGGER { binding_str.append("trigger."); }
+        else if action.binding.identifier == InputIdentifier.SQUEEZE { binding_str.append("squeeze."); }
+        else if action.binding.identifier == InputIdentifier.A_BUTTON { binding_str.append("a."); }
+        else if action.binding.identifier == InputIdentifier.B_BUTTON { binding_str.append("b."); }
+        else if action.binding.identifier == InputIdentifier.X_BUTTON { binding_str.append("x."); }
+        else if action.binding.identifier == InputIdentifier.Y_BUTTON { binding_str.append("y."); }
+        else if action.binding.identifier == InputIdentifier.MENU { binding_str.append("menu."); }
+        else if action.binding.identifier == InputIdentifier.SYSTEM { binding_str.append("system."); }
+
+        if action.binding.location == InputLocation.UNKNOWN { binding_str.append("unknown"); }
+        else if action.binding.location == InputLocation.CLICK { binding_str.append("click"); }
+        else if action.binding.location == InputLocation.TOUCH { binding_str.append("touch"); }
+        else if action.binding.location == InputLocation.VALUE { binding_str.append("value"); }
+        else if action.binding.location == InputLocation.POSE { binding_str.append("pose"); }
+
+        log.info("%: %", action.name.copy(), binding_str);
+    }
+
+    log.exit_scope();
+    log.exit_scope();
+
+    return xr.Result.SUCCESS;
+}

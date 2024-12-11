@@ -1,0 +1,524 @@
+use std;
+use c.lib.string.strcpy;
+
+use xr;
+use vulkan as vk;
+use stbi;
+
+use aethervr.{
+    log,
+    swapchain.{SwapchainImage, SwapchainImageState},
+    utils.{version, handle_buffer_size},
+};
+
+pub func get_reqs(reqs: *xr.GraphicsRequirementsVulkanKHR) -> xr.Result {
+    reqs.min_api_version_supported = version(1, 0, 0);
+    reqs.max_api_version_supported = version(1, 3, 0);
+    return xr.Result.SUCCESS;
+}
+
+pub func get_supported_formats() -> [i64] {
+    return [
+        vk.Format.R8G8B8A8_SRGB as i64,
+        vk.Format.R8G8B8A8_UNORM as i64
+    ];
+}
+
+pub func get_device(vk_instance: addr, vk_physical_device: *addr) -> xr.Result {
+    var device_count: u32;
+    vk.enumerate_physical_devices(vk_instance, &device_count, null);
+
+    if device_count == 0 {
+        log.error("No Vulkan devices have been found");
+        return xr.Result.ERROR_RUNTIME_FAILURE;
+    }
+    log.info("% Vulkan device(s) available", device_count);
+
+    var devices: [addr] = [];
+    devices.resize(device_count as usize);
+    vk.enumerate_physical_devices(vk_instance, &device_count, devices.data);
+
+    log.info("  Picking first device");
+    *vk_physical_device = devices[0];
+
+    return xr.Result.SUCCESS;
+}
+
+pub func get_instance_extensions() -> [*u8] {
+    return [];
+}
+
+pub func get_device_extensions() -> [*u8] {
+    return [];
+}
+
+# Creates a Vulkan instance (XR_EXT_vulkan_enable2)
+pub func create_instance(
+    info: *xr.VulkanInstanceCreateInfoKHR,
+    vk_instance: *addr,
+    vk_result: *vk.Result
+) -> xr.Result {
+    *vk_result = vk.create_instance(
+        info.vulkan_create_info as *vk.InstanceCreateInfo,
+        info.vulkan_allocator as *vk.AllocationCallbacks,
+        vk_instance
+    );
+
+    return xr.Result.SUCCESS;
+}
+
+
+# Creates a Vulkan device (XR_EXT_vulkan_enable2)
+pub func create_device(
+    info: *xr.VulkanDeviceCreateInfoKHR,
+    vk_device: *addr,
+    vk_result: *vk.Result
+) -> xr.Result {
+    *vk_result = vk.create_device(
+        info.vulkan_physical_device,
+        info.vulkan_create_info as *vk.DeviceCreateInfo,
+        info.vulkan_allocator as *vk.AllocationCallbacks,
+        vk_device
+    );
+
+    return xr.Result.SUCCESS;
+}
+
+pub func create_swapchain_image(
+    create_info: *xr.SwapchainCreateInfo,
+    binding: *xr.GraphicsBindingVulkanKHR,
+    swapchain_image: *SwapchainImage
+) -> xr.Result {
+    log.info("Creating Vulkan image");
+    log.enter_scope();
+
+    log.info("Vulkan queue family index: %", binding.queue_family_index);
+    log.info("Vulkan queue index: %", binding.queue_index);
+
+    var flags: u32 = 0;
+    var usage: u32 = 0;
+
+    log.info("Usage flags:");
+    log.enter_scope();
+
+    if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT) != 0 {
+        log.info("- Color attachment");
+        usage |= vk.ImageUsageFlagBits.COLOR_ATTACHMENT_BIT as u32;
+    }
+    if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0 {
+        log.info("- Depth/stencil attachment");
+        usage |= vk.ImageUsageFlagBits.DEPTH_STENCIL_ATTACHMENT_BIT as u32;
+    }
+    if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT) != 0 {
+        log.info("- Unordered access");
+        usage |= vk.ImageUsageFlagBits.STORAGE_BIT as u32;
+    }
+    if true { # (create_info.usage_flags & xr.XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT) != 0 {
+        log.info("- Transfer source");
+        usage |= vk.ImageUsageFlagBits.TRANSFER_SRC_BIT as u32;
+    }
+    if true { # (create_info.usage_flags & xr.XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT) != 0 {
+        log.info("- Transfer destination");
+        usage |= vk.ImageUsageFlagBits.TRANSFER_DST_BIT as u32;
+    }
+    if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_SAMPLED_BIT) != 0 {
+        log.info("- Sampled");
+        usage |= vk.ImageUsageFlagBits.SAMPLED_BIT as u32;
+    }
+    if true {
+        log.info("- Mutable");
+        flags |= vk.ImageCreateFlagBits.MUTABLE_FORMAT_BIT as u32;
+    }
+
+    log.exit_scope();
+
+    var image_type = vk.ImageType._2D;
+    var format = create_info.format as vk.Format;
+    # var format = vk.Format.R8G8B8A8_SRGB;
+    var tiling = vk.ImageTiling.OPTIMAL;
+
+    var format_props: vk.ImageFormatProperties;
+    if vk.get_physical_device_image_format_properties(
+        binding.physical_device, format, image_type, tiling, usage, flags, &format_props
+    ) != vk.Result.SUCCESS {
+        # log.error(str("Unsupported image format: ") + String.from(create_info.format));
+        log.exit_scope();
+        return xr.Result.ERROR_RUNTIME_FAILURE;
+    }
+
+    log.info("Image format properties");
+    log.enter_scope();
+    log.info("Max width: %", format_props.max_extent.width);
+    log.info("Max height: %", format_props.max_extent.height);
+    log.info("Max depth: %", format_props.max_extent.depth);
+    log.info("Max mip levels: %", format_props.max_mip_levels);
+    log.info("Max array layers: %", format_props.max_array_layers);
+    log.exit_scope();
+
+    var image_create_info = vk.ImageCreateInfo {
+        s_type: vk.StructureType.IMAGE_CREATE_INFO,
+        p_next: null,
+        flags,
+        image_type,
+        format,
+        extent: {
+            width: create_info.width,
+            height: create_info.height,
+            depth: 1
+        },
+        mip_levels: create_info.mip_count,
+        array_layers: create_info.array_size,
+        samples: vk.SampleCountFlagBits._1_BIT,
+        tiling,
+        usage,
+        sharing_mode: vk.SharingMode.EXCLUSIVE,
+        queue_family_index_count: undefined,
+        p_queue_family_indices: undefined,
+        initial_layout: vk.ImageLayout.UNDEFINED
+    };
+
+    var image: addr;
+    if vk.create_image(binding.device, &image_create_info, null, &image) != vk.Result.SUCCESS {
+        log.error("Failed to create image");
+        log.exit_scope();
+        return xr.Result.ERROR_RUNTIME_FAILURE;
+    }
+
+    var mem_reqs: vk.MemoryRequirements;
+    vk.get_image_memory_requirements(binding.device, image, &mem_reqs);
+
+    var memory = allocate(binding, &mem_reqs, vk.MemoryPropertyFlagBits.DEVICE_LOCAL_BIT as u32);
+    if !memory.has_value {
+        log.exit_scope();
+        return xr.Result.ERROR_RUNTIME_FAILURE;
+    }
+    vk.bind_image_memory(binding.device, image, memory.value, 0);
+
+    *swapchain_image = SwapchainImage {
+        create_info: *create_info,
+        api_handle: image as usize,
+        state: SwapchainImageState.AVAILABLE
+    };
+
+    transition_image(binding, swapchain_image, vk.ImageLayout.UNDEFINED, vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL);
+
+    log.exit_scope();
+    return xr.Result.SUCCESS;
+}
+
+pub func read_image(
+    binding: *xr.GraphicsBindingVulkanKHR,
+    image: *SwapchainImage
+) -> (u32, u32, *u8) {
+    log.info("Reading back Vulkan image");
+    log.enter_scope();
+
+    var image_width = image.create_info.width;
+    var image_height = image.create_info.height;
+    var image_size = image_width as u64 * image_height as u64 * 4;
+
+    log.info("Image size on host: % bytes", image_size);
+
+    var buffer_create_info = vk.BufferCreateInfo {
+        s_type: vk.StructureType.BUFFER_CREATE_INFO,
+        p_next: null,
+        flags: 0,
+        size: image_size,
+        usage: vk.BufferUsageFlagBits.TRANSFER_DST_BIT as u32,
+        sharing_mode: vk.SharingMode.EXCLUSIVE,
+        queue_family_index_count: 1,
+        p_queue_family_indices: &binding.queue_family_index
+    };
+
+    var buffer: addr;
+    if vk.create_buffer(binding.device, &buffer_create_info, null, &buffer
+    ) != vk.Result.SUCCESS {
+        log.error("Failed to create buffer");
+        log.exit_scope();
+        return (0, 0, null);
+    }
+
+    var mem_reqs: vk.MemoryRequirements;
+    vk.get_buffer_memory_requirements(binding.device, buffer, &mem_reqs);
+
+    var memory = allocate(
+        binding,
+        &mem_reqs,
+        vk.MemoryPropertyFlagBits.HOST_VISIBLE_BIT as u32 | vk.MemoryPropertyFlagBits.HOST_COHERENT_BIT as u32
+    );
+
+    if !memory.has_value {
+        log.exit_scope();
+        return (0, 0, null);
+    }
+    vk.bind_buffer_memory(binding.device, buffer, memory.value, 0);
+
+    transition_image(binding, image, vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL, vk.ImageLayout.TRANSFER_SRC_OPTIMAL);
+
+    log.info("Copying image to buffer");
+
+    var command_buffer_result = OneTimeCommandBuffer.begin(binding);
+    if !command_buffer_result.has_value {
+        log.exit_scope();
+        return (0, 0, null);
+    }
+    var command_buffer = command_buffer_result.value;
+
+    var region = vk.BufferImageCopy {
+        buffer_offset: 0,
+        buffer_row_length: 0,
+        buffer_image_height: 0,
+        image_subresource: {
+            aspect_mask: vk.ImageAspectFlagBits.COLOR_BIT as u32,
+            mip_level: 0,
+            base_array_layer: 0,
+            layer_count: 1
+        },
+        image_offset: {
+            x: 0,
+            y: 0,
+            z: 0
+        },
+        image_extent: {
+            width: image.create_info.width,
+            height: image.create_info.height,
+            depth: 1
+        }
+    };
+
+    vk.cmd_copy_image_to_buffer(
+        command_buffer.command_buffer,
+        image.api_handle as addr,
+        vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL,
+        buffer,
+        1,
+        &region
+    );
+
+    if !command_buffer.submit() {
+        log.exit_scope();
+        return (0, 0, null);
+    }
+
+    log.info("Copying buffer data to host");
+
+    var host_mem: addr;
+    var data = std.memory.alloc(image_size as usize);
+
+    vk.map_memory(binding.device, memory.value, 0, image_size, 0, &host_mem);
+    std.memory.copy(host_mem, data, image_size as usize);
+    vk.unmap_memory(binding.device, memory.value);
+
+    var path: *u8 = "out.png";
+    stbi.write_png(path, image_width as i32, image_height as i32, 4, data as *u8, image_width as i32 * 4);
+    std.memory.free(data);
+
+    transition_image(binding, image, vk.ImageLayout.TRANSFER_SRC_OPTIMAL, vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL);
+
+    log.exit_scope();
+    return (128, 128, null);
+}
+
+func allocate(
+    binding: *xr.GraphicsBindingVulkanKHR,
+    mem_reqs: *vk.MemoryRequirements,
+    prop_flags: u32
+) -> ?addr {
+    log.info("Allocating memory");
+    log.enter_scope();
+
+    log.info("Size: % bytes", mem_reqs.size);
+
+    var mem_type_index = find_memory_type(binding, mem_reqs, prop_flags);
+
+    if !mem_type_index.has_value {
+        log.error("Failed to find suitable memory type");
+        log.exit_scope();
+        return none;
+    }
+    log.info("Memory type index: %", mem_type_index.value);
+
+    var alloc_info = vk.MemoryAllocateInfo {
+        s_type: vk.StructureType.MEMORY_ALLOCATE_INFO,
+        p_next: null,
+        allocation_size: mem_reqs.size,
+        memory_type_index: mem_type_index.value
+    };
+
+    var memory: addr;
+    if vk.allocate_memory(binding.device, &alloc_info, null, &memory) != vk.Result.SUCCESS {
+        log.error("Failed to allocate memory");
+        log.exit_scope();
+        return none;
+    }
+
+    log.exit_scope();
+    return memory;
+}
+
+func find_memory_type(
+    binding: *xr.GraphicsBindingVulkanKHR,
+    mem_reqs: *vk.MemoryRequirements,
+    prop_flags: u32
+) -> ?u32 {
+    var mem_props: vk.PhysicalDeviceMemoryProperties;
+    vk.get_physical_device_memory_properties(binding.physical_device, &mem_props);
+
+    var types = &mem_props.memory_types as *vk.MemoryType;
+    var bits_set = mem_reqs.memory_type_bits;
+
+    for i in 0..mem_props.memory_type_count {
+        var cur_bit = 1 << i as u32;
+
+        if bits_set & cur_bit != 0 && (types[i].property_flags & prop_flags) == prop_flags {
+            return i as u32;
+        }
+    }
+
+    return none;
+}
+
+func transition_image(
+    binding: *xr.GraphicsBindingVulkanKHR,
+    image: *SwapchainImage,
+    old_layout: vk.ImageLayout,
+    new_layout: vk.ImageLayout
+) -> xr.Result {
+    log.info("Transitioning image layout");
+    log.enter_scope();
+
+    var command_buffer_result = OneTimeCommandBuffer.begin(binding);
+    if !command_buffer_result.has_value {
+        log.exit_scope();
+        return xr.Result.ERROR_RUNTIME_FAILURE;
+    }
+    var command_buffer = command_buffer_result.value;
+
+    var barrier = vk.ImageMemoryBarrier {
+        s_type: vk.StructureType.IMAGE_MEMORY_BARRIER,
+        p_next: null,
+        src_access_mask: 0,
+        dst_access_mask: vk.AccessFlagBits.TRANSFER_WRITE_BIT as u32,
+        old_layout,
+        new_layout,
+        src_queue_family_index: 0xFFFFFFFF,
+        dst_queue_family_index: 0xFFFFFFFF,
+        image: image.api_handle as addr,
+        subresource_range: {
+            aspect_mask: vk.ImageAspectFlagBits.COLOR_BIT as u32,
+            base_mip_level: 0,
+            level_count: 1,
+            base_array_layer: 0,
+            layer_count: image.create_info.array_size
+        }
+    };
+
+    vk.cmd_pipeline_barrier(
+        command_buffer.command_buffer,
+        vk.PipelineStageFlagBits.TOP_OF_PIPE_BIT as u32,
+        vk.PipelineStageFlagBits.TRANSFER_BIT as u32,
+        0,
+        0, null,
+        0, null,
+        1, &barrier
+    );
+
+    if !command_buffer.submit() {
+        log.exit_scope();
+        return xr.Result.ERROR_RUNTIME_FAILURE;
+    }
+
+    log.exit_scope();
+    return xr.Result.SUCCESS;
+}
+
+struct OneTimeCommandBuffer {
+    var binding: *xr.GraphicsBindingVulkanKHR;
+    var command_pool: addr;
+    var command_buffer: addr;
+
+    pub func begin(binding: *xr.GraphicsBindingVulkanKHR) -> ?OneTimeCommandBuffer {
+        log.info("Creating command pool");
+
+        var pool_create_info = vk.CommandPoolCreateInfo {
+            s_type: vk.StructureType.COMMAND_POOL_CREATE_INFO,
+            p_next: null,
+            flags:
+                vk.CommandPoolCreateFlagBits.TRANSIENT_BIT as u32 |
+                vk.CommandPoolCreateFlagBits.RESET_COMMAND_BUFFER_BIT as u32,
+            queue_family_index: binding.queue_family_index
+        };
+
+        var command_pool: addr;
+
+        if vk.create_command_pool(
+            binding.device,
+            &pool_create_info,
+            null,
+            &command_pool
+        ) != vk.Result.SUCCESS {
+            log.error("Failed to create command pool");
+            return none;
+        }
+
+        log.info("Allocating command buffer");
+
+        var alloc_info = vk.CommandBufferAllocateInfo {
+            s_type: vk.StructureType.COMMAND_BUFFER_ALLOCATE_INFO,
+            p_next: null,
+            command_pool,
+            level: vk.CommandBufferLevel.PRIMARY,
+            command_buffer_count: 1
+        };
+
+        var command_buffer: addr;
+        if vk.allocate_command_buffers(binding.device, &alloc_info, &command_buffer) != vk.Result.SUCCESS {
+            log.error("Failed to allocate command buffer");
+            return none;
+        }
+
+        log.info("Beginning command buffer");
+
+        var begin_info = vk.CommandBufferBeginInfo {
+            s_type: vk.StructureType.COMMAND_BUFFER_BEGIN_INFO,
+            p_next: null,
+            flags: vk.CommandBufferUsageFlagBits.ONE_TIME_SUBMIT_BIT as u32,
+            p_inheritance_info: null,
+        };
+        vk.begin_command_buffer(command_buffer, &begin_info);
+
+        return OneTimeCommandBuffer {
+            binding,
+            command_pool,
+            command_buffer
+        };
+    }
+
+    pub func submit(self) -> bool {
+        vk.end_command_buffer(self.command_buffer);
+
+        log.info("Submitting command buffer");
+
+        var queue: addr;
+        vk.get_device_queue(self.binding.device, self.binding.queue_family_index, self.binding.queue_index, &queue);
+
+        var submit_info = vk.SubmitInfo {
+            s_type: vk.StructureType.SUBMIT_INFO,
+            p_next: null,
+            wait_semaphore_count: 0,
+            p_wait_semaphores: null,
+            p_wait_dst_stage_mask: null,
+            command_buffer_count: 1,
+            p_command_buffers: &self.command_buffer,
+            signal_semaphore_count: 0,
+            p_signal_semaphores: null
+        };
+        vk.queue_submit(queue, 1, &submit_info, null);
+        vk.queue_wait_idle(queue);
+
+        log.info("Cleaning up command buffer and pool");
+
+        vk.free_command_buffers(self.binding.device, self.command_pool, 1, &self.command_buffer);
+        vk.destroy_command_pool(self.binding.device, self.command_pool, null);
+    }
+}

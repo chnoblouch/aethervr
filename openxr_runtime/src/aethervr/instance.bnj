@@ -1,0 +1,243 @@
+use std.memory;
+use c.lib.string.strcpy;
+
+use xr;
+use vulkan as vk;
+
+use aethervr.{
+    graphics,
+    constants,
+    input,
+    log,
+    event.EventQueue,
+    path.PathMapping,
+    session.Session,
+    action.ActionSet,
+    utils.{version, handle_buffer, is_successful},
+};
+
+struct Instance {
+    var event_queue: EventQueue;
+    var path_mapping: PathMapping;
+    var graphics_reqs_queried: bool;
+    var interaction_profile: u64;
+
+    pub func create(create_info: xr.InstanceCreateInfo) -> (*Instance, xr.Result) {
+        log.info("Creating instance");
+        log.info("  App name: %", &create_info.application_info.application_name as *u8);
+        log.info("  Engine name: %", &create_info.application_info.engine_name as *u8);
+
+        log.info("  Extensions:");
+        for i in 0..create_info.enabled_extension_count {
+            log.info("    - %", create_info.enabled_extension_names[i]);
+        }
+
+        var instance = memory.box(Instance {
+            event_queue: EventQueue.new(),
+            path_mapping: PathMapping.new(),
+            graphics_reqs_queried: false,
+            interaction_profile: 0
+        });
+
+        return (instance, xr.Result.SUCCESS);
+    }
+
+    pub func destroy(instance: *Instance) -> xr.Result {
+        log.info("Destroying instance");
+        memory.free(instance);
+        return xr.Result.SUCCESS;
+    }
+
+    pub func get_properties(self, properties: *xr.InstanceProperties) -> xr.Result {
+        properties.runtime_version = version(0, 0, 1);
+        strcpy(&properties.runtime_name as *u8, "AetherVR Runtime");
+
+        log.info("Getting instance properties");
+        log.info("  Runtime name: %", &properties.runtime_name as *u8);
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func get_system(self, info: *xr.SystemGetInfo) -> (u64, xr.Result) {
+        log.info("Getting system");
+
+        if info.form_factor != xr.FormFactor.HEAD_MOUNTED_DISPLAY {
+            log.error("Requested form factor not supported");
+            return (0 as u64, xr.Result.ERROR_FORM_FACTOR_UNSUPPORTED);
+        }
+
+        log.info("  ID: %", constants.SYSTEM_ID);
+        return (constants.SYSTEM_ID as u64, xr.Result.SUCCESS);
+    }
+
+    pub func get_system_properties(self, system_id: u64, properties: *xr.SystemProperties) -> xr.Result {
+        log.info("Getting system properties");
+
+        if !check_system(system_id) {
+            return xr.Result.ERROR_SYSTEM_INVALID;
+        }
+
+        properties.system_id = system_id;
+        strcpy(&properties.system_name as *u8, "AetherVR System");
+
+        properties.graphics_properties.max_swapchain_image_width = constants.SWAPCHAIN_WIDTH;
+        properties.graphics_properties.max_swapchain_image_height = constants.SWAPCHAIN_HEIGHT;
+        properties.graphics_properties.max_layer_count = 16;
+
+        properties.tracking_properties.orientation_tracking = 1;
+        properties.tracking_properties.position_tracking = 1;
+
+        log.info("  System ID: %", system_id);
+        log.info("  System Name: %", &properties.system_name as *u8);
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func string_to_path(self, string: *u8) -> (u64, xr.Result) {
+        var path = self.path_mapping.get_path(string);
+        log.info("Converting string to path: % -> %", string, path);
+        return (path, xr.Result.SUCCESS);
+    }
+
+    pub func path_to_string(self, path: u64) -> (*u8, xr.Result) {
+        var string = self.path_mapping.get_string(path).value;
+        log.info("Converting path to string: % -> %", path, string);
+        return (string, xr.Result.SUCCESS);
+    }
+
+    pub func enumerate_view_configurations(self, system_id: u64) -> ([xr.ViewConfigurationType], xr.Result) {
+        log.info("Enumerating view configurations");
+
+        if !check_system(system_id) {
+            return ([], xr.Result.ERROR_SYSTEM_INVALID);
+        }
+
+        var configs = [xr.ViewConfigurationType.PRIMARY_STEREO];
+        return (configs, xr.Result.SUCCESS);
+    }
+
+    pub func create_session(self, create_info: *xr.SessionCreateInfo) -> (*Session, xr.Result) {
+        return Session.create(self, create_info);
+    }
+
+    pub func create_action_set(self, create_info: *xr.ActionSetCreateInfo) -> (*ActionSet, xr.Result) {
+        return ActionSet.create(self, create_info);
+    }
+
+    pub func get_opengl_graphics_reqs(
+        self,
+        system_id: u64,
+        graphics_requirements: *xr.GraphicsRequirementsOpenGLKHR
+    ) -> xr.Result {
+        log.info("Getting OpenGL graphics requirements");
+
+        if !check_system(system_id) {
+            return xr.Result.ERROR_SYSTEM_INVALID;
+        }
+
+        self.graphics_reqs_queried = true;
+        return graphics.opengl.get_reqs(graphics_requirements);
+    }
+
+    pub func get_vulkan_graphics_reqs(self, system_id: u64, reqs: *xr.GraphicsRequirementsVulkanKHR) -> xr.Result {
+        log.info("Getting Vulkan graphics requirements");
+
+        if !check_system(system_id) {
+            return xr.Result.ERROR_SYSTEM_INVALID;
+        }
+
+        self.graphics_reqs_queried = true;
+        return graphics.vulkan.get_reqs(reqs);
+    }
+
+    pub func get_vulkan_device(self, system_id: u64, vk_instance: addr, vk_physical_device: *addr) -> xr.Result {
+        log.info("Getting Vulkan graphics device (XR_EXT_vulkan_enable)");
+
+        if !check_system(system_id) {
+            return xr.Result.ERROR_SYSTEM_INVALID;
+        }
+
+        return graphics.vulkan.get_device(vk_instance, vk_physical_device);
+    }
+
+    pub func get_vulkan_device_2(self, vk_instance: addr, vk_physical_device: *addr) -> xr.Result {
+        log.info("Getting Vulkan graphics device (XR_EXT_vulkan_enable2)");
+        return graphics.vulkan.get_device(vk_instance, vk_physical_device);
+    }
+
+    pub func get_vulkan_instance_extensions(
+        self,
+        system_id: u64,
+        buffer_capacity_input: u32,
+        buffer_count_output: *u32,
+        buffer: *u8,
+    ) -> xr.Result {
+        log.info("Getting Vulkan instance extensions");
+
+        if !check_system(system_id) {
+            return xr.Result.ERROR_SYSTEM_INVALID;
+        }
+
+        var extensions = graphics.vulkan.get_instance_extensions();
+        handle_buffer(&extensions, buffer_capacity_input, buffer_count_output, &buffer);
+        return xr.Result.SUCCESS;
+    }
+
+    pub func get_vulkan_device_extensions(
+        self,
+        system_id: u64,
+        buffer_capacity_input: u32,
+        buffer_count_output: *u32,
+        buffer: *u8,
+    ) -> xr.Result {
+        log.info("Getting Vulkan device extensions");
+
+        if !check_system(system_id) {
+            return xr.Result.ERROR_SYSTEM_INVALID;
+        }
+
+        var extensions = graphics.vulkan.get_device_extensions();
+        handle_buffer(&extensions, buffer_capacity_input, buffer_count_output, &buffer);
+        return xr.Result.SUCCESS;
+    }
+
+    # Creates a Vulkan instance (XR_EXT_vulkan_enable2)
+    pub func create_vulkan_instance(
+        self,
+        info: *xr.VulkanInstanceCreateInfoKHR,
+        vk_instance: *addr,
+        vk_result: *vk.Result
+    ) -> xr.Result {
+        return graphics.vulkan.create_instance(info, vk_instance, vk_result);
+    }
+
+    # Createas a Vulkan device (XR_EXT_vulkan_enable2)
+    pub func create_vulkan_device(
+        self,
+        info: *xr.VulkanDeviceCreateInfoKHR,
+        vk_device: *addr,
+        vk_result: *vk.Result
+    ) -> xr.Result {
+        return graphics.vulkan.create_device(info, vk_device, vk_result);
+    }
+
+    pub func get_d3d11_graphics_reqs(self, system_id: u64, reqs: *xr.GraphicsRequirementsD3D11KHR) -> xr.Result {
+        log.info("Getting D3D11 graphics requirements");
+
+        if !check_system(system_id) {
+            return xr.Result.ERROR_SYSTEM_INVALID;
+        }
+
+        self.graphics_reqs_queried = true;
+        return graphics.d3d11.get_reqs(reqs);
+    }
+
+    pub func check_system(system_id: u64) -> bool {
+        if system_id != constants.SYSTEM_ID {
+            log.info("Invalid system ID %", system_id);
+            return false;
+        }
+
+        return true;
+    }
+}

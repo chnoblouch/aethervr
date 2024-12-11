@@ -1,0 +1,44 @@
+use c.lib.string.strcmp;
+
+use xr;
+
+pub func streq(a: *u8, b: *u8) -> bool {
+    return strcmp(a, b) == 0;
+}
+
+pub func version(major: u64, minor: u64, patch: u64) -> u64 {
+    return ((major & 0xFFFF) << 48) | ((minor & 0xFFFF) << 32) | (patch & 0xFFFFFFFF);
+}
+
+pub func handle_buffer_size(count: u32, count_out: *u32, capacity: u32) -> (bool, xr.Result) {
+    *count_out = count;
+
+    if capacity == 0 {
+        return (true, xr.Result.SUCCESS);
+    } else if capacity < count {
+        return (true, xr.Result.ERROR_SIZE_INSUFFICIENT);
+    }
+
+    return (false, xr.Result.SUCCESS);
+}
+
+func handle_buffer[T](array: *[T], capacity: u32, count_out: *u32, buffer: *T) -> xr.Result {
+    var count = array.length as u32;
+
+    *count_out = count;
+    if capacity == 0 {
+        return xr.Result.SUCCESS;
+    } else if capacity < count {
+        return xr.Result.ERROR_SIZE_INSUFFICIENT;
+    }
+
+    for i in 0..count {
+        buffer[i] = (*array)[i as usize];
+    }
+
+    return xr.Result.SUCCESS;
+}
+
+pub func is_successful(result: xr.Result) -> bool {
+    return result as u32 >= 0;
+}

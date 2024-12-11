@@ -1,0 +1,143 @@
+use std.memory;
+
+use xr;
+use vulkan as vk;
+
+use aethervr.{
+    graphics,
+    constants,
+    log,
+    session.Session,
+    utils.handle_buffer_size,
+};
+
+enum SwapchainImageState {
+    AVAILABLE,
+    ACQUIRED,
+    WAITED,
+    BEGUN,
+}
+
+struct SwapchainImage {
+    var create_info: xr.SwapchainCreateInfo;
+    var api_handle: usize;
+    var state: SwapchainImageState;
+}
+
+struct Swapchain {
+    var session: *Session;
+    var usage_flags: u64;
+    var images: [SwapchainImage];
+
+    pub func create(session: *Session, create_info: *xr.SwapchainCreateInfo) -> (*Swapchain, xr.Result) {
+        log.info("Creating swapchain");
+
+        # Raise an error if create flags were provided because there are currently none implemented.
+        if create_info.create_flags != 0 {
+            log.warn("Unsupported create flags, cannot create swapchain");
+            return (null, xr.Result.ERROR_FEATURE_UNSUPPORTED);
+        }
+
+        log.enter_scope();
+
+        log.info("Format: %", create_info.format);
+        log.info("Sample count: %", create_info.sample_count);
+        log.info("Width: %", create_info.width);
+        log.info("Height: %", create_info.height);
+        log.info("Face count: %", create_info.face_count);
+        log.info("Array size: %", create_info.array_size);
+        log.info("Mip count: %", create_info.mip_count);
+
+        var supported_formats = session.graphics_backend.get_supported_formats();
+        var format_supported = false;
+
+        for supported_format in supported_formats {
+            if create_info.format == supported_format {
+                format_supported = true;
+                break;
+            }
+        }
+
+        if !format_supported {
+            log.error("Unsupported swapchain format");
+            return (null, xr.Result.ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED);
+        }
+
+        var images: [SwapchainImage] = [];
+
+        for i in 0..constants.NUM_SWAPCHAIN_IMAGES {
+            var image: SwapchainImage;
+            if session.graphics_backend.create_image(create_info, &image) != xr.Result.SUCCESS {
+                # TODO: This is a memory leak
+                log.exit_scope();
+                return (null, xr.Result.ERROR_RUNTIME_FAILURE);
+            }
+
+            images.append(image);
+        }
+
+        var swapchain = memory.box(Swapchain {
+            session,
+            usage_flags: create_info.usage_flags,
+            images
+        });
+
+        log.exit_scope();
+        return (swapchain, xr.Result.SUCCESS);
+    }
+
+    pub func enumerate_images(
+        self,
+        image_capacity_input: u32,
+        image_count_output: *u32,
+        images: *xr.SwapchainImageBaseHeader
+    ) -> xr.Result {
+        log.info("Enumerating swapchain images");
+
+        var buffer_info = handle_buffer_size(self.images.length as u32, image_count_output, image_capacity_input);
+        if buffer_info.0 {
+            return buffer_info.1;
+        }
+
+        for i in 0..self.images.length {
+            var handle = self.images[i as u32].api_handle;
+            self.session.graphics_backend.store_image(handle, images, i as u32);
+        }
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func acquire_image(self, info: *xr.SwapchainImageAcquireInfo, index: *u32) -> xr.Result {
+        for i in 0..self.images.length {
+            if self.images[i as u32].state == SwapchainImageState.AVAILABLE {
+                *index = i as u32;
+                self.images[i as u32].state = SwapchainImageState.ACQUIRED;
+                return xr.Result.SUCCESS;
+            }
+        }
+
+        return xr.Result.ERROR_CALL_ORDER_INVALID;
+    }
+
+    pub func wait_image(self, info: *xr.SwapchainImageWaitInfo) -> xr.Result {
+        for i in 0..self.images.length {
+            if self.images[i as u32].state == SwapchainImageState.ACQUIRED {
+                self.images[i as u32].state = SwapchainImageState.WAITED;
+                return xr.Result.SUCCESS;
+            }
+        }
+
+        return xr.Result.ERROR_CALL_ORDER_INVALID;
+    }
+
+    pub func release_image(self, info: *xr.SwapchainImageReleaseInfo) -> xr.Result {
+        for i in 0..self.images.length {
+            if self.images[i as u32].state == SwapchainImageState.WAITED {
+                self.images[i as u32].state = SwapchainImageState.AVAILABLE;
+                return xr.Result.SUCCESS;
+            }
+        }
+
+        return xr.Result.ERROR_CALL_ORDER_INVALID;
+    }
+}

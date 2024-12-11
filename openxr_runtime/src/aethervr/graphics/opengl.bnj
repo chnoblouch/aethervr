@@ -1,0 +1,43 @@
+use xr;
+use gl;
+
+use aethervr.{
+    log,
+    swapchain.{SwapchainImage, SwapchainImageState},
+    utils.version,
+};
+
+pub func get_reqs(reqs: *xr.GraphicsRequirementsOpenGLKHR) -> xr.Result {
+    reqs.min_api_version_supported = version(3, 0, 0);
+    reqs.max_api_version_supported = version(4, 6, 0);
+    return xr.Result.SUCCESS;
+}
+
+pub func get_supported_formats() -> [i64] {
+    return [gl.SRGB8_ALPHA8 as i64];
+}
+
+pub func create_swapchain_image(
+    create_info: *xr.SwapchainCreateInfo,
+    binding: *xr.GraphicsBindingOpenGLXlibKHR,
+    swapchain_image: *SwapchainImage
+) -> xr.Result {
+    log.info("Creating OpenGL image");
+    log.enter_scope();
+
+    var texture: u32;
+    # gl.gen_textures(1, &texture);
+    # gl.bind_texture(gl.TEXTURE_2D, texture);
+    # gl.tex_image2_d(gl.TEXTURE_2D, 0, create_info.format as u32, create_info.width, create_info.height, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
+    # gl.tex_parameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    # gl.tex_parameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    *swapchain_image = SwapchainImage {
+        create_info: *create_info,
+        api_handle: texture as usize,
+        state: SwapchainImageState.AVAILABLE
+    };
+
+    log.exit_scope();
+    return xr.Result.SUCCESS;
+}

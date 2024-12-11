@@ -1,8 +1,0 @@
-const SYSTEM_ID: u64 = 1;
-
-const SWAPCHAIN_WIDTH: u32 = 1080;
-const SWAPCHAIN_HEIGHT: u32 = 1080;
-const FPS: i64 = 60;
-const NUM_SWAPCHAIN_IMAGES: u32 = 2;
-
-const NS_PER_FRAME: i64 = 1000000000 / FPS;

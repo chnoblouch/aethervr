@@ -1,0 +1,74 @@
+use std.test.{assert_eq, assert_ne};
+
+use aethervr.utils.streq;
+
+struct PathMapping {
+    var paths: [String];
+    var max_path: u64;
+
+    pub func new() -> PathMapping {
+        return PathMapping {
+            paths: [],
+            max_path: 0
+        };
+    }
+
+    pub func get_path(self, cstr: *u8) -> u64 {
+        var string = String.from_cstr(cstr);
+
+        for i in 0..self.paths.length {
+            if self.paths[i as u32] == string {
+                return i as u64 + 1;
+            }
+        }
+
+        self.paths.append(string);
+        return self.paths.length as u64;
+    }
+
+    pub func get_string(self, path: u64) -> ?*u8 {
+        var index = path as u32 - 1;
+
+        if index < 0 || index >= self.paths.length {
+            return none;
+        }
+
+        var string = self.paths[index].cstr();
+        return string;
+    }
+
+    pub func is_path(self, path: u64, string: *u8) -> bool {
+        var lookup_result = self.get_string(path);
+        if !lookup_result.has_value {
+            return false;
+        }
+
+        return streq(lookup_result.value, string);
+    }
+}
+
+@test func test_same_id() {
+    var mapping = PathMapping.new();
+    var id = mapping.get_path("/user/hand/left");
+    assert_eq(mapping.get_path("/user/hand/left"), id);
+}
+
+@test func test_different_id() {
+    var mapping = PathMapping.new();
+    var id = mapping.get_path("/user/hand/left");
+    assert_ne(mapping.get_path("/user/hand/right"), id);
+}
+
+@test func test_increasing() {
+    var mapping = PathMapping.new();
+    var id = mapping.get_path("/user/hand/left");
+    assert_eq(mapping.get_path("/user/hand/right"), id + 1);
+}
+
+@test func test_same_string() {
+    var mapping = PathMapping.new();
+    var id = mapping.get_path("/user/hand/left");
+    var string = String.from(mapping.get_string(id).unwrap());
+
+    assert_eq(string, "/user/hand/right");
+}

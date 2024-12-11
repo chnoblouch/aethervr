@@ -1,12 +1,12 @@
-from aether.gui import GUI
-from aether.camera_capture import CameraCapture
-from aether.runtime_connection import RuntimeConnection
-from aether.head_tracker import HeadTracker
-from aether.hand_tracker import HandTracker
-from aether.tracking_state import TrackingState, HeadState, HandState
-from aether.input_state import InputState
-from aether.gesture_detector import GestureDetector
-from aether.config import Config, ControllerConfig
+from aethervr.gui import GUI
+from aethervr.camera_capture import CameraCapture
+from aethervr.runtime_connection import RuntimeConnection
+from aethervr.head_tracker import HeadTracker
+from aethervr.hand_tracker import HandTracker
+from aethervr.tracking_state import TrackingState, HeadState, HandState
+from aethervr.input_state import InputState
+from aethervr.gesture_detector import GestureDetector
+from aethervr.config import Config, ControllerConfig
 import numpy as np
 import time
 

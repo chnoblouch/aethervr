@@ -1,0 +1,136 @@
+use std.{memory, math};
+
+use xr;
+
+use aethervr.{
+    pose,
+    input,
+    log,
+    session.Session,
+    action.Action,
+};
+
+enum SpaceType {
+    REFERENCE_SPACE,
+    ACTION_SPACE
+}
+
+struct Space {
+    var session: *Session;
+    var type_: SpaceType;
+
+    var reference_space_type: xr.ReferenceSpaceType;
+    var action: *Action;
+    var subaction_path: u64;
+
+    var location: xr.Posef;
+
+    func create_reference_space(
+        session: *Session,
+        create_info: *xr.ReferenceSpaceCreateInfo
+    ) -> (*Space, xr.Result) {
+        log.info("Creating reference space");
+
+        if create_info.reference_space_type != xr.ReferenceSpaceType.VIEW &&
+           create_info.reference_space_type != xr.ReferenceSpaceType.LOCAL &&
+           create_info.reference_space_type != xr.ReferenceSpaceType.STAGE {
+            log.info("Reference space type not supported");
+            return (null, xr.Result.ERROR_REFERENCE_SPACE_UNSUPPORTED);
+        }
+
+        log.info("  Type: %", type_to_str(create_info.reference_space_type));
+
+        var space = memory.box(Space {
+            session,
+            type_: SpaceType.REFERENCE_SPACE,
+            reference_space_type: create_info.reference_space_type,
+            action: undefined,
+            subaction_path: undefined,
+            location: {
+                orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
+                position: { x: 0.0, y: 0.0, z: 0.0 }
+            }
+        });
+
+        return (space, xr.Result.SUCCESS);
+    }
+
+    pub func create_action_space(
+        session: *Session,
+        create_info: *xr.ActionSpaceCreateInfo
+    ) -> (*Space, xr.Result) {
+        log.info("Creating action space");
+        log.enter_scope();
+
+        var action = create_info.action as *Action;
+        var subaction_path = create_info.subaction_path;
+
+        # log.info("Action: %", action.name.copy());
+        # log.info("Subaction path: %", session.instance.path_mapping.get_string(subaction_path).value);
+
+        var space = memory.box(Space {
+            session,
+            type_: SpaceType.ACTION_SPACE,
+            reference_space_type: undefined,
+            action,
+            subaction_path,
+            location: {
+                orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
+                position: { x: 0.0, y: 0.0, z: 0.0 }
+            }
+        });
+
+        log.exit_scope();
+        return (space, xr.Result.SUCCESS);
+    }
+
+    pub func locate(self, base: *Space, time: i64, location: *xr.SpaceLocation) -> xr.Result {
+        location.pose = base.get_relative_pose(self.locate_in_world_space(time), time);
+
+        location.location_flags =
+            xr.SPACE_LOCATION_ORIENTATION_VALID_BIT |
+            xr.SPACE_LOCATION_POSITION_VALID_BIT |
+            xr.SPACE_LOCATION_ORIENTATION_TRACKED_BIT |
+            xr.SPACE_LOCATION_POSITION_TRACKED_BIT;
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func locate_in_world_space(self, time: i64) -> xr.Posef {
+        if self.type_ == SpaceType.REFERENCE_SPACE {
+            if self.reference_space_type == xr.ReferenceSpaceType.VIEW {
+                return input.get_view_pose(self.session);
+            }
+        } else if self.type_ == SpaceType.ACTION_SPACE {
+            return self.session.input_mapper.get_space_pose(self.action, self.subaction_path, time);
+        }
+
+        return pose.pose(pose.orientation_identity(), pose.position(0.0, 0.0, 0.0));
+    }
+
+    pub func get_relative_pose(self, p: xr.Posef, time: i64) -> xr.Posef {
+        return pose.relative(self.locate_in_world_space(time), p);
+    }
+
+    func str(self) -> String {
+        if self.type_ == SpaceType.REFERENCE_SPACE {
+            return "reference space " + type_to_str(self.reference_space_type);
+        } else if self.type_ == SpaceType.ACTION_SPACE {
+            return "action space";
+        } else {
+            return "";
+        }
+    }
+
+    func type_to_str(reference_space_type: xr.ReferenceSpaceType) -> String {
+        if reference_space_type == xr.ReferenceSpaceType.VIEW {
+            return "XR_REFERENCE_SPACE_TYPE_VIEW";
+        } else if reference_space_type == xr.ReferenceSpaceType.LOCAL {
+            return "XR_REFERENCE_SPACE_TYPE_LOCAL";
+        } else if reference_space_type == xr.ReferenceSpaceType.STAGE {
+            return "XR_REFERENCE_SPACE_TYPE_STAGE";
+        } else {
+            return "";
+        }
+    }
+}
