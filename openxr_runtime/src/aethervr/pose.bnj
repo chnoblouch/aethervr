@@ -62,7 +62,34 @@ struct Quat {
     }
 
     pub func slerp(a: Quat, b: Quat, t: f32) -> Quat {
-        return b;
+        # Thanks to: https://www.euclideanspace.com/maths/algebra/realNormedAlgebra/quaternions/slerp/index.htm
+        
+        var cos_half_theta = a.w * b.w + a.x * b.x + a.y * b.y + a.z * b.z;
+        if cos_half_theta <= -1.0 || cos_half_theta >= 1.0 {
+            return a;
+        }
+
+        var half_theta = math.acos(cos_half_theta);
+        var sin_half_theta = math.sqrt(1.0 - cos_half_theta * cos_half_theta);
+
+        if math.abs(sin_half_theta) < 0.001 {
+            return Quat.new(
+                0.5 * a.x + 0.5 * b.x,
+                0.5 * a.y + 0.5 * b.y,
+                0.5 * a.z + 0.5 * b.z,
+                0.5 * a.w + 0.5 * b.w,
+            );
+        }
+
+        var fa = math.sin((1.0 - t) * half_theta) / sin_half_theta;
+        var fb = math.sin(t * half_theta) / sin_half_theta;
+
+        return Quat.new(
+            fa * a.x + fb * b.x,
+            fa * a.y + fb * b.y,
+            fa * a.z + fb * b.z,
+            fa * a.w + fb * b.w,
+        );
     }
 
     pub func inverse(self) -> Quat {

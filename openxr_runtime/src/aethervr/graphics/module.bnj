@@ -18,7 +18,7 @@ union GraphicsBackend {
         if next.type_ == xr.StructureType.GRAPHICS_BINDING_OPENGL_XLIB_KHR {
             log.info("Graphics binding: OpenGL (Xlib)");
 
-            if gl.load_auto() {
+            if gl.load_auto() != 0 {
                 log.info("OpenGL loaded");
             } else {
                 log.error("Failed to load OpenGL");

@@ -3,9 +3,6 @@ use std.math;
 use xr;
 
 use aethervr.{
-    log,
-    time,
-    constants,
     session.Session,
     pose.Pose,
 };
@@ -56,16 +53,11 @@ struct PoseBuffer {
     }
 
     pub func interpolate(self, timestamp: i64) -> Pose {
-        # If the timestamp is newer than the latest pose, there is nothing to interpolate as we don't have the tracking
-        # data yet, so just return the latest pose.
-
         if timestamp <= self.snapshots[0].timestamp {
             return self.snapshots[0].pose;
         } else if timestamp >= self.snapshots[NUM_SNAPSHOTS - 1].timestamp {
             return self.snapshots[NUM_SNAPSHOTS - 1].pose;
         }
-
-        # Otherwise, find the pose before and after the timestamp and interpolate between them.
 
         var index_before: u32 = 0;
         var index_after: u32 = 0;
@@ -80,8 +72,6 @@ struct PoseBuffer {
         var before = self.snapshots[index_before];
         var after = self.snapshots[index_after];
         var t = (timestamp - before.timestamp) as f32 / (after.timestamp - before.timestamp) as f32;
-
-        log.info("%", t);
 
         return Pose.interpolate(before.pose, after.pose, t);
     }
