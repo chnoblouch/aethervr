@@ -316,8 +316,8 @@ struct Session {
         state.is_active = 1;
 
         if result.has_value {
-            state.current_state.x = 0.0;
-            state.current_state.y = 0.0;
+            state.current_state.x = result.value.x;
+            state.current_state.y = result.value.y;
         } else {
             state.current_state.x = 0.0;
             state.current_state.y = 0.0;

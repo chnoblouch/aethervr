@@ -133,9 +133,13 @@ class RuntimeConnection:
             int(self.state.right_controller_state.buttons[ControllerButton.Y_BUTTON]),
             int(self.state.right_controller_state.buttons[ControllerButton.MENU]),
             int(self.state.right_controller_state.buttons[ControllerButton.SYSTEM]),
+            self.state.left_controller_state.thumbstick_x,
+            self.state.left_controller_state.thumbstick_y,
+            self.state.right_controller_state.thumbstick_x,
+            self.state.right_controller_state.thumbstick_y,
         ]
 
-        format = "fffffff" + "fffffff" + "BBBBBBBB" + "BBBBBBBB"
+        format = "fffffff" + "fffffff" + "BBBBBBBB" + "BBBBBBBB" + "ff" + "ff"
         return struct.pack(format, *values)
 
     def close(self):

@@ -1,5 +1,6 @@
 from enum import Enum
 from dataclasses import dataclass, field
+from typing import Optional
 
 from aethervr.pose import Position, Orientation
 
@@ -29,6 +30,9 @@ class ControllerState:
     buttons: dict[ControllerButton, bool] = field(
         default_factory=lambda: {button: False for button in ControllerButton}
     )
+    jostick_center: Optional[Position] = None
+    thumbstick_x: float = 0.0
+    thumbstick_y: float = 0.0
     timestamp: float = 0.0
 
 

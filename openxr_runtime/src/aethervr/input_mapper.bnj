@@ -79,9 +79,18 @@ struct InputMapper {
         return none;
     }
 
-    pub func get_action_vector2f(self, action: *Action, subaction_path: u64) -> ?f32 {
+    pub func get_action_vector2f(self, action: *Action, subaction_path: u64) -> ?xr.Vector2f {
         var binding = self.get_concrete_binding(action.binding, subaction_path);
         var hand_state = self.get_hand_state(binding.device);
+
+        if hand_state.has_value {
+            if binding.identifier == InputIdentifier.THUMBSTICK {
+                return xr.Vector2f {
+                    x: hand_state.value.thumbstick_x,
+                    y: hand_state.value.thumbstick_y,
+                };
+            }
+        }
 
         return none;
     }

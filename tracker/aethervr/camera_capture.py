@@ -16,8 +16,8 @@ class CameraCapture:
 
     def capture_images(self):
         capture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-        capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        capture.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
+        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
         if not capture.isOpened():
             raise Exception("Failed to open capture device")

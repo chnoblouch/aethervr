@@ -35,6 +35,8 @@ class GestureDetector:
         flipped: bool,
     ):
         input_state.buttons = {button: False for button in ControllerButton}
+        input_state.thumbstick_x = 0.0
+        input_state.thumbstick_y = 0.0
 
         if not tracking_state.visible:
             return
@@ -46,6 +48,22 @@ class GestureDetector:
                 tracking_state.gesture = Gesture.PINCH
             else:
                 tracking_state.gesture = Gesture.PALM_PINCH
+        elif GestureDetector.is_using_thumbstick(tracking_state.landmarks):
+            tracking_state.gesture = Gesture.USING_THUMBSTICK
+
+            if input_state.jostick_center is None:
+                input_state.jostick_center = tracking_state.position
+            else:
+                dx = tracking_state.position.x - input_state.jostick_center.x
+                dy = -(tracking_state.position.z - input_state.jostick_center.z)
+                d = math.sqrt(dx * dx + dy * dy)
+
+                if d >= 0.075:
+                    input_state.thumbstick_x = dx / d
+                    input_state.thumbstick_y = dy / d
+                else:
+                    input_state.thumbstick_x = 0.0
+                    input_state.thumbstick_y = 0.0
         else:
             tracking_state.gesture = None
 
@@ -54,18 +72,41 @@ class GestureDetector:
 
             if mapping is not None:
                 input_state.buttons[mapping] = True
+        else:
+            input_state.jostick_center = None
 
     @staticmethod
     def is_pinching(landmarks):
         tip1 = landmarks[4]
         tip2 = landmarks[8]
-        return math.sqrt((tip2.x - tip1.x) ** 2 + (tip2.y - tip1.y) ** 2) < 0.06
+        return GestureDetector.calc_distance(tip1, tip2) < 0.06
+
+    @staticmethod
+    def is_using_thumbstick(landmarks):
+        tip1 = landmarks[4]
+        tip2 = landmarks[12]
+        return GestureDetector.calc_distance(tip1, tip2) < 0.06
 
     @staticmethod
     def is_fist(landmarks):
-        tip = landmarks[12]
+        tip0 = landmarks[4]
+        tip1 = landmarks[8]
+        tip2 = landmarks[12]
+        tip3 = landmarks[16]
+        tip4 = landmarks[20]
         wrist = landmarks[0]
-        return math.sqrt((tip.x - wrist.x) ** 2 + (tip.y - wrist.y) ** 2) < 0.15
+
+        return (
+            GestureDetector.calc_distance(tip0, wrist) < 0.25
+            and GestureDetector.calc_distance(tip1, wrist) < 0.25
+            and GestureDetector.calc_distance(tip2, wrist) < 0.15
+            and GestureDetector.calc_distance(tip3, wrist) < 0.25
+            and GestureDetector.calc_distance(tip4, wrist) < 0.25
+        )
+
+    @staticmethod
+    def calc_distance(landmark_a, landmark_b):
+        return math.sqrt((landmark_a.x - landmark_b.x) ** 2 + (landmark_a.y - landmark_b.y) ** 2)
 
     @staticmethod
     def is_front_facing(landmarks, flipped: bool):

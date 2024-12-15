@@ -209,6 +209,8 @@ class CameraView(QLabel):
                     color = (255, 0, 255, 255)
                 elif hand_state.gesture == Gesture.FIST:
                     color = (0, 0, 255, 255)
+                elif hand_state.gesture == Gesture.USING_THUMBSTICK:
+                    color = (0, 255, 255, 255)
 
                 x1 = int(width * landmarks[a].x)
                 y1 = int(height * landmarks[a].y)

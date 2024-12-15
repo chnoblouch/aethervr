@@ -16,6 +16,7 @@ class Gesture(Enum):
     PINCH = 0
     PALM_PINCH = 1
     FIST = 2
+    USING_THUMBSTICK = 3
 
 
 @dataclass

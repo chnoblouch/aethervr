@@ -97,6 +97,8 @@ struct ControllerState {
     var y_pressed: bool;
     var menu_pressed: bool;
     var system_pressed: bool;
+    var thumbstick_x: f32;
+    var thumbstick_y: f32;
 
     pub func new() -> ControllerState {
         return ControllerState {
@@ -109,6 +111,8 @@ struct ControllerState {
             y_pressed: false,
             menu_pressed: false,
             system_pressed: false,
+            thumbstick_x: 0.0,
+            thumbstick_y: 0.0,
         };
     }
 }

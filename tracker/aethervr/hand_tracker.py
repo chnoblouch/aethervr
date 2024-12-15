@@ -71,12 +71,12 @@ class HandTracker:
                 nonlinear_depth_estimate = math.sqrt(dx * dx + dy * dy)
                 linear_depth_estimate = math.sqrt(nonlinear_depth_estimate)
 
-                raw_x = float(landmarks[0].x)
-                raw_y = float(landmarks[0].y)
+                raw_x = (float(landmarks[0].x) + float(landmarks[5].x) + float(landmarks[17].x)) / 3
+                raw_y = (float(landmarks[0].y) + float(landmarks[5].y) + float(landmarks[17].y)) / 3
 
                 hand_x = offset[0] + 2.0 * (raw_x - tracking_origin[0])
                 hand_y = offset[1] - 2.0 * (raw_y - tracking_origin[1])
-                hand_z = 1.3 - 4.0 * linear_depth_estimate
+                hand_z = 1.3 - 5.0 * linear_depth_estimate
                 position = Position(hand_x, hand_y, hand_z)
 
                 orientation = Orientation.from_triangle(p1, p2, p3, flip)

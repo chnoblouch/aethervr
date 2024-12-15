@@ -73,6 +73,10 @@ struct ControllerStateMsg {
     var right_y_pressed: u8;
     var right_menu_pressed: u8;
     var right_system_pressed: u8;
+    var left_thumbstick_x: f32;
+    var left_thumbstick_y: f32;
+    var right_thumbstick_x: f32;
+    var right_thumbstick_y: f32;
 }
 
 use std.platform_impl;
@@ -259,6 +263,11 @@ struct TrackerConnection {
         self.state.right_hand.y_pressed = message.right_y_pressed != 0;
         self.state.right_hand.menu_pressed = message.right_menu_pressed != 0;
         self.state.right_hand.system_pressed = message.right_system_pressed != 0;
+
+        self.state.left_hand.thumbstick_x = message.left_thumbstick_x;
+        self.state.left_hand.thumbstick_y = message.left_thumbstick_y;
+        self.state.right_hand.thumbstick_x = message.right_thumbstick_x;
+        self.state.right_hand.thumbstick_y = message.right_thumbstick_y;
 
         return true;
     }
