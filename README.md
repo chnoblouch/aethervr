@@ -12,16 +12,16 @@ to actual VR hardware.
 
 ### System-Wide Installation
 
-If you want to use AetherVR with standalone apps (e.g. from Steam), you can install it globally on your system by
-modifying a registry key. Note that this will replace your previous OpenXR runtime (if you had one) and that all OpenXR
-apps will use AetherVR from now on. You can set the registry key to the previous value in order to use your previous
-driver.
+If you want to use AetherVR with standalone apps (e.g. from Steam), you can install it globally by setting AetherVR as
+the system OpenXR runtime. Note that this will replace your previous OpenXR runtime (if you had one) and that all OpenXR
+apps will use AetherVR from now on.
 
-1. Open the Windows Registry Editor
-2. Navigate to the key `HKEY_LOCAL_MACHINE\SOFTWARE\Khronos\OpenXR\1`
-3. Set the value `ActiveRuntime` to the path to `openxr_runtime.json`
-4. Run `aethervr_tracker.exe`
-5. Run your VR application
+1. Run `aethervr_tracker.exe` as administrator
+2. Click `Set AetherVR as OpenXR Runtime`
+3. Run your VR application
+
+To use your previous OpenXR runtime, open the settings of your VR vendor's app and look for a button that says something
+like 'set myself as the active OpenXR runtime'.
 
 ### Unity Engine
 
@@ -41,9 +41,9 @@ AetherVR can be used to play SteamVR games by using [OpenComposite](https://gitl
 layer from OpenVR calls to OpenXR calls. You should be able to install AetherVR and OpenComposite on your system and it
 should just work, though crashes are to be expected.
 
-### System Components
+## System Components
 
-#### OpenXR Runtime
+### OpenXR Runtime
 
 The OpenXR runtime (`aethervr.dll`) is a shared library written in the [Banjo programming
 language](https://chnoblouch.github.io/banjo-lang/). It currently supports Windows and applications that use Vulkan or
@@ -57,7 +57,7 @@ The runtime currently implements these extensions:
 | XR_KHR_vulkan_enable2                         | 2       |
 | XR_KHR_win32_convert_performance_counter_time | 1       |
 
-#### Tracker
+### Tracker
 
 The AetherVR tracker (`aethervr_tracker.exe`) is an application written in Python that uses OpenCV, MediaPipe, and Qt.
 It tracks landmarks of the users head and hands using MediaPipe, converts them to virtual headset and controller inputs,
