@@ -13,9 +13,10 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
     QGroupBox,
+    QMessageBox,
 )
 
-from PySide6.QtCore import QEvent, Qt, QSize, QEvent, QRect
+from PySide6.QtCore import QEvent, Qt, QSize, QEvent, QRect, QTimer
 from PySide6.QtGui import QPaintEvent, QColor, QPainter, QBrush, QImage
 from mediapipe import solutions
 import numpy as np
@@ -25,6 +26,7 @@ from aethervr.config import *
 from aethervr.tracking_state import TrackingState
 from aethervr.input_state import ControllerButton
 from aethervr.runtime_connection import RuntimeConnection
+from aethervr.system_openxr_config import SystemOpenXRConfig
 
 
 STYLESHEET = """
@@ -45,15 +47,16 @@ STYLESHEET = """
 
 class Window(QMainWindow):
 
-    def __init__(self, config: Config, connection: RuntimeConnection):
+    def __init__(self, config: Config, connection: RuntimeConnection, system_openxr_config: SystemOpenXRConfig):
         super().__init__()
         self.config = config
         self.connection = connection
+        self.system_openxr_config = system_openxr_config
 
         self.camera_view = None
 
         self.setWindowTitle("AetherVR Tracker")
-        self.resize(QSize(1080, 720))
+        self.resize(QSize(1280, 720))
 
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -77,16 +80,12 @@ class Window(QMainWindow):
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(ConfigPanel(self.config))
+        layout.addWidget(ConfigPanel(self.config, self.system_openxr_config))
         layout.addWidget(separator)
         layout.addWidget(self.camera_view)
         widget.setLayout(layout)
 
-        size_policy = QSizePolicy(
-            QSizePolicy.Policy.Preferred,
-            QSizePolicy.Policy.Preferred,
-        )
-
+        size_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         size_policy.setHorizontalStretch(1)
         size_policy.setVerticalStretch(1)
         widget.setSizePolicy(size_policy)
@@ -102,11 +101,12 @@ class Window(QMainWindow):
 
 class ConfigPanel(QWidget):
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, system_openxr_config: SystemOpenXRConfig):
         super().__init__()
         self.config = config
 
         layout = QVBoxLayout()
+        layout.addWidget(OpenXRConfigGroup(system_openxr_config))
         layout.addWidget(self.build_controller_group("Left Controller", config.left_controller_config))
         layout.addWidget(self.build_controller_group("Right Controller", config.right_controller_config))
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -124,6 +124,47 @@ class ConfigPanel(QWidget):
         group.setLayout(layout)
 
         return group
+
+
+class OpenXRConfigGroup(QGroupBox):
+
+    def __init__(self, system_openxr_config: SystemOpenXRConfig):
+        super().__init__("OpenXR")
+        self.system_openxr_config = system_openxr_config
+
+        self.current_label = QLabel()
+
+        self.set_button = QPushButton("Set AetherVR as OpenXR Runtime")
+        self.set_button.clicked.connect(self._activate_aethervr)
+
+        layout = QFormLayout()
+        layout.addRow(QLabel("Current OpenXR Runtime:"), self.current_label)
+        layout.addRow(self.set_button)
+        self.setLayout(layout)
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._refresh)
+        self.timer.start(2000)
+
+        self._refresh()
+
+    def _activate_aethervr(self):
+        if self.system_openxr_config.activate_aethervr():
+            self._refresh()
+        else:
+            QMessageBox.critical(
+                self,
+                "Error",
+                "Failed to set AetherVR as the system OpenXR runtime. "
+                + "Please make sure you're running AetherVR as an administrator.",
+            )
+
+    def _refresh(self):
+        active_runtime = self.system_openxr_config.active_runtime_name()
+        is_aethervr = self.system_openxr_config.is_aethervr(active_runtime)
+
+        self.current_label.setText("None" if active_runtime is None else active_runtime)
+        self.set_button.setEnabled(not is_aethervr)
 
 
 class ButtonBindingDropdown(QComboBox):
@@ -275,11 +316,11 @@ class StatusBar(QLabel):
 
 class GUI:
 
-    def __init__(self, config: Config, connection: RuntimeConnection):
+    def __init__(self, config: Config, connection: RuntimeConnection, system_openxr_config: SystemOpenXRConfig):
         self.app = QApplication(sys.argv)
         self.app.setStyleSheet(STYLESHEET)
 
-        self.window = Window(config, connection)
+        self.window = Window(config, connection, system_openxr_config)
         self.window.show()
 
     def update_camera_frame(self, frame):

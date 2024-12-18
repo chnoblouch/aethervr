@@ -7,7 +7,7 @@ from aethervr.tracking_state import TrackingState, HeadState, HandState
 from aethervr.input_state import InputState
 from aethervr.gesture_detector import GestureDetector
 from aethervr.config import Config, ControllerConfig
-import numpy as np
+from aethervr.system_openxr_config import SystemOpenXRConfig
 import time
 
 
@@ -25,23 +25,16 @@ class Application:
         self.camera_capture = CameraCapture(self.on_frame)
         self.connection = RuntimeConnection(38057)
 
-        self.head_tracker = HeadTracker(
-            self.on_head_tracking_results,
-        )
-
-        self.hand_tracker = HandTracker(
-            self.head_tracker,
-            self.on_hand_tracking_results,
-        )
-
-        self.gesture_detector = GestureDetector(
-            self.config, self.tracking_state, self.input_state
-        )
+        self.head_tracker = HeadTracker(self.on_head_tracking_results)
+        self.hand_tracker = HandTracker(self.head_tracker, self.on_hand_tracking_results)
+        self.gesture_detector = GestureDetector(self.config, self.tracking_state, self.input_state)
 
         self.last_head_tracking_result = time.time()
         self.last_hand_tracking_result = time.time()
 
-        self.gui = GUI(self.config, self.connection)
+        self.system_openxr_config = SystemOpenXRConfig()
+
+        self.gui = GUI(self.config, self.connection, self.system_openxr_config)
         self.gui.run()
 
     def on_frame(self, frame):
@@ -63,7 +56,7 @@ class Application:
         self.input_state.headset_state.position = state.position
         self.input_state.headset_state.pitch = state.pitch
         self.input_state.headset_state.yaw = state.yaw
-        
+
         self.connection.update_headset_state(self.input_state.headset_state)
 
     def on_hand_tracking_results(self, left_state: HandState, right_state: HandState):
@@ -72,7 +65,7 @@ class Application:
 
         left_controller_state = self.input_state.left_controller_state
         right_controller_state = self.input_state.right_controller_state
-        
+
         if left_state.visible:
             left_controller_state.position = left_state.position
             left_controller_state.orientation = left_state.orientation
