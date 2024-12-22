@@ -1,6 +1,5 @@
 use std.{
     memory,
-    file.FileMode,
     path.Path,
 };
 

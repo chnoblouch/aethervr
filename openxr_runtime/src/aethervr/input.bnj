@@ -3,8 +3,9 @@ use std.math;
 use xr;
 
 use aethervr.{
+    time,
     session.Session,
-    pose.Pose,
+    pose.{Pose, Quat},
 };
 
 pub func get_view_pose(session: *Session) -> xr.Posef {
@@ -77,13 +78,49 @@ struct PoseBuffer {
     }
 }
 
+native func powf(f32, f32) -> f32;
+
 struct HeadsetState {
     var pose: Pose;
+
+    var input_pitch: f32;
+    var input_yaw: f32;
+    var pitch: f32;
+    var yaw: f32;
+    var last_time: i64;
 
     pub func new() -> HeadsetState {
         return HeadsetState {
             pose: Pose.identity(),
+            input_pitch: 0.0,
+            input_yaw: 0.0,
+            pitch: 0.0,
+            yaw: 0.0,
+            last_time: time.now(),
         };
+    }
+
+    pub func update_pose(self) {
+        var now = time.now();
+        var delta_ns = now - self.last_time;
+        var delta = delta_ns as f32 / 1000000000 as f32;
+        self.last_time = now;
+
+        if self.input_pitch > 6.0 {
+            self.pitch += delta * 3.0 * (self.input_pitch - 8.0);
+        } else if self.input_pitch < -6.0 {
+            self.pitch += delta * 3.0 * (self.input_pitch + 8.0);
+        }
+
+        if self.input_yaw > 8.0 {
+            self.yaw += delta * 3.0 * (self.input_yaw - 8.0);
+        } else if self.input_yaw < -8.0 {
+            self.yaw += delta * 3.0 * (self.input_yaw + 8.0);
+        }
+
+        var view_orientation_pitch = Quat.axis_angle(math.deg2rad(self.pitch), 1.0, 0.0, 0.0);
+        var view_orientation_yaw = Quat.axis_angle(math.deg2rad(self.yaw), 0.0, 1.0, 0.0);
+        self.pose.orientation = Quat.mul(view_orientation_pitch, view_orientation_yaw);
     }
 }
 

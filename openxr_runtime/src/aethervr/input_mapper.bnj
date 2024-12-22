@@ -1,3 +1,5 @@
+use std.math;
+
 use xr;
 
 use aethervr.{
@@ -9,6 +11,7 @@ use aethervr.{
     tracker_connection.{InputState, HandState},
     action.Action,
     action_binding.{ActionBinding, InputDevice, InputIdentifier, InputLocation},
+    pose.Quat,
 };
 
 struct InputMapper {
@@ -29,7 +32,13 @@ struct InputMapper {
         if hand_state.has_value {
             if binding.identifier == InputIdentifier.GRIP || binding.identifier == InputIdentifier.AIM {
                 if binding.location == InputLocation.POSE {
-                    return hand_state.value.pose_buffer.interpolate(time).to_xr();
+                    var pose = hand_state.value.pose_buffer.interpolate(time);
+                    
+                    var view_orientation_yaw = Quat.axis_angle(math.deg2rad(self.state.headset.yaw), 0.0, 1.0, 0.0);
+                    pose.position = view_orientation_yaw.rotate(pose.position);
+                    pose.orientation = Quat.mul(view_orientation_yaw, pose.orientation);
+
+                    return pose.to_xr();
                 }
             }
         }

@@ -267,9 +267,14 @@ struct Session {
         }
 
         try input_state in self.tracker_connection.poll() {
-            self.input_state = input_state;
+            self.input_state.headset.pose.position = input_state.headset.pose.position;
+            self.input_state.headset.input_pitch = input_state.headset.input_pitch;
+            self.input_state.headset.input_yaw = input_state.headset.input_yaw;
+            self.input_state.left_hand = input_state.left_hand;
+            self.input_state.right_hand = input_state.right_hand;
         }
 
+        self.input_state.headset.update_pose();
         return xr.Result.SUCCESS;
     }
 
