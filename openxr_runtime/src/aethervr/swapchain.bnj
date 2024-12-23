@@ -67,10 +67,12 @@ struct Swapchain {
 
         for i in 0..constants.NUM_SWAPCHAIN_IMAGES {
             var image: SwapchainImage;
-            if session.graphics_backend.create_image(create_info, &image) != xr.Result.SUCCESS {
+            var result = session.graphics_backend.create_image(create_info, &image);
+
+            if result != xr.Result.SUCCESS {
                 # TODO: This is a memory leak
                 log.exit_scope();
-                return (null, xr.Result.ERROR_RUNTIME_FAILURE);
+                return (null, result);
             }
 
             images.append(image);

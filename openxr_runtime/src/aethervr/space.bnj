@@ -1,4 +1,8 @@
-use std.{memory, math};
+use std.{
+    memory,
+    math,
+    convert.to_string,
+};
 
 use xr;
 
@@ -6,6 +10,7 @@ use aethervr.{
     pose,
     input,
     log,
+    utils,
     session.Session,
     action.Action,
 };
@@ -31,6 +36,7 @@ struct Space {
     ) -> (*Space, xr.Result) {
         log.info("Creating reference space");
 
+        # TODO: Move this into the session
         if create_info.reference_space_type != xr.ReferenceSpaceType.VIEW &&
            create_info.reference_space_type != xr.ReferenceSpaceType.LOCAL &&
            create_info.reference_space_type != xr.ReferenceSpaceType.STAGE {
@@ -38,7 +44,11 @@ struct Space {
             return (null, xr.Result.ERROR_REFERENCE_SPACE_UNSUPPORTED);
         }
 
-        log.info("  Type: %", type_to_str(create_info.reference_space_type));
+        if !utils.is_orientation_valid(create_info.pose_in_reference_space.orientation) {
+            return (null, xr.Result.ERROR_POSE_INVALID);
+        }
+
+        log.info("  Type: %", to_string(&create_info.reference_space_type));
 
         var space = memory.box(Space {
             session,
@@ -84,6 +94,12 @@ struct Space {
         return (space, xr.Result.SUCCESS);
     }
 
+    pub func destroy(space: *Space) -> xr.Result {
+        log.info("Destroying space");
+        memory.free(space);
+        return xr.Result.SUCCESS;
+    }
+
     pub func locate(self, base: *Space, time: i64, location: *xr.SpaceLocation) -> xr.Result {
         location.pose = base.get_relative_pose(self.locate_in_world_space(time), time);
 
@@ -110,27 +126,5 @@ struct Space {
 
     pub func get_relative_pose(self, p: xr.Posef, time: i64) -> xr.Posef {
         return pose.relative(self.locate_in_world_space(time), p);
-    }
-
-    func str(self) -> String {
-        if self.type_ == SpaceType.REFERENCE_SPACE {
-            return "reference space " + type_to_str(self.reference_space_type);
-        } else if self.type_ == SpaceType.ACTION_SPACE {
-            return "action space";
-        } else {
-            return "";
-        }
-    }
-
-    func type_to_str(reference_space_type: xr.ReferenceSpaceType) -> String {
-        if reference_space_type == xr.ReferenceSpaceType.VIEW {
-            return "XR_REFERENCE_SPACE_TYPE_VIEW";
-        } else if reference_space_type == xr.ReferenceSpaceType.LOCAL {
-            return "XR_REFERENCE_SPACE_TYPE_LOCAL";
-        } else if reference_space_type == xr.ReferenceSpaceType.STAGE {
-            return "XR_REFERENCE_SPACE_TYPE_STAGE";
-        } else {
-            return "";
-        }
     }
 }

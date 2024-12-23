@@ -40,6 +40,11 @@ struct Session {
     var tracker_connection: TrackerConnection;
     var input_mapper: InputMapper;
 
+    var running: bool;
+    var actions_synced_once: bool;
+    var synchronize_on_wait_frame: bool;
+    var exit_on_idle: bool;
+
     pub func create(instance: *Instance, create_info: *xr.SessionCreateInfo) -> (*Session, xr.Result) {
         log.info("Creating session");
 
@@ -70,7 +75,11 @@ struct Session {
             view_configuration_type: undefined,
             tracker_connection: TrackerConnection.connect(),
             input_state: undefined,
-            input_mapper: undefined
+            input_mapper: undefined,
+            running: false,
+            actions_synced_once: false,
+            synchronize_on_wait_frame: false,
+            exit_on_idle: false,
         });
 
         session.input_mapper = InputMapper.new(session);
@@ -82,7 +91,7 @@ struct Session {
     }
 
     pub func begin(self, begin_info: *xr.SessionBeginInfo) -> xr.Result {
-        if self.is_running() {
+        if self.running {
             return xr.Result.ERROR_SESSION_RUNNING;
         }
 
@@ -96,18 +105,56 @@ struct Session {
 
         log.info("Beginning session");
 
-        var event_buffer: xr.EventDataBuffer;
-        var event = &event_buffer as *xr.EventDataInteractionProfileChanged;
-        event.type_ = xr.StructureType.EVENT_DATA_INTERACTION_PROFILE_CHANGED;
-        event.next = null;
-        event.session = self;
-        self.instance.event_queue.push(event_buffer);
-
-        self.transition_to(xr.SessionState.SYNCHRONIZED);
-        self.transition_to(xr.SessionState.VISIBLE);
-        self.transition_to(xr.SessionState.FOCUSED);
-
         self.view_configuration_type = begin_info.primary_view_configuration_type;
+        
+        self.running = true;
+        self.synchronize_on_wait_frame = true;
+        
+        return xr.Result.SUCCESS;
+    }
+
+    pub func end(self) -> xr.Result {
+        if !self.running {
+            return xr.Result.ERROR_SESSION_NOT_RUNNING;
+        }
+
+        if self.state != xr.SessionState.STOPPING {
+            return xr.Result.ERROR_SESSION_NOT_STOPPING;
+        }
+
+        self.transition_to(xr.SessionState.IDLE);
+
+        if self.exit_on_idle {
+            self.transition_to(xr.SessionState.EXITING);
+            self.exit_on_idle = false;
+        }
+
+        self.running = false;
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func request_exit_session(self) -> xr.Result {
+        if !self.running {
+            return xr.Result.ERROR_SESSION_NOT_RUNNING;
+        }
+
+        if self.state == xr.SessionState.READY {
+            self.transition_to(xr.SessionState.SYNCHRONIZED);
+        }
+
+        if self.state == xr.SessionState.FOCUSED {
+            self.transition_to(xr.SessionState.VISIBLE);
+        }
+
+        if self.state == xr.SessionState.VISIBLE {
+            self.transition_to(xr.SessionState.SYNCHRONIZED);
+        }
+
+        self.transition_to(xr.SessionState.STOPPING);
+        
+        self.exit_on_idle = true;
+        self.synchronize_on_wait_frame = false;
 
         return xr.Result.SUCCESS;
     }
@@ -152,7 +199,14 @@ struct Session {
     }
 
     pub func wait_frame(self, info: *xr.FrameWaitInfo, state: *xr.FrameState) -> xr.Result {
-        if !self.is_running() {
+        if self.synchronize_on_wait_frame {
+            self.transition_to(xr.SessionState.SYNCHRONIZED);
+            self.transition_to(xr.SessionState.VISIBLE);
+            self.transition_to(xr.SessionState.FOCUSED);
+            self.synchronize_on_wait_frame = false;
+        }
+        
+        if !self.running {
             return xr.Result.ERROR_SESSION_NOT_RUNNING;
         }
 
@@ -182,7 +236,7 @@ struct Session {
     }
 
     pub func begin_frame(self, info: *xr.FrameBeginInfo) -> xr.Result {
-        if !self.is_running() {
+        if !self.running {
             return xr.Result.ERROR_SESSION_NOT_RUNNING;
         }
 
@@ -198,7 +252,7 @@ struct Session {
     }
 
     pub func end_frame(self, info: *xr.FrameEndInfo) -> xr.Result {
-        if !self.is_running() {
+        if !self.running {
             return xr.Result.ERROR_SESSION_NOT_RUNNING;
         }
 
@@ -208,12 +262,6 @@ struct Session {
         } else {
             return xr.Result.ERROR_CALL_ORDER_INVALID;
         }
-    }
-
-    pub func is_running(self) -> bool {
-        return self.state == xr.SessionState.SYNCHRONIZED ||
-               self.state == xr.SessionState.VISIBLE ||
-               self.state == xr.SessionState.FOCUSED;
     }
 
     pub func create_reference_space(self, create_info: *xr.ReferenceSpaceCreateInfo) -> (*Space, xr.Result) {
@@ -272,6 +320,18 @@ struct Session {
             self.input_state.headset.input_yaw = input_state.headset.input_yaw;
             self.input_state.left_hand = input_state.left_hand;
             self.input_state.right_hand = input_state.right_hand;
+        }
+
+        # Notify the application that it should query the current interaction profile when actions are first synced.
+        if !self.actions_synced_once {
+            var event_buffer: xr.EventDataBuffer;
+            var event = &event_buffer as *xr.EventDataInteractionProfileChanged;
+            event.type_ = xr.StructureType.EVENT_DATA_INTERACTION_PROFILE_CHANGED;
+            event.next = null;
+            event.session = self;
+            self.instance.event_queue.push(event_buffer);
+
+            self.actions_synced_once = true;
         }
 
         self.input_state.headset.update_pose();

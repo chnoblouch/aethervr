@@ -27,7 +27,7 @@ func negotiate_interface(loader_info: *xr.NegotiateLoaderInfo, runtime_request: 
     log.info("Negotiating interface");
 
     runtime_request.runtime_interface_version = loader_info.max_interface_version;
-    runtime_request.runtime_api_version = loader_info.max_api_version;
+    runtime_request.runtime_api_version = 0x0001000000000000;
     runtime_request.get_instance_proc_addr = load_func;
 
     return xr.Result.SUCCESS;
@@ -37,13 +37,11 @@ func load_func(instance: addr, name: *u8, function: *func()) -> xr.Result {
     var f = get_func(name);
     *function = f as func();
 
-    # if f == api.dummy {
-    #     return xr.Result.ERROR_FUNCTION_UNSUPPORTED;
-    # } else {
-    #     return xr.Result.SUCCESS;
-    # }
-
-    return xr.Result.SUCCESS;
+    if f == null {
+        return xr.Result.ERROR_FUNCTION_UNSUPPORTED;
+    } else {
+        return xr.Result.SUCCESS;
+    }
 }
 
 func get_func(name: *u8) -> addr {
@@ -62,6 +60,8 @@ func get_func(name: *u8) -> addr {
     else if eq(name, "xrCreateSession") { return api.create_session; }
     else if eq(name, "xrDestroySession") { return api.destroy_session; }
     else if eq(name, "xrBeginSession") { return api.begin_session; }
+    else if eq(name, "xrEndSession") { return api.end_session; }
+    else if eq(name, "xrRequestExitSession") { return api.request_exit_session; }
     else if eq(name, "xrLocateViews") { return api.locate_views; }
     else if eq(name, "xrWaitFrame") { return api.wait_frame; }
     else if eq(name, "xrBeginFrame") { return api.begin_frame; }
@@ -77,18 +77,27 @@ func get_func(name: *u8) -> addr {
     else if eq(name, "xrGetReferenceSpaceBoundsRect") { return api.get_reference_space_bounds_rect; }
     else if eq(name, "xrCreateReferenceSpace") { return api.create_reference_space; }
     else if eq(name, "xrCreateActionSpace") { return api.create_action_space; }
+    else if eq(name, "xrDestroySpace") { return api.destroy_space; }
     else if eq(name, "xrLocateSpace") { return api.locate_space; }
     else if eq(name, "xrEnumerateEnvironmentBlendModes") { return api.enumerate_environment_blend_modes; }
     else if eq(name, "xrCreateActionSet") { return api.create_action_set; }
+    else if eq(name, "xrDestroyActionSet") { return api.destroy_action_set; }
     else if eq(name, "xrCreateAction") { return api.create_action; }
+    else if eq(name, "xrDestroyAction") { return api.destroy_action; }
     else if eq(name, "xrSuggestInteractionProfileBindings") { return api.suggest_interaction_profile_bindings; }
     else if eq(name, "xrAttachSessionActionSets") { return api.attach_session_action_sets; }
     else if eq(name, "xrGetCurrentInteractionProfile") { return api.get_current_interaction_profile; }
     else if eq(name, "xrSyncActions") { return api.sync_actions; }
+    else if eq(name, "xrEnumerateBoundSourcesForAction") { return api.enumerate_bound_sources_for_action; }
+    else if eq(name, "xrGetInputSourceLocalizedName") { return api.get_input_source_localized_name; }
     else if eq(name, "xrGetActionStateBoolean") { return api.get_action_state_boolean; }
     else if eq(name, "xrGetActionStateFloat") { return api.get_action_state_float; }
     else if eq(name, "xrGetActionStateVector2f") { return api.get_action_state_vector2f; }
     else if eq(name, "xrGetActionStatePose") { return api.get_action_state_pose; }
+    else if eq(name, "xrApplyHapticFeedback") { return api.apply_haptic_feedback; }
+    else if eq(name, "xrStopHapticFeedback") { return api.stop_haptic_feedback; }
+    else if eq(name, "xrResultToString") { return api.result_to_string; }
+    else if eq(name, "xrStructureTypeToString") { return api.structure_type_to_string; }
     else if eq(name, "xrGetOpenGLGraphicsRequirementsKHR") { return api.get_opengl_graphics_requirements_khr; }
     else if eq(name, "xrGetVulkanGraphicsRequirementsKHR") { return api.get_vulkan_graphics_requirements_khr; }
     else if eq(name, "xrGetVulkanGraphicsDeviceKHR") { return api.get_vulkan_graphics_device_khr; }
@@ -103,6 +112,6 @@ func get_func(name: *u8) -> addr {
     else if eq(name, "xrConvertTimeToWin32PerformanceCounterKHR") { return api.convert_time_to_win32_performance_counter_khr; }
     else {
         log.info("Function % is not implemented", name);
-        return api.dummy;
+        return null;
     }
 }

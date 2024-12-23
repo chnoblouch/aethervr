@@ -1,3 +1,4 @@
+use std.math;
 use c.lib.string.strcmp;
 
 use xr;
@@ -41,4 +42,14 @@ func handle_buffer[T](array: *[T], capacity: u32, count_out: *u32, buffer: *T) -
 
 pub func is_successful(result: xr.Result) -> bool {
     return result as u32 >= 0;
+}
+
+pub func is_orientation_valid(q: xr.Quaternionf) -> bool {
+    var length_squared = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
+   
+    # TODO: Do the comparison using the squared length as soon as this one compiler bug is fixed.
+    var length = math.sqrt(length_squared);
+
+    # An orientation is considered invalid if the length of the quaternion deviates by more than 1% from unit length.
+    return length >= 0.99 && length <= 1.01;
 }

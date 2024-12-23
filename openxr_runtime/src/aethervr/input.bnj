@@ -78,8 +78,6 @@ struct PoseBuffer {
     }
 }
 
-native func powf(f32, f32) -> f32;
-
 struct HeadsetState {
     var pose: Pose;
 

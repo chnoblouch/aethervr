@@ -1,4 +1,7 @@
-use std.memory;
+use std.{
+    memory,
+    convert.to_string,
+};
 
 use xr;
 
@@ -29,6 +32,12 @@ struct ActionSet {
         });
 
         return (action_set, xr.Result.SUCCESS);
+    }
+
+    pub func destroy(action_set: *ActionSet) -> xr.Result {
+        log.info("Destroying action set");
+        memory.free(action_set);
+        return xr.Result.SUCCESS;
     }
 
     pub func attach_to(self, session: *Session) {
@@ -88,5 +97,11 @@ struct Action {
         });
 
         return (action, xr.Result.SUCCESS);
+    }
+
+    pub func destroy(action: *Action) -> xr.Result {
+        log.info("Destroying action %", action.name.copy());
+        memory.free(action);
+        return xr.Result.SUCCESS;
     }
 }
