@@ -11,6 +11,7 @@ use aethervr.{
     log,
     event.EventQueue,
     path.PathMapping,
+    action_binding.InteractionProfile,
     session.Session,
     action.ActionSet,
     utils.{version, handle_buffer, is_successful},
@@ -19,6 +20,7 @@ use aethervr.{
 struct Instance {
     var event_queue: EventQueue;
     var path_mapping: PathMapping;
+    var interaction_profiles: Array[InteractionProfile];
     var graphics_reqs_queried: bool;
     var interaction_profile: u64;
 
@@ -35,6 +37,7 @@ struct Instance {
         var instance = memory.box(Instance {
             event_queue: EventQueue.new(),
             path_mapping: PathMapping.new(),
+            interaction_profiles: InteractionProfile.all(),
             graphics_reqs_queried: false,
             interaction_profile: 0
         });

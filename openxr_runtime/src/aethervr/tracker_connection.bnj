@@ -13,26 +13,8 @@ use aethervr.{
     time,
     log,
     pose.{Pose, Vec3, Quat},
-    input.{HeadsetState, ControllerState, PoseSnapshot},
+    input.{InputState, HeadsetState, ControllerState, PoseSnapshot},
 };
-
-struct HandState {
-    var pose: xr.Posef;
-    var trigger_presed: bool;
-    var squeeze_pressed: bool;
-    var a_pressed: bool;
-    var b_pressed: bool;
-    var x_pressed: bool;
-    var y_pressed: bool;
-    var menu_pressed: bool;
-    var system_pressed: bool;
-}
-
-struct InputState {
-    var headset: HeadsetState;
-    var left_hand: ControllerState;
-    var right_hand: ControllerState;
-}
 
 struct HeadsetStateMsg {
     var x: f32;
@@ -79,8 +61,6 @@ struct ControllerStateMsg {
     var right_thumbstick_y: f32;
 }
 
-use std.platform_impl;
-
 struct TrackerConnection {
     var stream: Socket;
     var state: InputState;
@@ -101,11 +81,7 @@ struct TrackerConnection {
 
         return TrackerConnection {
             stream,
-            state: {
-                headset: HeadsetState.new(),
-                left_hand: ControllerState.new(),
-                right_hand: ControllerState.new(),
-            },
+            state: InputState.new(),
             pitch: 0.0,
             yaw: 0.0,
             last_time: time.now()
@@ -216,7 +192,7 @@ struct TrackerConnection {
 
         var now = time.now() + 100000000;
 
-        self.state.left_hand.pose_buffer.insert(PoseSnapshot{
+        self.state.left_controller.pose_buffer.insert(PoseSnapshot{
             pose: Pose {
                 position: left_position,
                 orientation: left_orientation,
@@ -224,7 +200,7 @@ struct TrackerConnection {
             timestamp: now,
         });
 
-        self.state.right_hand.pose_buffer.insert(PoseSnapshot{
+        self.state.right_controller.pose_buffer.insert(PoseSnapshot{
             pose: Pose {
                 position: right_position,
                 orientation: right_orientation,
@@ -232,28 +208,28 @@ struct TrackerConnection {
             timestamp: now,
         });
 
-        self.state.left_hand.trigger_presed = message.left_trigger_pressed != 0;
-        self.state.left_hand.squeeze_pressed = message.left_squeeze_pressed != 0;
-        self.state.left_hand.a_pressed = message.left_a_pressed != 0;
-        self.state.left_hand.b_pressed = message.left_b_pressed != 0;
-        self.state.left_hand.x_pressed = message.left_x_pressed != 0;
-        self.state.left_hand.y_pressed = message.left_y_pressed != 0;
-        self.state.left_hand.menu_pressed = message.left_menu_pressed != 0;
-        self.state.left_hand.system_pressed = message.left_system_pressed != 0;
+        self.state.left_controller.trigger_presed = message.left_trigger_pressed != 0;
+        self.state.left_controller.squeeze_pressed = message.left_squeeze_pressed != 0;
+        self.state.left_controller.a_pressed = message.left_a_pressed != 0;
+        self.state.left_controller.b_pressed = message.left_b_pressed != 0;
+        self.state.left_controller.x_pressed = message.left_x_pressed != 0;
+        self.state.left_controller.y_pressed = message.left_y_pressed != 0;
+        self.state.left_controller.menu_pressed = message.left_menu_pressed != 0;
+        self.state.left_controller.system_pressed = message.left_system_pressed != 0;
 
-        self.state.right_hand.trigger_presed = message.right_trigger_pressed != 0;
-        self.state.right_hand.squeeze_pressed = message.right_squeeze_pressed != 0;
-        self.state.right_hand.a_pressed = message.right_a_pressed != 0;
-        self.state.right_hand.b_pressed = message.right_b_pressed != 0;
-        self.state.right_hand.x_pressed = message.right_x_pressed != 0;
-        self.state.right_hand.y_pressed = message.right_y_pressed != 0;
-        self.state.right_hand.menu_pressed = message.right_menu_pressed != 0;
-        self.state.right_hand.system_pressed = message.right_system_pressed != 0;
+        self.state.right_controller.trigger_presed = message.right_trigger_pressed != 0;
+        self.state.right_controller.squeeze_pressed = message.right_squeeze_pressed != 0;
+        self.state.right_controller.a_pressed = message.right_a_pressed != 0;
+        self.state.right_controller.b_pressed = message.right_b_pressed != 0;
+        self.state.right_controller.x_pressed = message.right_x_pressed != 0;
+        self.state.right_controller.y_pressed = message.right_y_pressed != 0;
+        self.state.right_controller.menu_pressed = message.right_menu_pressed != 0;
+        self.state.right_controller.system_pressed = message.right_system_pressed != 0;
 
-        self.state.left_hand.thumbstick_x = message.left_thumbstick_x;
-        self.state.left_hand.thumbstick_y = message.left_thumbstick_y;
-        self.state.right_hand.thumbstick_x = message.right_thumbstick_x;
-        self.state.right_hand.thumbstick_y = message.right_thumbstick_y;
+        self.state.left_controller.thumbstick_x = message.left_thumbstick_x;
+        self.state.left_controller.thumbstick_y = message.left_thumbstick_y;
+        self.state.right_controller.thumbstick_x = message.right_thumbstick_x;
+        self.state.right_controller.thumbstick_y = message.right_thumbstick_y;
 
         return true;
     }

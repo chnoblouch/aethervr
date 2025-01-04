@@ -7,16 +7,17 @@ use aethervr.{
     utils.streq as eq,
 };
 
-enum InputDevice {
-    UNKNOWN,
-    HEAD,
+enum Device {
+    NONE,
     LEFT_HAND,
     RIGHT_HAND,
-    ANY_HAND
+    ANY_HAND,
+    HEAD,
+    GAMEPAD,
 }
 
-enum InputIdentifier {
-    UNKNOWN,
+enum Identifier {
+    NONE,
     GRIP,
     AIM,
     THUMBSTICK,
@@ -30,18 +31,273 @@ enum InputIdentifier {
     SYSTEM,
 }
 
-enum InputLocation {
-    UNKNOWN,
+enum Kind {
+    NONE,
     CLICK,
     TOUCH,
+    FORCE,
     VALUE,
-    POSE
+    X,
+    Y,
+    POSE,
 }
 
 struct ActionBinding {
-    var device: InputDevice;
-    var identifier: InputIdentifier;
-    var location: InputLocation;
+    var device: Device;
+    var identifier: Identifier;
+    var kind: Kind;
+}
+
+struct Component {
+    var user_path: ?String;
+    var sub_path: String;
+    var identifier: Identifier;
+    var kind: Kind;
+
+    pub func new(user_path: String, sub_path: String, identifier: Identifier, kind: Kind) -> Component {
+        return Component {
+            user_path,
+            sub_path,
+            identifier,
+            kind,
+        };
+    }
+
+    pub func new(sub_path: String, identifier: Identifier, kind: Kind) -> Component {
+        return Component {
+            user_path: none,
+            sub_path,
+            identifier,
+            kind,
+        };
+    }
+
+    pub func new(sub_path: String) -> Component {
+        return Component {
+            user_path: none,
+            sub_path,
+            identifier: Identifier.NONE,
+            kind: Kind.NONE,
+        };
+    }
+
+    pub func matches(self, binding: String, type_: xr.ActionType) -> bool {
+        if self.user_path.has_value {
+            if !binding.starts_with(self.user_path.value.copy()) {
+                return false;
+            }
+        }
+
+        var sub_path: String;
+
+        if binding.starts_with("/user/hand/left") {
+            sub_path = binding.substr(15, binding.length);
+        } else if binding.starts_with("/user/hand/right") {
+            sub_path = binding.substr(16, binding.length);
+        } else if binding.starts_with("/user/head") {
+            sub_path = binding.substr(10, binding.length);
+        } else if binding.starts_with("/user/gamepad") {
+            sub_path = binding.substr(13, binding.length);
+        } else {
+            return false;
+        }
+
+        if self.sub_path.ends_with("/x") || self.sub_path.ends_with("/y") {
+            var parent = self.sub_path.substr(0, self.sub_path.rfind('/').unwrap());
+
+            if sub_path == parent {
+                return true;
+            }
+        }
+
+        if sub_path != self.sub_path.copy() {
+            return false;
+        }
+
+        return true;
+    }
+}
+
+struct InteractionProfile {
+    var path: String;
+    var device: Device;
+    var components: Array[Component];
+
+    pub func all() -> Array[InteractionProfile] {
+        return [
+            {
+                path: "/interaction_profiles/khr/simple_controller",
+                device: Device.ANY_HAND,
+                components: [
+                    Component.new("/input/select/click"),
+                    Component.new("/input/menu/click", Identifier.MENU, Kind.CLICK),
+                    Component.new("/input/grip/pose", Identifier.GRIP, Kind.POSE),
+                    Component.new("/input/aim/pose", Identifier.AIM, Kind.POSE),
+                    Component.new("/output/haptic"),
+                ],
+            },
+            {
+                path: "/interaction_profiles/google/daydream_controller",
+                device: Device.ANY_HAND,
+                components: [
+                    Component.new("/input/select/click"),
+                    Component.new("/input/trackpad/x"),
+                    Component.new("/input/trackpad/y"),
+                    Component.new("/input/trackpad/click"),
+                    Component.new("/input/trackpad/touch"),
+                    Component.new("/input/grip/pose", Identifier.GRIP, Kind.POSE),
+                    Component.new("/input/aim/pose", Identifier.AIM, Kind.POSE),
+                ],
+            },
+            {
+                path: "/interaction_profiles/htc/vive_controller",
+                device: Device.ANY_HAND,
+                components: [
+                    Component.new("/input/system/click", Identifier.SYSTEM, Kind.CLICK),
+                    Component.new("/input/squeeze/click", Identifier.SQUEEZE, Kind.CLICK),
+                    Component.new("/input/menu/click", Identifier.MENU, Kind.CLICK),
+                    Component.new("/input/trigger/click", Identifier.TRIGGER, Kind.CLICK),
+                    Component.new("/input/trigger/value", Identifier.TRIGGER, Kind.VALUE),
+                    Component.new("/input/trackpad/x"),
+                    Component.new("/input/trackpad/y"),
+                    Component.new("/input/trackpad/click"),
+                    Component.new("/input/trackpad/touch"),
+                    Component.new("/input/grip/pose", Identifier.GRIP, Kind.POSE),
+                    Component.new("/input/aim/pose", Identifier.AIM, Kind.POSE),
+                    Component.new("/output/haptic"),
+                ],
+            },
+            {
+                path: "/interaction_profiles/htc/vive_pro",
+                device: Device.HEAD,
+                components: [
+                    Component.new("/input/system/click", Identifier.SYSTEM, Kind.CLICK),
+                    Component.new("/input/volume_up/click"),
+                    Component.new("/input/volume_down/click"),
+                    Component.new("/input/mute_mic/click"),
+                ],
+            },
+            {
+                path: "/interaction_profiles/microsoft/motion_controller",
+                device: Device.ANY_HAND,
+                components: [
+                    Component.new("/input/menu/click", Identifier.MENU, Kind.CLICK),
+                    Component.new("/input/squeeze/click", Identifier.SQUEEZE, Kind.CLICK),
+                    Component.new("/input/trigger/value", Identifier.TRIGGER, Kind.VALUE),
+                    Component.new("/input/thumbstick/x", Identifier.THUMBSTICK, Kind.X),
+                    Component.new("/input/thumbstick/y", Identifier.THUMBSTICK, Kind.Y),
+                    Component.new("/input/thumbstick/click", Identifier.THUMBSTICK, Kind.CLICK),
+                    Component.new("/input/trackpad/x"),
+                    Component.new("/input/trackpad/y"),
+                    Component.new("/input/trackpad/click"),
+                    Component.new("/input/trackpad/touch"),
+                    Component.new("/input/grip/pose", Identifier.GRIP, Kind.POSE),
+                    Component.new("/input/aim/pose", Identifier.AIM, Kind.POSE),
+                    Component.new("/output/haptic"),
+                ],
+            },
+            {
+                path: "/interaction_profiles/microsoft/xbox_controller",
+                device: Device.GAMEPAD,
+                components: [
+                    Component.new("/input/menu/click"),
+                    Component.new("/input/view/click"),
+                    Component.new("/input/a/click"),
+                    Component.new("/input/b/click"),
+                    Component.new("/input/x/click"),
+                    Component.new("/input/y/click"),
+                    Component.new("/input/dpad_down/click"),
+                    Component.new("/input/dpad_right/click"),
+                    Component.new("/input/dpad_up/click"),
+                    Component.new("/input/dpad_left/click"),
+                    Component.new("/input/shoulder_left/click"),
+                    Component.new("/input/shoulder_right/click"),
+                    Component.new("/input/thumbstick_left/click"),
+                    Component.new("/input/thumbstick_right/click"),
+                    Component.new("/input/trigger_left/value"),
+                    Component.new("/input/trigger_right/value"),
+                    Component.new("/input/thumbstick_left/x"),
+                    Component.new("/input/thumbstick_left/y"),
+                    Component.new("/input/thumbstick_right/x"),
+                    Component.new("/input/thumbstick_right/y"),
+                    Component.new("/output/haptic_left"),
+                    Component.new("/output/haptic_right"),
+                    Component.new("/output/haptic_left_trigger"),
+                    Component.new("/output/haptic_right_trigger"),
+                ],
+            },
+            {
+                path: "/interaction_profiles/oculus/go_controller",
+                device: Device.ANY_HAND,
+                components: [
+                    Component.new("/input/system/click", Identifier.SYSTEM, Kind.CLICK),
+                    Component.new("/input/trigger/click", Identifier.TRIGGER, Kind.CLICK),
+                    Component.new("/input/back/click"),
+                    Component.new("/input/trackpad/x"),
+                    Component.new("/input/trackpad/y"),
+                    Component.new("/input/trackpad/click"),
+                    Component.new("/input/trackpad/touch"),
+                    Component.new("/input/grip/pose", Identifier.GRIP, Kind.POSE),
+                    Component.new("/input/aim/pose", Identifier.AIM, Kind.POSE),
+                ],
+            },
+            {
+                path: "/interaction_profiles/oculus/touch_controller",
+                device: Device.ANY_HAND,
+                components: [
+                    Component.new("/user/hand/left", "/input/x/click", Identifier.X_BUTTON, Kind.CLICK),
+                    Component.new("/user/hand/left", "/input/x/touch", Identifier.X_BUTTON, Kind.TOUCH),
+                    Component.new("/user/hand/left", "/input/y/click", Identifier.Y_BUTTON, Kind.CLICK),
+                    Component.new("/user/hand/left", "/input/y/touch", Identifier.Y_BUTTON, Kind.TOUCH),
+                    Component.new("/user/hand/left", "/input/menu/click", Identifier.MENU, Kind.CLICK),
+                    Component.new("/user/hand/right", "/input/a/click", Identifier.A_BUTTON, Kind.CLICK),
+                    Component.new("/user/hand/right", "/input/a/touch", Identifier.A_BUTTON, Kind.TOUCH),
+                    Component.new("/user/hand/right", "/input/b/click", Identifier.B_BUTTON, Kind.CLICK),
+                    Component.new("/user/hand/right", "/input/b/touch", Identifier.B_BUTTON, Kind.TOUCH),
+                    Component.new("/user/hand/right", "/input/system/click", Identifier.SYSTEM, Kind.CLICK),
+                    Component.new("/input/squeeze/value", Identifier.SQUEEZE, Kind.VALUE),
+                    Component.new("/input/trigger/value", Identifier.TRIGGER, Kind.VALUE),
+                    Component.new("/input/trigger/touch", Identifier.TRIGGER, Kind.TOUCH),
+                    Component.new("/input/thumbstick/x", Identifier.THUMBSTICK, Kind.X),
+                    Component.new("/input/thumbstick/y", Identifier.THUMBSTICK, Kind.Y),
+                    Component.new("/input/thumbstick/click", Identifier.THUMBSTICK, Kind.CLICK),
+                    Component.new("/input/thumbstick/touch", Identifier.THUMBSTICK, Kind.TOUCH),
+                    Component.new("/input/thumbrest/touch"),
+                    Component.new("/input/grip/pose", Identifier.GRIP, Kind.POSE),
+                    Component.new("/input/aim/pose", Identifier.AIM, Kind.POSE),
+                    Component.new("/output/haptic"),
+                ],
+            },
+            {
+                path: "/interaction_profiles/valve/index_controller",
+                device: Device.ANY_HAND,
+                components: [
+                    Component.new("/input/system/click", Identifier.SYSTEM, Kind.CLICK),
+                    Component.new("/input/system/touch", Identifier.SYSTEM, Kind.TOUCH),
+                    Component.new("/input/a/click", Identifier.A_BUTTON, Kind.CLICK),
+                    Component.new("/input/a/touch", Identifier.A_BUTTON, Kind.TOUCH),
+                    Component.new("/input/b/click", Identifier.B_BUTTON, Kind.CLICK),
+                    Component.new("/input/b/touch", Identifier.B_BUTTON, Kind.TOUCH),
+                    Component.new("/input/squeeze/value", Identifier.SQUEEZE, Kind.VALUE),
+                    Component.new("/input/squeeze/force", Identifier.SQUEEZE, Kind.FORCE),
+                    Component.new("/input/trigger/click", Identifier.TRIGGER, Kind.CLICK),
+                    Component.new("/input/trigger/value", Identifier.TRIGGER, Kind.VALUE),
+                    Component.new("/input/trigger/touch", Identifier.TRIGGER, Kind.TOUCH),
+                    Component.new("/input/thumbstick/x", Identifier.THUMBSTICK, Kind.X),
+                    Component.new("/input/thumbstick/y", Identifier.THUMBSTICK, Kind.Y),
+                    Component.new("/input/thumbstick/click", Identifier.THUMBSTICK, Kind.CLICK),
+                    Component.new("/input/thumbstick/touch", Identifier.THUMBSTICK, Kind.TOUCH),
+                    Component.new("/input/trackpad/x"),
+                    Component.new("/input/trackpad/y"),
+                    Component.new("/input/trackpad/force"),
+                    Component.new("/input/trackpad/touch"),
+                    Component.new("/input/grip/pose", Identifier.GRIP, Kind.POSE),
+                    Component.new("/input/aim/pose", Identifier.AIM, Kind.POSE),
+                    Component.new("/output/haptic"),
+                ],
+            }
+        ];
+    }
 }
 
 pub func set_action_bindings(
@@ -51,23 +307,22 @@ pub func set_action_bindings(
     log.info("Suggesting interaction profile bindings");
     log.enter_scope();
 
-    var profile = instance.path_mapping.get_string(suggested_bindings.interaction_profile).value;
-    log.info("Interaction Profile: %", profile);
+    var profile_path = instance.path_mapping.get_string(suggested_bindings.interaction_profile).value;
+    log.info("Interaction Profile: %", profile_path);
 
-    var profile_path = suggested_bindings.interaction_profile;
-    if !instance.path_mapping.is_path(profile_path, "/interaction_profiles/oculus/touch_controller") {
-        log.info("Not Oculus Touch controller profile -> Ignored");
+    var profile = find_profile(instance, profile_path);
+    if profile == null {
+        log.info("Profile is unsupported");
         log.exit_scope();
         return xr.Result.ERROR_PATH_UNSUPPORTED;
     }
-
-    instance.interaction_profile = profile_path;
+    
+    instance.interaction_profile = suggested_bindings.interaction_profile;
 
     log.info("Suggested bindings:");
     log.enter_scope();
 
     var actions = Set[*Action].new();
-    var valid = true;
 
     for i in 0..suggested_bindings.count_suggested_bindings {
         var binding = suggested_bindings.suggested_bindings[i];
@@ -78,37 +333,30 @@ pub func set_action_bindings(
 
         log.info("- % -> %", action.name.copy(), string);
 
-        var tokens: [String] = [];
-        var token = String.new();
-        var index = 1;  # The first slash is skipped
+        var component: *Component = null;
 
-        while true {
-            var char = string[index];
-
-            if char == '\0' {
-                tokens.append(token.copy());
+        for *candidate in profile.components {
+            if candidate.matches(String.from(string), action.type_) {
+                component = candidate;
                 break;
-            } else if char == '/' {
-                tokens.append(token.copy());
-                token = String.new();
-            } else {
-                token.append(char);
             }
-
-            index += 1;
         }
 
+        if component == null {
+            log.exit_scope();
+            log.exit_scope();
+            return xr.Result.ERROR_PATH_UNSUPPORTED;
+        }
 
-        try result in convert_action_binding(tokens) {
-            # If an action has already been bound to a hand, bind it to any hand
-            if action.binding.device == InputDevice.LEFT_HAND || action.binding.device == InputDevice.RIGHT_HAND {
-                result.device = InputDevice.ANY_HAND;
-            }
-
-            action.binding = result;
+        if action.binding.device == Device.LEFT_HAND || action.binding.device == Device.RIGHT_HAND {
+            # If an action has already been bound to a hand, bind it to any hand.
+            action.binding.device = Device.ANY_HAND;
         } else {
-            valid = false;
+            action.binding.device = profile.device;
         }
+
+        action.binding.identifier = component.identifier;
+        action.binding.kind = component.kind;
 
         actions.insert(action);
     }
@@ -121,110 +369,47 @@ pub func set_action_bindings(
     for action in actions.elements {
         var binding_str = String.new();
 
-        if action.binding.device == InputDevice.UNKNOWN { binding_str.append("unknown."); }
-        else if action.binding.device == InputDevice.HEAD { binding_str.append("head."); }
-        else if action.binding.device == InputDevice.LEFT_HAND { binding_str.append("left_hand."); }
-        else if action.binding.device == InputDevice.RIGHT_HAND { binding_str.append("right_hand."); }
-        else if action.binding.device == InputDevice.ANY_HAND { binding_str.append("any_hand."); }
+        if action.binding.device == Device.NONE { binding_str.append("none."); }
+        else if action.binding.device == Device.HEAD { binding_str.append("head."); }
+        else if action.binding.device == Device.LEFT_HAND { binding_str.append("left_hand."); }
+        else if action.binding.device == Device.RIGHT_HAND { binding_str.append("right_hand."); }
+        else if action.binding.device == Device.ANY_HAND { binding_str.append("any_hand."); }
 
-        if action.binding.identifier == InputIdentifier.UNKNOWN { binding_str.append("unknown."); }
-        else if action.binding.identifier == InputIdentifier.GRIP { binding_str.append("grip."); }
-        else if action.binding.identifier == InputIdentifier.AIM { binding_str.append("aim."); }
-        else if action.binding.identifier == InputIdentifier.THUMBSTICK { binding_str.append("thumbstick."); }
-        else if action.binding.identifier == InputIdentifier.TRIGGER { binding_str.append("trigger."); }
-        else if action.binding.identifier == InputIdentifier.SQUEEZE { binding_str.append("squeeze."); }
-        else if action.binding.identifier == InputIdentifier.A_BUTTON { binding_str.append("a."); }
-        else if action.binding.identifier == InputIdentifier.B_BUTTON { binding_str.append("b."); }
-        else if action.binding.identifier == InputIdentifier.X_BUTTON { binding_str.append("x."); }
-        else if action.binding.identifier == InputIdentifier.Y_BUTTON { binding_str.append("y."); }
-        else if action.binding.identifier == InputIdentifier.MENU { binding_str.append("menu."); }
-        else if action.binding.identifier == InputIdentifier.SYSTEM { binding_str.append("system."); }
+        if action.binding.identifier == Identifier.NONE { binding_str.append("none."); }
+        else if action.binding.identifier == Identifier.GRIP { binding_str.append("grip."); }
+        else if action.binding.identifier == Identifier.AIM { binding_str.append("aim."); }
+        else if action.binding.identifier == Identifier.THUMBSTICK { binding_str.append("thumbstick."); }
+        else if action.binding.identifier == Identifier.TRIGGER { binding_str.append("trigger."); }
+        else if action.binding.identifier == Identifier.SQUEEZE { binding_str.append("squeeze."); }
+        else if action.binding.identifier == Identifier.A_BUTTON { binding_str.append("a."); }
+        else if action.binding.identifier == Identifier.B_BUTTON { binding_str.append("b."); }
+        else if action.binding.identifier == Identifier.X_BUTTON { binding_str.append("x."); }
+        else if action.binding.identifier == Identifier.Y_BUTTON { binding_str.append("y."); }
+        else if action.binding.identifier == Identifier.MENU { binding_str.append("menu."); }
+        else if action.binding.identifier == Identifier.SYSTEM { binding_str.append("system."); }
 
-        if action.binding.location == InputLocation.UNKNOWN { binding_str.append("unknown"); }
-        else if action.binding.location == InputLocation.CLICK { binding_str.append("click"); }
-        else if action.binding.location == InputLocation.TOUCH { binding_str.append("touch"); }
-        else if action.binding.location == InputLocation.VALUE { binding_str.append("value"); }
-        else if action.binding.location == InputLocation.POSE { binding_str.append("pose"); }
+        if action.binding.kind == Kind.NONE { binding_str.append("none"); }
+        else if action.binding.kind == Kind.CLICK { binding_str.append("click"); }
+        else if action.binding.kind == Kind.TOUCH { binding_str.append("touch"); }
+        else if action.binding.kind == Kind.FORCE { binding_str.append("force"); }
+        else if action.binding.kind == Kind.VALUE { binding_str.append("value"); }
+        else if action.binding.kind == Kind.POSE { binding_str.append("pose"); }
 
         log.info("%: %", action.name.copy(), binding_str);
     }
 
     log.exit_scope();
     log.exit_scope();
-
-    if !valid {
-        return xr.Result.ERROR_PATH_UNSUPPORTED;
-    }
-
+    
     return xr.Result.SUCCESS;
 }
 
-func convert_action_binding(tokens: Array[String]) -> ?ActionBinding {
-    var binding = ActionBinding {
-        device: InputDevice.UNKNOWN,
-        identifier: InputIdentifier.UNKNOWN,
-        location: InputLocation.UNKNOWN,
-    };
-    
-    if tokens[0] != "user" || tokens[1] != "hand" {
-        return none;
-    }
-
-    var hand = tokens[2].copy();
-
-    if hand == "left" {
-        binding.device = InputDevice.LEFT_HAND;
-    } else if hand == "right" {
-        binding.device = InputDevice.RIGHT_HAND;
-    } else {
-        return none;
-    }
-
-    if tokens[3] != "input" {
-        return none;
-    }
-
-    var identifier = tokens[4].copy();
-
-    if identifier == "grip" {
-        binding.identifier = InputIdentifier.GRIP;
-    } else if identifier == "aim" {
-        binding.identifier = InputIdentifier.AIM;
-    } else if identifier == "thumbstick" {
-        binding.identifier = InputIdentifier.THUMBSTICK;
-    } else if identifier == "trigger" {
-        binding.identifier = InputIdentifier.TRIGGER;
-    } else if identifier == "squeeze" {
-        binding.identifier = InputIdentifier.SQUEEZE;
-    } else if identifier == "a" {
-        binding.identifier = InputIdentifier.A_BUTTON;
-    } else if identifier == "b" {
-        binding.identifier = InputIdentifier.B_BUTTON;
-    } else if identifier == "x" {
-        binding.identifier = InputIdentifier.X_BUTTON;
-    } else if identifier == "y" {
-        binding.identifier = InputIdentifier.Y_BUTTON;
-    } else if identifier == "menu" {
-        binding.identifier = InputIdentifier.MENU;
-    } else if identifier == "system" {
-        binding.identifier = InputIdentifier.SYSTEM;
-    } else {
-        return none;
-    }
-
-    if tokens.length >= 6 {
-        var location = tokens[5].copy();
-
-        if location == "click" {
-            binding.location = InputLocation.CLICK;
-        } else if location == "touch" {
-            binding.location = InputLocation.TOUCH;
-        } else if location == "value" {
-            binding.location = InputLocation.VALUE;
-        } else if location == "pose" {
-            binding.location = InputLocation.POSE;
+func find_profile(instance: *Instance, path: *u8) -> *InteractionProfile {
+    for *profile in instance.interaction_profiles {
+        if eq(profile.path.cstr(), path) {
+            return profile;
         }
     }
 
-    return binding;
+    return null;
 }

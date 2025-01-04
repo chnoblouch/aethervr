@@ -4,6 +4,7 @@ use xr;
 
 use aethervr.{
     time,
+    log,
     session.Session,
     pose.{Pose, Quat},
 };

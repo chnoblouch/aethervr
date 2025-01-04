@@ -47,9 +47,6 @@ pub func is_successful(result: xr.Result) -> bool {
 pub func is_orientation_valid(q: xr.Quaternionf) -> bool {
     var length_squared = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
    
-    # TODO: Do the comparison using the squared length as soon as this one compiler bug is fixed.
-    var length = math.sqrt(length_squared);
-
     # An orientation is considered invalid if the length of the quaternion deviates by more than 1% from unit length.
-    return length >= 0.99 && length <= 1.01;
+    return length_squared >= 0.99 * 0.99 && length_squared <= 1.01 * 1.01;
 }

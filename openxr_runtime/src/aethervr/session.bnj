@@ -16,7 +16,8 @@ use aethervr.{
     swapchain.Swapchain,
     action.{ActionSet, Action},
     graphics.GraphicsBackend,
-    tracker_connection.{InputState, TrackerConnection},
+    input.{InputState, HeadsetState, ControllerState},
+    tracker_connection.TrackerConnection,
     input_mapper.InputMapper,
     utils.handle_buffer_size,
 };
@@ -74,7 +75,7 @@ struct Session {
             frame_state: FrameState.ENDED,
             view_configuration_type: undefined,
             tracker_connection: TrackerConnection.connect(),
-            input_state: undefined,
+            input_state: InputState.new(),
             input_mapper: undefined,
             running: false,
             actions_synced_once: false,
@@ -318,8 +319,8 @@ struct Session {
             self.input_state.headset.pose.position = input_state.headset.pose.position;
             self.input_state.headset.input_pitch = input_state.headset.input_pitch;
             self.input_state.headset.input_yaw = input_state.headset.input_yaw;
-            self.input_state.left_hand = input_state.left_hand;
-            self.input_state.right_hand = input_state.right_hand;
+            self.input_state.left_controller = input_state.left_controller;
+            self.input_state.right_controller = input_state.right_controller;
         }
 
         # Notify the application that it should query the current interaction profile when actions are first synced.

@@ -10,7 +10,7 @@ use aethervr.{
     log,
     instance.Instance,
     session.Session,
-    action_binding.{InputDevice, InputIdentifier, InputLocation, ActionBinding},
+    action_binding.{Device, Identifier, Kind, ActionBinding},
     utils.streq,
 };
 
@@ -90,10 +90,10 @@ struct Action {
             name: String.from_cstr(&create_info.action_name as *u8),
             type_: create_info.action_type,
             binding: {
-                device: InputDevice.UNKNOWN,
-                identifier: InputIdentifier.UNKNOWN,
-                location: InputLocation.UNKNOWN,
-            }
+                device: Device.NONE,
+                identifier: Identifier.NONE,
+                kind: Kind.NONE,
+            },
         });
 
         return (action, xr.Result.SUCCESS);
