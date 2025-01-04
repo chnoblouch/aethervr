@@ -17,6 +17,7 @@ use aethervr.{
 struct ActionSet {
     var instance: *Instance;
     var active: bool;
+    var sessions: Set[*Session];
 
     pub func create(instance: *Instance, create_info: *xr.ActionSetCreateInfo) -> (*ActionSet, xr.Result) {
         log.info("Creating action set");
@@ -28,7 +29,8 @@ struct ActionSet {
 
         var action_set = memory.box(ActionSet {
             instance,
-            active: false
+            active: false,
+            sessions: Set[*Session].new(),
         });
 
         return (action_set, xr.Result.SUCCESS);
@@ -40,8 +42,12 @@ struct ActionSet {
         return xr.Result.SUCCESS;
     }
 
-    pub func attach_to(self, session: *Session) {
+    pub func is_attached_to(self, session: *Session) -> bool {
+        return self.sessions.contains(session);
+    }
 
+    pub func attach_to(self, session: *Session) {
+        self.sessions.insert(session);
     }
 
     pub func create_action(self, create_info: *xr.ActionCreateInfo) -> (*Action, xr.Result) {
@@ -56,6 +62,10 @@ struct Action {
     var binding: ActionBinding;
 
     pub func create(action_set: *ActionSet, create_info: *xr.ActionCreateInfo) -> (*Action, xr.Result) {
+        if action_set.sessions.elements.length > 0 {
+            return (null, xr.Result.ERROR_ACTIONSETS_ALREADY_ATTACHED);
+        }
+        
         log.info("Creating action");
         log.info("  Name: %", &create_info.action_name as *u8);
 

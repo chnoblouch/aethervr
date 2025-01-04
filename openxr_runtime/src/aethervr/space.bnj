@@ -101,6 +101,10 @@ struct Space {
     }
 
     pub func locate(self, base: *Space, time: i64, location: *xr.SpaceLocation) -> xr.Result {
+        if time <= 0 {
+            return xr.Result.ERROR_TIME_INVALID;
+        }
+        
         location.pose = base.get_relative_pose(self.locate_in_world_space(time), time);
 
         location.location_flags =

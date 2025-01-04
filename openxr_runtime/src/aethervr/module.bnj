@@ -34,7 +34,7 @@ func negotiate_interface(loader_info: *xr.NegotiateLoaderInfo, runtime_request: 
 }
 
 func load_func(instance: addr, name: *u8, function: *func()) -> xr.Result {
-    var f = get_func(name);
+    var f = get_func(instance as *Instance, name);
     *function = f as func();
 
     if f == null {
@@ -44,74 +44,93 @@ func load_func(instance: addr, name: *u8, function: *func()) -> xr.Result {
     }
 }
 
-func get_func(name: *u8) -> addr {
+func get_func(instance: *Instance, name: *u8) -> addr {
     if eq(name, "xrEnumerateInstanceExtensionProperties") { return api.enumerate_instance_extension_properties; }
-    else if eq(name, "xrCreateInstance") { return api.create_instance; }
-    else if eq(name, "xrGetInstanceProperties") { return api.get_instance_properties; }
-    else if eq(name, "xrDestroyInstance") { return api.destroy_instance; }
-    else if eq(name, "xrPollEvent") { return api.poll_event; }
-    else if eq(name, "xrGetSystem") { return api.get_system; }
-    else if eq(name, "xrGetSystemProperties") { return api.get_system_properties; }
-    else if eq(name, "xrStringToPath") { return api.string_to_path; }
-    else if eq(name, "xrPathToString") { return api.path_to_string; }
-    else if eq(name, "xrEnumerateViewConfigurations") { return api.enumerate_view_configurations; }
-    else if eq(name, "xrGetViewConfigurationProperties") { return api.get_view_configuration_properties; }
-    else if eq(name, "xrEnumerateViewConfigurationViews") { return api.enumerate_view_configuration_views; }
-    else if eq(name, "xrCreateSession") { return api.create_session; }
-    else if eq(name, "xrDestroySession") { return api.destroy_session; }
-    else if eq(name, "xrBeginSession") { return api.begin_session; }
-    else if eq(name, "xrEndSession") { return api.end_session; }
-    else if eq(name, "xrRequestExitSession") { return api.request_exit_session; }
-    else if eq(name, "xrLocateViews") { return api.locate_views; }
-    else if eq(name, "xrWaitFrame") { return api.wait_frame; }
-    else if eq(name, "xrBeginFrame") { return api.begin_frame; }
-    else if eq(name, "xrEndFrame") { return api.end_frame; }
-    else if eq(name, "xrEnumerateSwapchainFormats") { return api.enumerate_swapchain_formats; }
-    else if eq(name, "xrCreateSwapchain") { return api.create_swapchain; }
-    else if eq(name, "xrDestroySwapchain") { return api.destroy_swapchain; }
-    else if eq(name, "xrEnumerateSwapchainImages") { return api.enumerate_swapchain_images; }
-    else if eq(name, "xrAcquireSwapchainImage") { return api.acquire_swapchain_image; }
-    else if eq(name, "xrWaitSwapchainImage") { return api.wait_swapchain_image; }
-    else if eq(name, "xrReleaseSwapchainImage") { return api.release_swapchain_image; }
-    else if eq(name, "xrEnumerateReferenceSpaces") { return api.enumerate_reference_spaces; }
-    else if eq(name, "xrGetReferenceSpaceBoundsRect") { return api.get_reference_space_bounds_rect; }
-    else if eq(name, "xrCreateReferenceSpace") { return api.create_reference_space; }
-    else if eq(name, "xrCreateActionSpace") { return api.create_action_space; }
-    else if eq(name, "xrDestroySpace") { return api.destroy_space; }
-    else if eq(name, "xrLocateSpace") { return api.locate_space; }
-    else if eq(name, "xrEnumerateEnvironmentBlendModes") { return api.enumerate_environment_blend_modes; }
-    else if eq(name, "xrCreateActionSet") { return api.create_action_set; }
-    else if eq(name, "xrDestroyActionSet") { return api.destroy_action_set; }
-    else if eq(name, "xrCreateAction") { return api.create_action; }
-    else if eq(name, "xrDestroyAction") { return api.destroy_action; }
-    else if eq(name, "xrSuggestInteractionProfileBindings") { return api.suggest_interaction_profile_bindings; }
-    else if eq(name, "xrAttachSessionActionSets") { return api.attach_session_action_sets; }
-    else if eq(name, "xrGetCurrentInteractionProfile") { return api.get_current_interaction_profile; }
-    else if eq(name, "xrSyncActions") { return api.sync_actions; }
-    else if eq(name, "xrEnumerateBoundSourcesForAction") { return api.enumerate_bound_sources_for_action; }
-    else if eq(name, "xrGetInputSourceLocalizedName") { return api.get_input_source_localized_name; }
-    else if eq(name, "xrGetActionStateBoolean") { return api.get_action_state_boolean; }
-    else if eq(name, "xrGetActionStateFloat") { return api.get_action_state_float; }
-    else if eq(name, "xrGetActionStateVector2f") { return api.get_action_state_vector2f; }
-    else if eq(name, "xrGetActionStatePose") { return api.get_action_state_pose; }
-    else if eq(name, "xrApplyHapticFeedback") { return api.apply_haptic_feedback; }
-    else if eq(name, "xrStopHapticFeedback") { return api.stop_haptic_feedback; }
-    else if eq(name, "xrResultToString") { return api.result_to_string; }
-    else if eq(name, "xrStructureTypeToString") { return api.structure_type_to_string; }
-    else if eq(name, "xrGetOpenGLGraphicsRequirementsKHR") { return api.get_opengl_graphics_requirements_khr; }
-    else if eq(name, "xrGetVulkanGraphicsRequirementsKHR") { return api.get_vulkan_graphics_requirements_khr; }
-    else if eq(name, "xrGetVulkanGraphicsDeviceKHR") { return api.get_vulkan_graphics_device_khr; }
-    else if eq(name, "xrGetVulkanInstanceExtensionsKHR") { return api.get_vulkan_instance_extensions_khr; }
-    else if eq(name, "xrGetVulkanDeviceExtensionsKHR") { return api.get_vulkan_device_extensions_khr; }
-    else if eq(name, "xrGetVulkanGraphicsRequirements2KHR") { return api.get_vulkan_graphics_requirements_2_khr; }
-    else if eq(name, "xrGetVulkanGraphicsDevice2KHR") { return api.get_vulkan_graphics_device_2_khr; }
-    else if eq(name, "xrCreateVulkanInstanceKHR") { return api.create_vulkan_instance_khr; }
-    else if eq(name, "xrCreateVulkanDeviceKHR") { return api.create_vulkan_device_khr; }
-    else if eq(name, "xrGetD3D11GraphicsRequirementsKHR") { return api.get_d3d11_graphics_requirements_khr; }
-    else if eq(name, "xrConvertWin32PerformanceCounterToTimeKHR") { return api.convert_win32_performance_counter_to_time_khr; }
-    else if eq(name, "xrConvertTimeToWin32PerformanceCounterKHR") { return api.convert_time_to_win32_performance_counter_khr; }
-    else {
-        log.info("Function % is not implemented", name);
+    if eq(name, "xrCreateInstance") { return api.create_instance; }
+    
+    if instance == null {
         return null;
     }
+
+    if eq(name, "xrGetInstanceProperties") { return api.get_instance_properties; }
+    if eq(name, "xrDestroyInstance") { return api.destroy_instance; }
+    if eq(name, "xrPollEvent") { return api.poll_event; }
+    if eq(name, "xrGetSystem") { return api.get_system; }
+    if eq(name, "xrGetSystemProperties") { return api.get_system_properties; }
+    if eq(name, "xrStringToPath") { return api.string_to_path; }
+    if eq(name, "xrPathToString") { return api.path_to_string; }
+    if eq(name, "xrEnumerateViewConfigurations") { return api.enumerate_view_configurations; }
+    if eq(name, "xrGetViewConfigurationProperties") { return api.get_view_configuration_properties; }
+    if eq(name, "xrEnumerateViewConfigurationViews") { return api.enumerate_view_configuration_views; }
+    if eq(name, "xrCreateSession") { return api.create_session; }
+    if eq(name, "xrDestroySession") { return api.destroy_session; }
+    if eq(name, "xrBeginSession") { return api.begin_session; }
+    if eq(name, "xrEndSession") { return api.end_session; }
+    if eq(name, "xrRequestExitSession") { return api.request_exit_session; }
+    if eq(name, "xrLocateViews") { return api.locate_views; }
+    if eq(name, "xrWaitFrame") { return api.wait_frame; }
+    if eq(name, "xrBeginFrame") { return api.begin_frame; }
+    if eq(name, "xrEndFrame") { return api.end_frame; }
+    if eq(name, "xrEnumerateSwapchainFormats") { return api.enumerate_swapchain_formats; }
+    if eq(name, "xrCreateSwapchain") { return api.create_swapchain; }
+    if eq(name, "xrDestroySwapchain") { return api.destroy_swapchain; }
+    if eq(name, "xrEnumerateSwapchainImages") { return api.enumerate_swapchain_images; }
+    if eq(name, "xrAcquireSwapchainImage") { return api.acquire_swapchain_image; }
+    if eq(name, "xrWaitSwapchainImage") { return api.wait_swapchain_image; }
+    if eq(name, "xrReleaseSwapchainImage") { return api.release_swapchain_image; }
+    if eq(name, "xrEnumerateReferenceSpaces") { return api.enumerate_reference_spaces; }
+    if eq(name, "xrGetReferenceSpaceBoundsRect") { return api.get_reference_space_bounds_rect; }
+    if eq(name, "xrCreateReferenceSpace") { return api.create_reference_space; }
+    if eq(name, "xrCreateActionSpace") { return api.create_action_space; }
+    if eq(name, "xrDestroySpace") { return api.destroy_space; }
+    if eq(name, "xrLocateSpace") { return api.locate_space; }
+    if eq(name, "xrEnumerateEnvironmentBlendModes") { return api.enumerate_environment_blend_modes; }
+    if eq(name, "xrCreateActionSet") { return api.create_action_set; }
+    if eq(name, "xrDestroyActionSet") { return api.destroy_action_set; }
+    if eq(name, "xrCreateAction") { return api.create_action; }
+    if eq(name, "xrDestroyAction") { return api.destroy_action; }
+    if eq(name, "xrSuggestInteractionProfileBindings") { return api.suggest_interaction_profile_bindings; }
+    if eq(name, "xrAttachSessionActionSets") { return api.attach_session_action_sets; }
+    if eq(name, "xrGetCurrentInteractionProfile") { return api.get_current_interaction_profile; }
+    if eq(name, "xrSyncActions") { return api.sync_actions; }
+    if eq(name, "xrEnumerateBoundSourcesForAction") { return api.enumerate_bound_sources_for_action; }
+    if eq(name, "xrGetInputSourceLocalizedName") { return api.get_input_source_localized_name; }
+    if eq(name, "xrGetActionStateBoolean") { return api.get_action_state_boolean; }
+    if eq(name, "xrGetActionStateFloat") { return api.get_action_state_float; }
+    if eq(name, "xrGetActionStateVector2f") { return api.get_action_state_vector2f; }
+    if eq(name, "xrGetActionStatePose") { return api.get_action_state_pose; }
+    if eq(name, "xrApplyHapticFeedback") { return api.apply_haptic_feedback; }
+    if eq(name, "xrStopHapticFeedback") { return api.stop_haptic_feedback; }
+    if eq(name, "xrResultToString") { return api.result_to_string; }
+    if eq(name, "xrStructureTypeToString") { return api.structure_type_to_string; }
+
+    if instance.is_extension_enabled("XR_KHR_vulkan_enable") {
+        if eq(name, "xrGetVulkanGraphicsRequirementsKHR") { return api.get_vulkan_graphics_requirements_khr; }
+        if eq(name, "xrGetVulkanGraphicsDeviceKHR") { return api.get_vulkan_graphics_device_khr; }
+        if eq(name, "xrGetVulkanInstanceExtensionsKHR") { return api.get_vulkan_instance_extensions_khr; }
+        if eq(name, "xrGetVulkanDeviceExtensionsKHR") { return api.get_vulkan_device_extensions_khr; }
+    }
+
+    if instance.is_extension_enabled("XR_KHR_vulkan_enable2") {
+        if eq(name, "xrGetVulkanGraphicsRequirements2KHR") { return api.get_vulkan_graphics_requirements_2_khr; }
+        if eq(name, "xrGetVulkanGraphicsDevice2KHR") { return api.get_vulkan_graphics_device_2_khr; }
+        if eq(name, "xrCreateVulkanInstanceKHR") { return api.create_vulkan_instance_khr; }
+        if eq(name, "xrCreateVulkanDeviceKHR") { return api.create_vulkan_device_khr; }
+    }
+
+    if instance.is_extension_enabled("XR_KHR_D3D11_enable") {
+        if eq(name, "xrGetD3D11GraphicsRequirementsKHR") { return api.get_d3d11_graphics_requirements_khr; }
+    }
+
+    if instance.is_extension_enabled("XR_KHR_opengl_enable") {
+        if eq(name, "xrGetOpenGLGraphicsRequirementsKHR") { return api.get_opengl_graphics_requirements_khr; }
+    }
+
+    if instance.is_extension_enabled("XR_KHR_win32_convert_performance_counter_time") {
+        if eq(name, "xrConvertWin32PerformanceCounterToTimeKHR") { return api.convert_win32_performance_counter_to_time_khr; }
+        if eq(name, "xrConvertTimeToWin32PerformanceCounterKHR") { return api.convert_time_to_win32_performance_counter_khr; }
+    }
+    
+    log.info("Function % is not implemented", name);
+    return null;
 }

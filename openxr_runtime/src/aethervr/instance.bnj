@@ -14,10 +14,11 @@ use aethervr.{
     action_binding.InteractionProfile,
     session.Session,
     action.ActionSet,
-    utils.{version, handle_buffer, is_successful},
+    utils.{version, handle_buffer, is_successful, streq},
 };
 
 struct Instance {
+    var extensions: Array[String];
     var event_queue: EventQueue;
     var path_mapping: PathMapping;
     var interaction_profiles: Array[InteractionProfile];
@@ -29,12 +30,16 @@ struct Instance {
         log.info("  App name: %", &create_info.application_info.application_name as *u8);
         log.info("  Engine name: %", &create_info.application_info.engine_name as *u8);
 
+        var extensions = Array[String].new();
+
         log.info("  Extensions:");
         for i in 0..create_info.enabled_extension_count {
             log.info("    - %", create_info.enabled_extension_names[i]);
+            extensions.append(String.from(create_info.enabled_extension_names[i]));
         }
 
         var instance = memory.box(Instance {
+            extensions,
             event_queue: EventQueue.new(),
             path_mapping: PathMapping.new(),
             interaction_profiles: InteractionProfile.all(),
@@ -49,6 +54,16 @@ struct Instance {
         log.info("Destroying instance");
         memory.free(instance);
         return xr.Result.SUCCESS;
+    }
+
+    pub func is_extension_enabled(self, extension: *u8) -> bool {
+        for *candidate in self.extensions {
+            if streq(candidate.data, extension) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     pub func get_properties(self, properties: *xr.InstanceProperties) -> xr.Result {

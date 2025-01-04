@@ -42,6 +42,7 @@ struct Session {
     var input_mapper: InputMapper;
 
     var running: bool;
+    var action_sets_attached: bool;
     var actions_synced_once: bool;
     var synchronize_on_wait_frame: bool;
     var exit_on_idle: bool;
@@ -78,6 +79,7 @@ struct Session {
             input_state: InputState.new(),
             input_mapper: undefined,
             running: false,
+            action_sets_attached: false,
             actions_synced_once: false,
             synchronize_on_wait_frame: false,
             exit_on_idle: false,
@@ -168,14 +170,16 @@ struct Session {
         view_count_output: *u32,
         views: *xr.View
     ) -> xr.Result {
-        # log.info("Locating views");
-
         if view_locate_info.view_configuration_type != self.view_configuration_type {
             return xr.Result.ERROR_VALIDATION_FAILURE;
         }
 
         if view_locate_info.view_configuration_type != xr.ViewConfigurationType.PRIMARY_STEREO {
             return xr.Result.ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED;
+        }
+
+        if view_locate_info.display_time <= 0 {
+            return xr.Result.ERROR_TIME_INVALID;
         }
 
         var buffer_info = handle_buffer_size(2, view_count_output, view_capacity_input);
@@ -285,15 +289,33 @@ struct Session {
     pub func attach_action_sets(self, info: *xr.SessionActionSetsAttachInfo) -> xr.Result {
         log.info("Attaching action sets to session");
 
+        if info.count_action_sets == 0 {
+            return xr.Result.ERROR_VALIDATION_FAILURE;
+        }
+
+        if self.action_sets_attached {
+            return xr.Result.ERROR_ACTIONSETS_ALREADY_ATTACHED;
+        }
+
         for i in 0..info.count_action_sets {
             var action_set = info.action_sets[i] as *ActionSet;
+
+            if action_set.is_attached_to(self) {
+                return xr.Result.ERROR_ACTIONSETS_ALREADY_ATTACHED;
+            }
+
             action_set.attach_to(self);
         }
 
+        self.action_sets_attached = true;
         return xr.Result.SUCCESS;
     }
 
     pub func get_current_interaction_profile(self, state: *xr.InteractionProfileState) -> xr.Result {
+        if !self.action_sets_attached {
+            return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
+        }
+        
         var path = self.instance.interaction_profile;
         var string = self.instance.path_mapping.get_string(path);
 
@@ -310,9 +332,20 @@ struct Session {
     }
 
     pub func sync_actions(self, info: *xr.ActionsSyncInfo) -> xr.Result {
+        # FIXME: Set `active` field corretly.
+        
         for i in 0..info.count_active_action_sets {
             var action_set = info.active_action_sets[i].action_set as *ActionSet;
+
+            if !action_set.is_attached_to(self) {
+                return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
+            }
+
             action_set.active = true;
+        }
+
+        if self.state != xr.SessionState.FOCUSED {
+            return xr.Result.SESSION_NOT_FOCUSED;
         }
 
         try input_state in self.tracker_connection.poll() {
@@ -339,9 +372,32 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func get_state_bool(self, get_info: *xr.ActionStateGetInfo, state: *xr.ActionStateBoolean) -> xr.Result {
-        var action = get_info.action as *Action;
-        var result = self.input_mapper.get_action_bool(action, get_info.subaction_path);
+    pub func enumerate_bound_sources_for_action(self, info: *xr.BoundSourcesForActionEnumerateInfo) -> xr.Result {
+        var action = info.action as *Action;
+
+        if !action.action_set.is_attached_to(self) {
+            return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
+        }
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func get_input_source_localized_name(self, info: *xr.InputSourceLocalizedNameGetInfo) -> xr.Result {
+        if !self.action_sets_attached {
+            return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
+        }
+        
+        return xr.Result.SUCCESS;
+    }
+
+    pub func get_state_bool(self, info: *xr.ActionStateGetInfo, state: *xr.ActionStateBoolean) -> xr.Result {
+        var action = info.action as *Action;
+
+        if !action.action_set.is_attached_to(self) {
+            return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
+        }
+
+        var result = self.input_mapper.get_action_bool(action, info.subaction_path);
 
         state.changed_since_last_sync = 1;
         state.last_change_time = time.now();
@@ -356,9 +412,14 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func get_state_float(self, get_info: *xr.ActionStateGetInfo, state: *xr.ActionStateFloat) -> xr.Result {
-        var action = get_info.action as *Action;
-        var result = self.input_mapper.get_action_float(action, get_info.subaction_path);
+    pub func get_state_float(self, info: *xr.ActionStateGetInfo, state: *xr.ActionStateFloat) -> xr.Result {
+        var action = info.action as *Action;
+        
+        if !action.action_set.is_attached_to(self) {
+            return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
+        }
+        
+        var result = self.input_mapper.get_action_float(action, info.subaction_path);
 
         state.changed_since_last_sync = 1;
         state.last_change_time = time.now();
@@ -373,9 +434,14 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func get_state_vector2f(self, get_info: *xr.ActionStateGetInfo, state: *xr.ActionStateVector2f) -> xr.Result {
-        var action = get_info.action as *Action;
-        var result = self.input_mapper.get_action_vector2f(action, get_info.subaction_path);
+    pub func get_state_vector2f(self, info: *xr.ActionStateGetInfo, state: *xr.ActionStateVector2f) -> xr.Result {
+        var action = info.action as *Action;
+        
+        if !action.action_set.is_attached_to(self) {
+            return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
+        }
+        
+        var result = self.input_mapper.get_action_vector2f(action, info.subaction_path);
 
         state.changed_since_last_sync = 1;
         state.last_change_time = time.now();
@@ -389,6 +455,47 @@ struct Session {
             state.current_state.y = 0.0;
         }
 
+        return xr.Result.SUCCESS;
+    }
+
+    pub func get_state_pose(self, info: *xr.ActionStateGetInfo, state: *xr.ActionStatePose) -> xr.Result {
+        var action = info.action as *Action;
+        
+        if !action.action_set.is_attached_to(self) {
+            return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
+        }
+        
+        # FIXME
+        state.is_active = 1;
+
+        return xr.Result.SUCCESS;
+    }
+
+    pub func apply_haptic_feedback(self, info: *xr.HapticActionInfo, haptic_feedback: *xr.HapticBaseHeader) -> xr.Result {
+        var action = info.action as *Action;
+        
+        if !action.action_set.is_attached_to(self) {
+            return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
+        }
+
+        if self.state != xr.SessionState.FOCUSED {
+            return xr.Result.SESSION_NOT_FOCUSED;
+        }
+        
+        return xr.Result.SUCCESS;
+    }
+
+    pub func stop_haptic_feedback(self, info: *xr.HapticActionInfo) -> xr.Result {
+        var action = info.action as *Action;
+        
+        if !action.action_set.is_attached_to(self) {
+            return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
+        }
+
+        if self.state != xr.SessionState.FOCUSED {
+            return xr.Result.SESSION_NOT_FOCUSED;
+        }
+        
         return xr.Result.SUCCESS;
     }
 

@@ -470,7 +470,7 @@ pub func enumerate_bound_sources_for_action(
 ) -> xr.Result {
     # TODO: Unimplemented
     *source_count_output = 0;
-    return xr.Result.SUCCESS;
+    return session.enumerate_bound_sources_for_action(enumerate_info);
 }
 
 pub func get_input_source_localized_name(
@@ -482,7 +482,7 @@ pub func get_input_source_localized_name(
 ) -> xr.Result {
     # TODO: Unimplemented
     *buffer_count_output = 0;
-    return xr.Result.SUCCESS;
+    return session.get_input_source_localized_name(get_info);
 }
 
 pub func get_action_state_boolean(
@@ -514,8 +514,7 @@ pub func get_action_state_pose(
     get_info: *xr.ActionStateGetInfo,
     state: *xr.ActionStatePose,
 ) -> xr.Result {
-    state.is_active = 1;
-    return xr.Result.SUCCESS;
+    return session.get_state_pose(get_info, state);
 }
 
 pub func apply_haptic_feedback(
@@ -523,14 +522,14 @@ pub func apply_haptic_feedback(
     haptic_action_info: *xr.HapticActionInfo,
     haptic_feedback: *xr.HapticBaseHeader
 ) -> xr.Result {
-    return xr.Result.SUCCESS;
+    return session.apply_haptic_feedback(haptic_action_info, haptic_feedback);
 }
 
 pub func stop_haptic_feedback(
     session: *Session,
     haptic_action_info: *xr.HapticActionInfo
 ) -> xr.Result {
-    return xr.Result.SUCCESS;
+    return session.stop_haptic_feedback(haptic_action_info);
 }
 
 pub func result_to_string(
