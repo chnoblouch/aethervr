@@ -2,6 +2,8 @@ use std.test.{assert_eq, assert_ne};
 
 use aethervr.utils.streq;
 
+use xr;
+
 struct PathMapping {
     var paths: [String];
     var max_path: u64;
@@ -13,8 +15,12 @@ struct PathMapping {
         };
     }
 
-    pub func get_path(self, cstr: *u8) -> u64 {
+    pub func get_path(self, cstr: *u8) -> ?u64 {
         var string = String.from_cstr(cstr);
+
+        if !validate_string(&string) {
+            return none;
+        }
 
         for i in 0..self.paths.length {
             if self.paths[i] == string {
@@ -29,6 +35,7 @@ struct PathMapping {
     pub func get_string(self, path: u64) -> ?*u8 {
         var index = path as usize - 1;
 
+        # FIXME: `index` possibly being smaller than 0 is a compiler bug.
         if index < 0 || index >= self.paths.length {
             return none;
         }
@@ -45,29 +52,71 @@ struct PathMapping {
 
         return streq(lookup_result.value, string);
     }
+
+    func validate_string(string: *String) -> bool {
+        if string.length == 0 || string.length + 1 > xr.MAX_PATH_LENGTH as usize {
+            return false;
+        }
+
+        if string.data[0] != '/' {
+            return false;
+        }
+
+        if string.data[string.length - 1] == '/' {
+            return false;
+        }
+
+        var after_slash_dot = false;
+        
+        for i in 0..string.length {
+            var c = string.data[i];
+
+            if c == '/' {
+                if after_slash_dot {
+                    return false;
+                } else {
+                    after_slash_dot = true;
+                }
+            } else if c == '.' {
+                if after_slash_dot {
+                    after_slash_dot = true;
+                }
+            } else if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
+                after_slash_dot = false;
+            } else {
+                return false;
+            }
+        }
+
+        if after_slash_dot {
+            return false;
+        }
+
+        return true;
+    }
 }
 
 @test func test_same_id() {
     var mapping = PathMapping.new();
-    var id = mapping.get_path("/user/hand/left");
-    assert_eq(mapping.get_path("/user/hand/left"), id);
+    var id = mapping.get_path("/user/hand/left").unwrap();
+    assert_eq(mapping.get_path("/user/hand/left").unwrap(), id);
 }
 
 @test func test_different_id() {
     var mapping = PathMapping.new();
-    var id = mapping.get_path("/user/hand/left");
-    assert_ne(mapping.get_path("/user/hand/right"), id);
+    var id = mapping.get_path("/user/hand/left").unwrap();
+    assert_ne(mapping.get_path("/user/hand/right").unwrap(), id);
 }
 
 @test func test_increasing() {
     var mapping = PathMapping.new();
-    var id = mapping.get_path("/user/hand/left");
-    assert_eq(mapping.get_path("/user/hand/right"), id + 1);
+    var id = mapping.get_path("/user/hand/left").unwrap();
+    assert_eq(mapping.get_path("/user/hand/right").unwrap(), id + 1);
 }
 
 @test func test_same_string() {
     var mapping = PathMapping.new();
-    var id = mapping.get_path("/user/hand/left");
+    var id = mapping.get_path("/user/hand/left").unwrap();
     var string = String.from(mapping.get_string(id).unwrap());
 
     assert_eq(string, "/user/hand/right");

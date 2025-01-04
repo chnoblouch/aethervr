@@ -97,15 +97,23 @@ struct Instance {
     }
 
     pub func string_to_path(self, string: *u8) -> (u64, xr.Result) {
-        var path = self.path_mapping.get_path(string);
-        log.info("Converting string to path: % -> %", string, path);
-        return (path, xr.Result.SUCCESS);
+        try path in self.path_mapping.get_path(string) {
+            log.info("Converting string to path: \"%\" -> %", string, path);
+            return (path, xr.Result.SUCCESS);
+        } else {
+            log.info("Tried to convert invalid string to path: \"%\"", string);
+            return (0, xr.Result.ERROR_PATH_FORMAT_INVALID);
+        }
     }
 
     pub func path_to_string(self, path: u64) -> (*u8, xr.Result) {
-        var string = self.path_mapping.get_string(path).value;
-        log.info("Converting path to string: % -> %", path, string);
-        return (string, xr.Result.SUCCESS);
+        try string in self.path_mapping.get_string(path) {
+            log.info("Converting path to string: % -> \"%\"", path, string);
+            return (string, xr.Result.SUCCESS);
+        } else {
+            log.info("Tried to convert invalid path to string: ", path);
+            return (null, xr.Result.ERROR_PATH_INVALID);
+        }
     }
 
     pub func enumerate_view_configurations(self, system_id: u64) -> ([xr.ViewConfigurationType], xr.Result) {
