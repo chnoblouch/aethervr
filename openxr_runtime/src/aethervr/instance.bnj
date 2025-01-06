@@ -56,9 +56,9 @@ struct Instance {
         return xr.Result.SUCCESS;
     }
 
-    pub func is_extension_enabled(self, extension: *u8) -> bool {
+    pub func is_extension_enabled(self, extension: StringSlice) -> bool {
         for *candidate in self.extensions {
-            if streq(candidate.data, extension) {
+            if *candidate == extension {
                 return true;
             }
         }
@@ -112,7 +112,7 @@ struct Instance {
     }
 
     pub func string_to_path(self, string: *u8) -> (u64, xr.Result) {
-        try path in self.path_mapping.get_path(string) {
+        try path in self.path_mapping.get_path(StringSlice.of_cstring(string)) {
             log.info("Converting string to path: \"%\" -> %", string, path);
             return (path, xr.Result.SUCCESS);
         } else {
@@ -121,13 +121,13 @@ struct Instance {
         }
     }
 
-    pub func path_to_string(self, path: u64) -> (*u8, xr.Result) {
+    pub func path_to_string(self, path: u64) -> (StringSlice, xr.Result) {
         try string in self.path_mapping.get_string(path) {
             log.info("Converting path to string: % -> \"%\"", path, string);
             return (string, xr.Result.SUCCESS);
         } else {
             log.info("Tried to convert invalid path to string: ", path);
-            return (null, xr.Result.ERROR_PATH_INVALID);
+            return (StringSlice.new_empty(), xr.Result.ERROR_PATH_INVALID);
         }
     }
 

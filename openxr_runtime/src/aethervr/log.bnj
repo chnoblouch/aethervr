@@ -23,11 +23,11 @@ func create_instance(path: Path) {
 pub func info[Args: ...](format: String, args: Args) {
     var string = "";
 
-    var i = 0;
+    var i: usize = 0;
 
     meta for arg in args {
-        while format.cstr()[i] != '\0' && format.cstr()[i] != '%' {
-            string.append(format.cstr()[i]);
+        while i < format.length() && format.bytes()[i] != '%' {
+            string.append(format.bytes()[i]);
             i += 1;
         }
 
@@ -35,8 +35,8 @@ pub func info[Args: ...](format: String, args: Args) {
         i += 1;
     }
 
-    while format.cstr()[i] != '\0' {
-        string.append(format.cstr()[i]);
+    while i < format.length() {
+        string.append(format.bytes()[i]);
         i += 1;
     }
 

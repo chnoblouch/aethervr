@@ -81,29 +81,29 @@ struct Component {
         };
     }
 
-    pub func matches(self, binding: String, type_: xr.ActionType) -> bool {
+    pub func matches(self, binding: StringSlice, type_: xr.ActionType) -> bool {
         if self.user_path.has_value {
-            if !binding.starts_with(self.user_path.value.copy()) {
+            if !binding.starts_with(self.user_path.value.slice()) {
                 return false;
             }
         }
 
-        var sub_path: String;
+        var sub_path: StringSlice;
 
         if binding.starts_with("/user/hand/left") {
-            sub_path = binding.substr(15, binding.length);
+            sub_path = binding.substring(15, binding.length);
         } else if binding.starts_with("/user/hand/right") {
-            sub_path = binding.substr(16, binding.length);
+            sub_path = binding.substring(16, binding.length);
         } else if binding.starts_with("/user/head") {
-            sub_path = binding.substr(10, binding.length);
+            sub_path = binding.substring(10, binding.length);
         } else if binding.starts_with("/user/gamepad") {
-            sub_path = binding.substr(13, binding.length);
+            sub_path = binding.substring(13, binding.length);
         } else {
             return false;
         }
 
         if self.sub_path.ends_with("/x") || self.sub_path.ends_with("/y") {
-            var parent = self.sub_path.substr(0, self.sub_path.rfind('/').unwrap());
+            var parent = self.sub_path.substring(0, self.sub_path.rfind('/').unwrap());
 
             if sub_path == parent {
                 return true;
@@ -307,7 +307,7 @@ pub func set_action_bindings(
     log.info("Suggesting interaction profile bindings");
     log.enter_scope();
 
-    var profile_path = instance.path_mapping.get_string(suggested_bindings.interaction_profile).value;
+    var profile_path = instance.path_mapping.get_string(suggested_bindings.interaction_profile).unwrap();
     log.info("Interaction Profile: %", profile_path);
 
     var profile = find_profile(instance, profile_path);
@@ -329,14 +329,14 @@ pub func set_action_bindings(
         var action = binding.action as *Action;
         var path = binding.binding;
 
-        var string = instance.path_mapping.get_string(path).value;
+        var string = instance.path_mapping.get_string(path).unwrap();
 
         log.info("- % -> %", action.name.copy(), string);
 
         var component: *Component = null;
 
         for *candidate in profile.components {
-            if candidate.matches(String.from(string), action.type_) {
+            if candidate.matches(string, action.type_) {
                 component = candidate;
                 break;
             }
@@ -404,9 +404,9 @@ pub func set_action_bindings(
     return xr.Result.SUCCESS;
 }
 
-func find_profile(instance: *Instance, path: *u8) -> *InteractionProfile {
+func find_profile(instance: *Instance, path: StringSlice) -> *InteractionProfile {
     for *profile in instance.interaction_profiles {
-        if eq(profile.path.cstr(), path) {
+        if profile.path == path {
             return profile;
         }
     }

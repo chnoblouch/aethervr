@@ -15,10 +15,8 @@ struct PathMapping {
         };
     }
 
-    pub func get_path(self, cstr: *u8) -> ?u64 {
-        var string = String.from_cstr(cstr);
-
-        if !validate_string(&string) {
+    pub func get_path(self, string: StringSlice) -> ?u64 {
+        if !validate_string(string) {
             return none;
         }
 
@@ -28,11 +26,11 @@ struct PathMapping {
             }
         }
 
-        self.paths.append(string);
+        self.paths.append(String.from(string));
         return self.paths.length as u64;
     }
 
-    pub func get_string(self, path: u64) -> ?*u8 {
+    pub func get_string(self, path: u64) -> ?StringSlice {
         var index = path as usize - 1;
 
         # FIXME: `index` possibly being smaller than 0 is a compiler bug.
@@ -40,20 +38,19 @@ struct PathMapping {
             return none;
         }
 
-        var string = self.paths[index].cstr();
-        return string;
+        return self.paths[index].slice();
     }
 
-    pub func is_path(self, path: u64, string: *u8) -> bool {
+    pub func is_path(self, path: u64, string: StringSlice) -> bool {
         var lookup_result = self.get_string(path);
         if !lookup_result.has_value {
             return false;
         }
 
-        return streq(lookup_result.value, string);
+        return lookup_result.value == string;
     }
 
-    func validate_string(string: *String) -> bool {
+    func validate_string(string: StringSlice) -> bool {
         if string.length == 0 || string.length + 1 > xr.MAX_PATH_LENGTH as usize {
             return false;
         }

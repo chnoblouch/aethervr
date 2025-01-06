@@ -1,5 +1,5 @@
-use std.convert.to_string;
-use c.lib.string.{memcpy, strcpy, strlen};
+use std.{memory, convert.to_string};
+use c.lib.string.strcpy;
 
 use xr;
 use vulkan as vk;
@@ -97,14 +97,16 @@ pub func path_to_string(
     }
 
     var path_string = result.0;
-    var size = strlen(path_string) as u32 + 1;
+    var size = path_string.length as u32 + 1;
 
     var buffer_info = handle_buffer_size(size, buffer_count_output, buffer_capacity_input);
     if buffer_info.0 {
         return buffer_info.1;
     }
 
-    memcpy(buffer, path_string, size as usize);
+    memory.copy(path_string.data, buffer, path_string.length);
+    buffer[path_string.length] = '\0';
+    
     return xr.Result.SUCCESS;
 }
 
@@ -650,11 +652,13 @@ pub func result_to_string(
     } else if result as i32 > 0 {
         var suffix = result as i32;
         var string = "XR_UNKNOWN_SUCCESS_" + to_string(&suffix);
-        strcpy(buffer, string.cstr());
+        memory.copy(string.bytes(), buffer, string.length());
+        buffer[string.length()] = '\0';
     } else if result as i32 < 0 {
         var suffix = result as i32;
         var string = "XR_UNKNOWN_FAILURE_" + to_string(&suffix);
-        strcpy(buffer, string.cstr());
+        memory.copy(string.bytes(), buffer, string.length());
+        buffer[string.length()] = '\0';
     }
 
     return xr.Result.SUCCESS;
@@ -804,7 +808,8 @@ pub func structure_type_to_string(
     } else {
         var suffix = value as i32;
         var string = "XR_UNKNOWN_STRUCTURE_TYPE_" + to_string(&suffix);
-        strcpy(buffer, string.cstr());   
+        memory.copy(string.bytes(), buffer, string.length());
+        buffer[string.length()] = '\0';
     }
 
     return xr.Result.SUCCESS;
