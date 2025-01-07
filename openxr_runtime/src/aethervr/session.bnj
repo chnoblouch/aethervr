@@ -15,7 +15,7 @@ use aethervr.{
     space.{Space, SpaceType},
     swapchain.Swapchain,
     action.{ActionSet, Action},
-    graphics.GraphicsBackend,
+    graphics.{GraphicsBackend, ImageRegion},
     input.{InputState, HeadsetState, ControllerState},
     tracker_connection.TrackerConnection,
     input_mapper.InputMapper,
@@ -34,6 +34,7 @@ struct Session {
 
     var graphics_backend: GraphicsBackend;
     var frame_state: FrameState;
+    var last_present_time: i64;
 
     var view_configuration_type: xr.ViewConfigurationType;
 
@@ -74,6 +75,7 @@ struct Session {
             state: xr.SessionState.UNKNOWN,
             graphics_backend: graphics_backend.value,
             frame_state: FrameState.ENDED,
+            last_present_time: time.now(),
             view_configuration_type: undefined,
             tracker_connection: TrackerConnection.connect(),
             input_state: InputState.new(),
@@ -216,19 +218,19 @@ struct Session {
         }
 
         var now = time.now();
-        var remainder = now % constants.NS_PER_FRAME;
+        var remainder = now % constants.TIME_PER_FRAME_NS;
         var next_frame: i64;
 
         if remainder == 0 {
-            next_frame = now + constants.NS_PER_FRAME;
+            next_frame = now + constants.TIME_PER_FRAME_NS;
         } else {
-            next_frame = now + constants.NS_PER_FRAME - remainder;
+            next_frame = now + constants.TIME_PER_FRAME_NS - remainder;
         }
 
         while time.now() < next_frame {}
 
-        state.predicted_display_time = time.now() + constants.NS_PER_FRAME;
-        state.predicted_display_period = constants.NS_PER_FRAME;
+        state.predicted_display_time = time.now() + constants.TIME_PER_FRAME_NS;
+        state.predicted_display_period = constants.TIME_PER_FRAME_NS;
 
         if self.state == xr.SessionState.SYNCHRONIZED {
             state.should_render = 0;
@@ -261,11 +263,46 @@ struct Session {
             return xr.Result.ERROR_SESSION_NOT_RUNNING;
         }
 
-        if self.frame_state == FrameState.BEGAN {
-            self.frame_state = FrameState.ENDED;
-            return xr.Result.SUCCESS;
-        } else {
+        if self.frame_state != FrameState.BEGAN {
             return xr.Result.ERROR_CALL_ORDER_INVALID;
+        }
+
+        if info.layer_count > 0 {
+            if info.layers[0].type_ == xr.StructureType.COMPOSITION_LAYER_PROJECTION {
+                self.present_frame(info.layers[0] as *xr.CompositionLayerProjection);
+            }
+        }
+
+        self.frame_state = FrameState.ENDED;
+        return xr.Result.SUCCESS;
+    }
+
+    func present_frame(self, layer: *xr.CompositionLayerProjection) {
+        if layer.view_count < 1 {
+            return;
+        }
+        
+        var now = time.now();
+        if now - self.last_present_time < constants.FRAME_PRESENT_TIME_NS {
+            return;
+        }
+
+        self.last_present_time = now;
+
+        var sub_image = &layer.views[0].sub_image;                
+        var swapchain = sub_image.swapchain as *Swapchain;
+        var image = swapchain.images[swapchain.last_released_index];
+
+        var region = ImageRegion {
+            x: sub_image.image_rect.offset.x,
+            y: sub_image.image_rect.offset.y,
+            width: sub_image.image_rect.extent.width,
+            height: sub_image.image_rect.extent.height,
+            array_index: sub_image.image_array_index,
+        };
+
+        try data in self.graphics_backend.copy_image_to_host(&image, region) {
+            self.tracker_connection.send_frame(&data);
         }
     }
 
@@ -293,16 +330,16 @@ struct Session {
             return xr.Result.ERROR_VALIDATION_FAILURE;
         }
 
-        if self.action_sets_attached {
-            return xr.Result.ERROR_ACTIONSETS_ALREADY_ATTACHED;
-        }
+        # if self.action_sets_attached {
+        #     return xr.Result.ERROR_ACTIONSETS_ALREADY_ATTACHED;
+        # }
 
         for i in 0..info.count_action_sets {
             var action_set = info.action_sets[i] as *ActionSet;
 
-            if action_set.is_attached_to(self) {
-                return xr.Result.ERROR_ACTIONSETS_ALREADY_ATTACHED;
-            }
+            # if action_set.is_attached_to(self) {
+            #     return xr.Result.ERROR_ACTIONSETS_ALREADY_ATTACHED;
+            # }
 
             action_set.attach_to(self);
         }
@@ -500,6 +537,8 @@ struct Session {
     }
 
     pub func destroy(self) -> xr.Result {
+        var lock = self.tracker_connection.mutex.lock();
+        
         log.info("Destroying session");
         self.tracker_connection.stream.close();
         memory.free(self);

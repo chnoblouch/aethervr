@@ -2,6 +2,7 @@ from threading import Thread, Lock, Condition
 import socket
 import struct
 import errno
+import time
 
 from aethervr.input_state import InputState, HeadsetState, ControllerState, ControllerButton
 
@@ -13,6 +14,7 @@ class RuntimeConnection:
     def __init__(self, port: int):
         self.on_connected = lambda: None
         self.on_disconnected = lambda: None
+        self.on_frame_received = lambda width, height, data: None
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.settimeout(RuntimeConnection.TIMEOUT)
@@ -48,35 +50,57 @@ class RuntimeConnection:
             print("OpenXR runtime connected")
             self.on_connected()
 
-            while self.running and self.connected:
-                try:
-                    self.stream.recv(1)
+            self.communicate()
 
-                    with self.lock:
-                        if self.headset_state_available and self.controller_state_available:
-                            self.stream.send(b"\x03")
-                            self.stream.send(self.serialize_headset_state())
-                            self.stream.send(self.serialize_controller_state())
-                        elif self.headset_state_available:
-                            self.stream.send(b"\x01")
-                            self.stream.send(self.serialize_headset_state())
-                        elif self.controller_state_available:
-                            self.stream.send(b"\x02")
-                            self.stream.send(self.serialize_controller_state())
-                        else:
-                            self.stream.send(b"\x00")
-
-                        self.headset_state_available = False
-                        self.controller_state_available = False
-                except OSError as error:
-                    if error.errno == errno.EAGAIN or error.errno == errno.EWOULDBLOCK:
-                        pass
-                    else:
-                        print("OpenXR runtime disconnected")
-                        self.connected = False
-                        self.on_disconnected()
+            print("OpenXR runtime disconnected")
+            self.connected = False
+            self.on_disconnected()
 
         self.socket.close()
+
+    def communicate(self):
+        while self.running and self.connected:
+            try:
+                request = self.stream.recv(1)
+                if len(request) == 0:
+                    break
+
+                if request == b"\x00":
+                    self.send_tracking_state()
+                elif request == b"\x01":
+                    self.receive_frame()
+                else:
+                    print(f"Warning: Unknown request from runtime: {request}")
+            except OSError as error:
+                if error.errno == errno.EAGAIN or error.errno == errno.EWOULDBLOCK:
+                    pass
+                else:
+                    break
+
+    def send_tracking_state(self):
+        with self.lock:
+            if self.headset_state_available and self.controller_state_available:
+                self.stream.send(b"\x03")
+                self.stream.send(self.serialize_headset_state())
+                self.stream.send(self.serialize_controller_state())
+            elif self.headset_state_available:
+                self.stream.send(b"\x01")
+                self.stream.send(self.serialize_headset_state())
+            elif self.controller_state_available:
+                self.stream.send(b"\x02")
+                self.stream.send(self.serialize_controller_state())
+            else:
+                self.stream.send(b"\x00")
+            
+            self.headset_state_available = False
+            self.controller_state_available = False
+
+    def receive_frame(self):
+        width = struct.unpack("I", self.stream.recv(4))[0]
+        height = struct.unpack("I", self.stream.recv(4))[0]
+
+        frame = self.stream.recv(4 * width * height, socket.MSG_WAITALL)
+        self.on_frame_received(width, height, frame)
 
     def update_headset_state(self, state: HeadsetState):
         with self.lock:

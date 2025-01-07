@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QMessageBox,
+    QTabWidget,
 )
 
 from PySide6.QtCore import QEvent, Qt, QSize, QEvent, QRect, QTimer
@@ -54,6 +55,7 @@ class Window(QMainWindow):
         self.system_openxr_config = system_openxr_config
 
         self.camera_view = None
+        self.frame_view = None
 
         self.setWindowTitle("AetherVR Tracker")
         self.resize(QSize(1280, 720))
@@ -72,17 +74,25 @@ class Window(QMainWindow):
         widget = QWidget()
 
         self.camera_view = CameraView()
+        self.frame_view = FrameView()
+
+        self.connection.on_frame_received = self.frame_view.update_frame
 
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.VLine)
         separator.setFrameShadow(QFrame.Shadow.Plain)
+
+        tab_widget = QTabWidget()
+        tab_widget.setContentsMargins(10, 10, 10, 10)
+        tab_widget.addTab(self.camera_view, "Camera")
+        tab_widget.addTab(self.frame_view, "Application")
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(ConfigPanel(self.config, self.system_openxr_config))
         layout.addWidget(separator)
-        layout.addWidget(self.camera_view)
+        layout.addWidget(tab_widget)
         widget.setLayout(layout)
 
         size_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
@@ -194,6 +204,7 @@ class ButtonBindingDropdown(QComboBox):
 
 
 class CameraView(QLabel):
+
     def __init__(self):
         super().__init__()
 
@@ -290,6 +301,40 @@ class CameraView(QLabel):
 
         return super().paintEvent(e)
 
+
+class FrameView(QLabel):
+
+    def __init__(self):
+        super().__init__()
+
+        self.frame_width = 1
+        self.frame_height = 1
+        self.frame_data = bytes([0, 0, 0, 255])
+    
+    def update_frame(self, width: int, height: int, data: bytes):
+        self.frame_width = width
+        self.frame_height = height
+        self.frame_data = data
+        
+        self.update()
+
+    def paintEvent(self, e: QPaintEvent):
+        canvas_width, canvas_height = self.width(), self.height()
+
+        height = canvas_height - 100
+        width = height * (self.frame_width / self.frame_height)
+
+        x = (canvas_width - width) / 2
+        y = (canvas_height - height) / 2
+        rect = QRect(x, y, width, height)
+
+        image = QImage(self.frame_data, self.frame_width, self.frame_height, QImage.Format.Format_RGBA8888)
+
+        painter = QPainter(self)
+        painter.drawImage(rect, image)
+        painter.end()
+
+        return super().paintEvent(e)
 
 class StatusBar(QLabel):
 

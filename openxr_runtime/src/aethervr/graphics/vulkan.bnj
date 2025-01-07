@@ -11,7 +11,7 @@ use aethervr.{
     utils.{version, handle_buffer_size},
 };
 
-pub func get_reqs(reqs: *xr.GraphicsRequirementsVulkanKHR) -> xr.Result {
+pub func get_requirements(reqs: *xr.GraphicsRequirementsVulkanKHR) -> xr.Result {
     reqs.min_api_version_supported = version(1, 0, 0);
     reqs.max_api_version_supported = version(1, 3, 0);
     return xr.Result.SUCCESS;

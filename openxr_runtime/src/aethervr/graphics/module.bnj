@@ -7,6 +7,20 @@ use aethervr.{
     graphics.{opengl, vulkan, d3d11},
 };
 
+struct ImageRegion {
+    var x: i32;
+    var y: i32;
+    var width: i32;
+    var height: i32;
+    var array_index: u32;
+}
+
+struct ImageData {
+    var width: u32;
+    var height: u32;
+    var data: Array[u8];
+}
+
 union GraphicsBackend {
     case OpenGL(binding: xr.GraphicsBindingOpenGLXlibKHR);
     case Vulkan(binding: xr.GraphicsBindingVulkanKHR);
@@ -77,6 +91,14 @@ union GraphicsBackend {
             } case d3d11_backend: GraphicsBackend.D3D11 {
                 var out_images_d3d11 = out_images as *xr.SwapchainImageD3D11KHR;
                 out_images_d3d11[out_index].texture = handle as addr;
+            }
+        }
+    }
+
+    pub func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData {
+        switch *self {
+            case d3d11_backend: GraphicsBackend.D3D11 {
+                return d3d11.copy_image_to_host(&d3d11_backend.binding, image, region);
             }
         }
     }

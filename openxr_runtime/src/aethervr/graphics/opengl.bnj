@@ -7,7 +7,7 @@ use aethervr.{
     utils.version,
 };
 
-pub func get_reqs(reqs: *xr.GraphicsRequirementsOpenGLKHR) -> xr.Result {
+pub func get_requirements(reqs: *xr.GraphicsRequirementsOpenGLKHR) -> xr.Result {
     reqs.min_api_version_supported = version(3, 0, 0);
     reqs.max_api_version_supported = version(4, 6, 0);
     return xr.Result.SUCCESS;

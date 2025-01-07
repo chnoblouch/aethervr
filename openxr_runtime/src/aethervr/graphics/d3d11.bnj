@@ -1,14 +1,16 @@
+use std.memory;
+
 use xr;
 use d3d11;
-use stbi;
 
 use aethervr.{
     log,
     swapchain.{SwapchainImage, SwapchainImageState},
+    graphics.{ImageRegion, ImageData},
     utils.{version, handle_buffer_size},
 };
 
-pub func get_reqs(reqs: *xr.GraphicsRequirementsD3D11KHR) -> xr.Result {
+pub func get_requirements(reqs: *xr.GraphicsRequirementsD3D11KHR) -> xr.Result {
     var factory: *d3d11.DXGIFactory;
 
     # GUID for IDXGIFactory
@@ -131,23 +133,6 @@ pub func create_swapchain_image(
         log.error("Failed to create texture");
     }
 
-    # var rtv_desc = d3d11.RenderTargetViewDesc {
-    #     format: desc.format,
-    #     view_dimension: d3d11.RtvDimension.TEXTURE2DARRAY,
-    #     texture_2d_array: {
-    #         mip_slice: 0,
-    #         first_array_slice: 1,
-    #         array_size: 1
-    #     }
-    # };
-
-    # var rtv: *d3d11.Tex2dRtv;
-    # var r = device.lp_vtbl.create_render_target_view(device, texture, &rtv_desc, &rtv);
-    # if r != 0 {
-    #     log.error("Failed to create render target view");
-    #     log.error(String.from(r as i64));
-    # }
-
     *swapchain_image = SwapchainImage {
         create_info: *create_info,
         api_handle: texture as usize,
@@ -158,17 +143,32 @@ pub func create_swapchain_image(
     return xr.Result.SUCCESS;
 }
 
-pub func read_image(
+pub func copy_image_to_host(
     binding: *xr.GraphicsBindingD3D11KHR,
-    image: *SwapchainImage
-) {
+    image: *SwapchainImage,
+    region: ImageRegion
+) -> ?ImageData {
+    # TODO: Better error handling, resource cleanup
+
     var device = binding.device as *d3d11.Device;
+    
+    var flipped_vertically = false;
+
+    if region.width < 0 {
+        log.error("D3D11: Negative width in image region is currently unsupported");
+    }
+
+    if region.height < 0 {
+        region.height = -region.height;
+        region.y -= region.height;
+        flipped_vertically = true;
+    }
 
     var staging_texture_desc = d3d11.Texture2dDesc {
-        width: image.create_info.width,
-        height: image.create_info.height,
+        width: region.width as u32,
+        height: region.height as u32,
         mip_levels: image.create_info.mip_count,
-        array_size: image.create_info.array_size,
+        array_size: 1,
         format: image.create_info.format as d3d11.DXGIFormat,
         sample_desc: {
             count: image.create_info.sample_count,
@@ -183,30 +183,70 @@ pub func read_image(
     var staging_texture: *d3d11.Texture2D;
     if device.lp_vtbl.create_texture2_d(device, &staging_texture_desc, null, &staging_texture) != 0 {
         log.error("Failed to create staging texture");
+        return none;
     }
 
     var context: *d3d11.DeviceContext;
     device.lp_vtbl.get_immediate_context(device, &context);
 
-    context.lp_vtbl.copy_resource(context, staging_texture as *d3d11.Resource, image.api_handle as *d3d11.Resource);
+    var box = d3d11.Box {
+        left: region.x as u32,
+        top: region.y as u32,
+        front: 0,
+        right: (region.x + region.width) as u32,
+        bottom: (region.y + region.height) as u32,
+        back: 1,
+    };
+
+    context.lp_vtbl.copy_subresource_region(
+        context,
+        staging_texture as *d3d11.Resource,
+        0,
+        0,
+        0,
+        0,
+        image.api_handle as *d3d11.Resource,
+        region.array_index,
+        &box,
+    );
 
     var mapped_resource: d3d11.MappedSubresource;
     if context.lp_vtbl.map(context, staging_texture as *d3d11.Resource, 0, d3d11.Map.READ, 0, &mapped_resource) != 0 {
         log.error("Failed to map staging texture");
+        return none;
     }
 
+    var result: ?ImageData = none;
+
     if mapped_resource.p_data != null && (image.create_info.usage_flags & xr.SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT) != 0 {
-        stbi.write_png(
-            "out.png",
-            image.create_info.width as i32,
-            image.create_info.height as i32,
-            4,
-            mapped_resource.p_data as *u8,
-            image.create_info.width as i32 * 4
-        );
+        var bytes = mapped_resource.p_data as *u8;
+
+        var width = region.width as usize;
+        var height = region.height as usize;
+        var row_size = 4 * width;
+        var array = Array[u8].sized(row_size * height);
+        
+        for row in 0..height {
+            var src_row = &bytes[row * mapped_resource.row_pitch as usize];
+            var dst_row = &array.data[row * row_size];
+            
+            if flipped_vertically {
+                dst_row = &array.data[(height - row - 1) * row_size];
+            }
+
+            memory.copy(src_row, dst_row, row_size);
+        }
+
+        result = ImageData {
+            width: width as u32,
+            height: height as u32,
+            data: array,
+        };
     }
 
     context.lp_vtbl.unmap(context, staging_texture as *d3d11.Resource, 0);
-
     context.lp_vtbl.release(context);
+    staging_texture.lp_vtbl.release(staging_texture);
+
+    return result;
 }

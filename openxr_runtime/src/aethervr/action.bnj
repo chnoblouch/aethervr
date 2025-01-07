@@ -62,9 +62,9 @@ struct Action {
     var binding: ActionBinding;
 
     pub func create(action_set: *ActionSet, create_info: *xr.ActionCreateInfo) -> (*Action, xr.Result) {
-        if action_set.sessions.elements.length > 0 {
-            return (null, xr.Result.ERROR_ACTIONSETS_ALREADY_ATTACHED);
-        }
+        # if action_set.sessions.elements.length > 0 {
+        #     return (null, xr.Result.ERROR_ACTIONSETS_ALREADY_ATTACHED);
+        # }
         
         log.info("Creating action");
         log.info("  Name: %", &create_info.action_name as *u8);

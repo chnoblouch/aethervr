@@ -150,10 +150,10 @@ struct Instance {
         return ActionSet.create(self, create_info);
     }
 
-    pub func get_opengl_graphics_reqs(
+    pub func get_opengl_graphics_requirements(
         self,
         system_id: u64,
-        graphics_requirements: *xr.GraphicsRequirementsOpenGLKHR
+        graphics_requirements: *xr.GraphicsRequirementsOpenGLKHR,
     ) -> xr.Result {
         log.info("Getting OpenGL graphics requirements");
 
@@ -162,10 +162,14 @@ struct Instance {
         }
 
         self.graphics_reqs_queried = true;
-        return graphics.opengl.get_reqs(graphics_requirements);
+        return graphics.opengl.get_requirements(graphics_requirements);
     }
 
-    pub func get_vulkan_graphics_reqs(self, system_id: u64, reqs: *xr.GraphicsRequirementsVulkanKHR) -> xr.Result {
+    pub func get_vulkan_graphics_requirements(
+        self,
+        system_id: u64,
+        reqs: *xr.GraphicsRequirementsVulkanKHR,
+    ) -> xr.Result {
         log.info("Getting Vulkan graphics requirements");
 
         if !check_system(system_id) {
@@ -173,7 +177,7 @@ struct Instance {
         }
 
         self.graphics_reqs_queried = true;
-        return graphics.vulkan.get_reqs(reqs);
+        return graphics.vulkan.get_requirements(reqs);
     }
 
     pub func get_vulkan_device(self, system_id: u64, vk_instance: addr, vk_physical_device: *addr) -> xr.Result {
@@ -232,7 +236,7 @@ struct Instance {
         self,
         info: *xr.VulkanInstanceCreateInfoKHR,
         vk_instance: *addr,
-        vk_result: *vk.Result
+        vk_result: *vk.Result,
     ) -> xr.Result {
         return graphics.vulkan.create_instance(info, vk_instance, vk_result);
     }
@@ -242,12 +246,16 @@ struct Instance {
         self,
         info: *xr.VulkanDeviceCreateInfoKHR,
         vk_device: *addr,
-        vk_result: *vk.Result
+        vk_result: *vk.Result,
     ) -> xr.Result {
         return graphics.vulkan.create_device(info, vk_device, vk_result);
     }
 
-    pub func get_d3d11_graphics_reqs(self, system_id: u64, reqs: *xr.GraphicsRequirementsD3D11KHR) -> xr.Result {
+    pub func get_d3d11_graphics_requirements(
+        self,
+        system_id: u64,
+        reqs: *xr.GraphicsRequirementsD3D11KHR,
+    ) -> xr.Result {
         log.info("Getting D3D11 graphics requirements");
 
         if !check_system(system_id) {
@@ -255,7 +263,7 @@ struct Instance {
         }
 
         self.graphics_reqs_queried = true;
-        return graphics.d3d11.get_reqs(reqs);
+        return graphics.d3d11.get_requirements(reqs);
     }
 
     pub func check_system(system_id: u64) -> bool {

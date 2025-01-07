@@ -820,7 +820,7 @@ pub func get_opengl_graphics_requirements_khr(
     system_id: u64,
     graphics_requirements: *xr.GraphicsRequirementsOpenGLKHR
 ) -> xr.Result {
-    return instance.get_opengl_graphics_reqs(system_id, graphics_requirements);
+    return instance.get_opengl_graphics_requirements(system_id, graphics_requirements);
 }
 
 pub func get_vulkan_graphics_requirements_khr(
@@ -828,7 +828,7 @@ pub func get_vulkan_graphics_requirements_khr(
     system_id: u64,
     graphics_requirements: *xr.GraphicsRequirementsVulkanKHR
 ) -> xr.Result {
-    return instance.get_vulkan_graphics_reqs(system_id, graphics_requirements);
+    return instance.get_vulkan_graphics_requirements(system_id, graphics_requirements);
 }
 
 pub func get_vulkan_graphics_device_khr(
@@ -865,7 +865,7 @@ pub func get_vulkan_graphics_requirements_2_khr(
     system_id: u64,
     graphics_requirements: *xr.GraphicsRequirementsVulkanKHR
 ) -> xr.Result {
-    return instance.get_vulkan_graphics_reqs(system_id, graphics_requirements);
+    return instance.get_vulkan_graphics_requirements(system_id, graphics_requirements);
 }
 
 pub func get_vulkan_graphics_device_2_khr(
@@ -899,7 +899,7 @@ pub func get_d3d11_graphics_requirements_khr(
     system_id: u64,
     graphics_requirements: *xr.GraphicsRequirementsD3D11KHR
 ) -> xr.Result {
-    return instance.get_d3d11_graphics_reqs(system_id, graphics_requirements);
+    return instance.get_d3d11_graphics_requirements(system_id, graphics_requirements);
 }
 
 # ----------------------------------------------------------------

@@ -40,6 +40,7 @@ struct PoseBuffer {
         for i in 0..NUM_SNAPSHOTS {
             snapshots[i] = PoseSnapshot {
                 pose: Pose.identity(),
+                timestamp: 0,
             };
         }
 

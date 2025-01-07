@@ -316,8 +316,12 @@ pub func set_action_bindings(
         log.exit_scope();
         return xr.Result.ERROR_PATH_UNSUPPORTED;
     }
-    
-    instance.interaction_profile = suggested_bindings.interaction_profile;
+
+    var is_used = profile_path == "/interaction_profiles/oculus/touch_controller";
+
+    if is_used {
+        instance.interaction_profile = suggested_bindings.interaction_profile;
+    }
 
     log.info("Suggested bindings:");
     log.enter_scope();
@@ -348,11 +352,21 @@ pub func set_action_bindings(
             return xr.Result.ERROR_PATH_UNSUPPORTED;
         }
 
+        if !is_used {
+            continue;
+        }
+
         if action.binding.device == Device.LEFT_HAND || action.binding.device == Device.RIGHT_HAND {
             # If an action has already been bound to a hand, bind it to any hand.
             action.binding.device = Device.ANY_HAND;
-        } else {
-            action.binding.device = profile.device;
+        } else if string.starts_with("/user/hand/left") {
+            action.binding.device = Device.LEFT_HAND;
+        }  else if string.starts_with("/user/hand/right") {
+            action.binding.device = Device.RIGHT_HAND;
+        } else if string.starts_with("/user/head") {
+            action.binding.device = Device.HEAD;
+        } else if string.starts_with("/user/gamepad") {
+            action.binding.device = Device.GAMEPAD;
         }
 
         action.binding.identifier = component.identifier;
@@ -363,42 +377,47 @@ pub func set_action_bindings(
 
     log.exit_scope();
 
-    log.info("Resulting bindings:");
-    log.enter_scope();
+    if is_used {
+        log.info("Resulting bindings:");
+        log.enter_scope();
 
-    for action in actions.elements {
-        var binding_str = String.new();
+        for action in actions.elements {
+            var binding_str = String.new();
 
-        if action.binding.device == Device.NONE { binding_str.append("none."); }
-        else if action.binding.device == Device.HEAD { binding_str.append("head."); }
-        else if action.binding.device == Device.LEFT_HAND { binding_str.append("left_hand."); }
-        else if action.binding.device == Device.RIGHT_HAND { binding_str.append("right_hand."); }
-        else if action.binding.device == Device.ANY_HAND { binding_str.append("any_hand."); }
+            if action.binding.device == Device.NONE { binding_str.append("none."); }
+            else if action.binding.device == Device.HEAD { binding_str.append("head."); }
+            else if action.binding.device == Device.LEFT_HAND { binding_str.append("left_hand."); }
+            else if action.binding.device == Device.RIGHT_HAND { binding_str.append("right_hand."); }
+            else if action.binding.device == Device.ANY_HAND { binding_str.append("any_hand."); }
 
-        if action.binding.identifier == Identifier.NONE { binding_str.append("none."); }
-        else if action.binding.identifier == Identifier.GRIP { binding_str.append("grip."); }
-        else if action.binding.identifier == Identifier.AIM { binding_str.append("aim."); }
-        else if action.binding.identifier == Identifier.THUMBSTICK { binding_str.append("thumbstick."); }
-        else if action.binding.identifier == Identifier.TRIGGER { binding_str.append("trigger."); }
-        else if action.binding.identifier == Identifier.SQUEEZE { binding_str.append("squeeze."); }
-        else if action.binding.identifier == Identifier.A_BUTTON { binding_str.append("a."); }
-        else if action.binding.identifier == Identifier.B_BUTTON { binding_str.append("b."); }
-        else if action.binding.identifier == Identifier.X_BUTTON { binding_str.append("x."); }
-        else if action.binding.identifier == Identifier.Y_BUTTON { binding_str.append("y."); }
-        else if action.binding.identifier == Identifier.MENU { binding_str.append("menu."); }
-        else if action.binding.identifier == Identifier.SYSTEM { binding_str.append("system."); }
+            if action.binding.identifier == Identifier.NONE { binding_str.append("none."); }
+            else if action.binding.identifier == Identifier.GRIP { binding_str.append("grip."); }
+            else if action.binding.identifier == Identifier.AIM { binding_str.append("aim."); }
+            else if action.binding.identifier == Identifier.THUMBSTICK { binding_str.append("thumbstick."); }
+            else if action.binding.identifier == Identifier.TRIGGER { binding_str.append("trigger."); }
+            else if action.binding.identifier == Identifier.SQUEEZE { binding_str.append("squeeze."); }
+            else if action.binding.identifier == Identifier.A_BUTTON { binding_str.append("a."); }
+            else if action.binding.identifier == Identifier.B_BUTTON { binding_str.append("b."); }
+            else if action.binding.identifier == Identifier.X_BUTTON { binding_str.append("x."); }
+            else if action.binding.identifier == Identifier.Y_BUTTON { binding_str.append("y."); }
+            else if action.binding.identifier == Identifier.MENU { binding_str.append("menu."); }
+            else if action.binding.identifier == Identifier.SYSTEM { binding_str.append("system."); }
 
-        if action.binding.kind == Kind.NONE { binding_str.append("none"); }
-        else if action.binding.kind == Kind.CLICK { binding_str.append("click"); }
-        else if action.binding.kind == Kind.TOUCH { binding_str.append("touch"); }
-        else if action.binding.kind == Kind.FORCE { binding_str.append("force"); }
-        else if action.binding.kind == Kind.VALUE { binding_str.append("value"); }
-        else if action.binding.kind == Kind.POSE { binding_str.append("pose"); }
+            if action.binding.kind == Kind.NONE { binding_str.append("none"); }
+            else if action.binding.kind == Kind.CLICK { binding_str.append("click"); }
+            else if action.binding.kind == Kind.TOUCH { binding_str.append("touch"); }
+            else if action.binding.kind == Kind.FORCE { binding_str.append("force"); }
+            else if action.binding.kind == Kind.VALUE { binding_str.append("value"); }
+            else if action.binding.kind == Kind.POSE { binding_str.append("pose"); }
 
-        log.info("%: %", action.name.copy(), binding_str);
+            log.info("%: %", action.name.copy(), binding_str);
+        }
+
+        log.exit_scope();
+    } else {
+        log.info("Bindings for this interaction profile are ignored");
     }
-
-    log.exit_scope();
+    
     log.exit_scope();
     
     return xr.Result.SUCCESS;

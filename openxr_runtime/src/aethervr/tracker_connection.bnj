@@ -3,6 +3,7 @@ use std.{
     math,
     socket.Socket,
     file.Error,
+    mutex.Mutex,
     convert.to_string,
 };
 
@@ -14,6 +15,7 @@ use aethervr.{
     log,
     pose.{Pose, Vec3, Quat},
     input.{InputState, HeadsetState, ControllerState, PoseSnapshot},
+    graphics.ImageData,
 };
 
 struct HeadsetStateMsg {
@@ -63,6 +65,7 @@ struct ControllerStateMsg {
 
 struct TrackerConnection {
     var stream: Socket;
+    var mutex: Mutex;
     var state: InputState;
 
     var last_time: i64;
@@ -81,14 +84,17 @@ struct TrackerConnection {
 
         return TrackerConnection {
             stream,
+            mutex: Mutex.new(),
             state: InputState.new(),
             pitch: 0.0,
             yaw: 0.0,
-            last_time: time.now()
+            last_time: time.now(),
         };
     }
 
     pub func poll(self) -> ?InputState {
+        var lock = self.mutex.lock();
+
         var poll_message: u8 = 0;
 
         try bytes_sent in self.stream.send(&poll_message, 1) {
@@ -232,5 +238,29 @@ struct TrackerConnection {
         self.state.right_controller.thumbstick_y = message.right_thumbstick_y;
 
         return true;
+    }
+
+    pub func send_frame(self, frame: *ImageData) {
+        # TODO: Error handling
+
+        var lock = self.mutex.lock();
+        
+        var frame_message: u8 = 1;
+        var result = self.stream.send(&frame_message, 1);
+        if !result.successful {
+            return;
+        }
+
+        result = self.stream.send(&frame.width as *u8, 4);
+        if !result.successful {
+            return;
+        }
+        
+        result = self.stream.send(&frame.height as *u8, 4);
+        if !result.successful {
+            return;
+        }
+        
+        self.stream.send(frame.data.data, frame.data.length);
     }
 }
