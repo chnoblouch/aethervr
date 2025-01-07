@@ -1,12 +1,16 @@
 # AetherVR
 
-AetherVR is a tool to run VR games/applications on PC _without_ a VR headset. The system tracks your head and hands
-using nothing but a webcam and translates them into virtual headset and controller inputs that are passed on to VR
-applications. This is done using a custom OpenXR runtime that tricks applications into thinking they are connected
-to actual VR hardware.
+AetherVR is a tool to run VR games/applications on PC without a VR headset. The system tracks your head and hands using
+nothing but a webcam and translates the results into virtual headset and controller inputs that are passed on to VR
+applications. This is done using a custom OpenXR runtime that tricks applications into thinking they are connected to
+actual VR hardware.
+
+<p align="center">
+    <img src="https://marinohimself.ch/aethervr/screenshot.png" alt="AetherVR Screenshot">
+</p>
 
 > [!NOTE]
-> The OpenXR runtime is incomplete and non-conformant and might crash with some applications
+> The OpenXR runtime is incomplete and non-conformant and might crash with some applications.
 
 ## Usage
 
