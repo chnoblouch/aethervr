@@ -8,17 +8,19 @@ use aethervr.log;
 pub func get_extension_properties() -> [xr.ExtensionProperties] {
     # FIXME: These extension names are hardcoded because they aren't generated correctly by bindgen.
 
+    var extensions: Array[(*u8, u32)] = [];
+
     meta if config.OS == config.WINDOWS {
-        var extensions: [(*u8, u32)] = [
+        extensions = [
             ("XR_KHR_opengl_enable", 10),
             # ("XR_KHR_vulkan_enable", 8),
             ("XR_KHR_vulkan_enable2", 2),
             ("XR_KHR_win32_convert_performance_counter_time", 1),
             ("XR_KHR_D3D11_enable", 9),
         ];
-    } else if config.OS == config.MACOS {
-        var extensions: [(*u8, u32)] = [
-            ("XR_KHR_opengl_enable", 10),
+    } else if config.OS == config.LINUX {
+        extensions = [
+            ("XR_KHR_vulkan_enable2", 2),
         ];
     }
 
