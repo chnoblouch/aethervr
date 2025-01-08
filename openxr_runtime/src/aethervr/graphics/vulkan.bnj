@@ -1,13 +1,13 @@
-use std;
+use std.memory;
 use c.lib.string.strcpy;
 
 use xr;
 use vulkan as vk;
-use stbi;
 
 use aethervr.{
     log,
     swapchain.{SwapchainImage, SwapchainImageState},
+    graphics.{ImageRegion, ImageData},
     utils.{version, handle_buffer_size},
 };
 
@@ -174,7 +174,7 @@ pub func create_swapchain_image(
         sharing_mode: vk.SharingMode.EXCLUSIVE,
         queue_family_index_count: undefined,
         p_queue_family_indices: undefined,
-        initial_layout: vk.ImageLayout.UNDEFINED
+        initial_layout: vk.ImageLayout.UNDEFINED,
     };
 
     var image: addr;
@@ -187,17 +187,17 @@ pub func create_swapchain_image(
     var mem_reqs: vk.MemoryRequirements;
     vk.get_image_memory_requirements(binding.device, image, &mem_reqs);
 
-    var memory = allocate(binding, &mem_reqs, vk.MemoryPropertyFlagBits.DEVICE_LOCAL_BIT as u32);
-    if !memory.has_value {
+    var device_memory = allocate(binding, &mem_reqs, vk.MemoryPropertyFlagBits.DEVICE_LOCAL_BIT as u32);
+    if !device_memory.has_value {
         log.exit_scope();
         return xr.Result.ERROR_RUNTIME_FAILURE;
     }
-    vk.bind_image_memory(binding.device, image, memory.value, 0);
+    vk.bind_image_memory(binding.device, image, device_memory.value, 0);
 
     *swapchain_image = SwapchainImage {
         create_info: *create_info,
         api_handle: image as usize,
-        state: SwapchainImageState.AVAILABLE
+        state: SwapchainImageState.AVAILABLE,
     };
 
     transition_image(binding, swapchain_image, vk.ImageLayout.UNDEFINED, vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL);
@@ -206,28 +206,28 @@ pub func create_swapchain_image(
     return xr.Result.SUCCESS;
 }
 
-pub func read_image(
+pub func copy_image_to_host(
     binding: *xr.GraphicsBindingVulkanKHR,
-    image: *SwapchainImage
-) -> (u32, u32, *u8) {
+    image: *SwapchainImage,
+    region: ImageRegion
+) -> ?ImageData {
+    # TODO: Better error handling, resource cleanup, flipping images
+
     log.info("Reading back Vulkan image");
     log.enter_scope();
 
-    var image_width = image.create_info.width;
-    var image_height = image.create_info.height;
-    var image_size = image_width as u64 * image_height as u64 * 4;
-
-    log.info("Image size on host: % bytes", image_size);
+    var size = region.width as u64 * region.height as u64 * 4;
+    log.info("Image size on host: % bytes", size);
 
     var buffer_create_info = vk.BufferCreateInfo {
         s_type: vk.StructureType.BUFFER_CREATE_INFO,
         p_next: null,
         flags: 0,
-        size: image_size,
+        size: size,
         usage: vk.BufferUsageFlagBits.TRANSFER_DST_BIT as u32,
         sharing_mode: vk.SharingMode.EXCLUSIVE,
         queue_family_index_count: 1,
-        p_queue_family_indices: &binding.queue_family_index
+        p_queue_family_indices: &binding.queue_family_index,
     };
 
     var buffer: addr;
@@ -235,23 +235,23 @@ pub func read_image(
     ) != vk.Result.SUCCESS {
         log.error("Failed to create buffer");
         log.exit_scope();
-        return (0, 0, null);
+        return none;
     }
 
     var mem_reqs: vk.MemoryRequirements;
     vk.get_buffer_memory_requirements(binding.device, buffer, &mem_reqs);
 
-    var memory = allocate(
+    var device_memory = allocate(
         binding,
         &mem_reqs,
-        vk.MemoryPropertyFlagBits.HOST_VISIBLE_BIT as u32 | vk.MemoryPropertyFlagBits.HOST_COHERENT_BIT as u32
+        vk.MemoryPropertyFlagBits.HOST_VISIBLE_BIT as u32 | vk.MemoryPropertyFlagBits.HOST_COHERENT_BIT as u32,
     );
 
-    if !memory.has_value {
+    if !device_memory.has_value {
         log.exit_scope();
-        return (0, 0, null);
+        return none;
     }
-    vk.bind_buffer_memory(binding.device, buffer, memory.value, 0);
+    vk.bind_buffer_memory(binding.device, buffer, device_memory.value, 0);
 
     transition_image(binding, image, vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL, vk.ImageLayout.TRANSFER_SRC_OPTIMAL);
 
@@ -260,30 +260,30 @@ pub func read_image(
     var command_buffer_result = OneTimeCommandBuffer.begin(binding);
     if !command_buffer_result.has_value {
         log.exit_scope();
-        return (0, 0, null);
+        return none;
     }
     var command_buffer = command_buffer_result.value;
 
-    var region = vk.BufferImageCopy {
+    var buffer_image_copy = vk.BufferImageCopy {
         buffer_offset: 0,
         buffer_row_length: 0,
         buffer_image_height: 0,
         image_subresource: {
             aspect_mask: vk.ImageAspectFlagBits.COLOR_BIT as u32,
             mip_level: 0,
-            base_array_layer: 0,
-            layer_count: 1
+            base_array_layer: region.array_index,
+            layer_count: 1,
         },
         image_offset: {
-            x: 0,
-            y: 0,
+            x: region.x,
+            y: region.y,
             z: 0
         },
         image_extent: {
-            width: image.create_info.width,
-            height: image.create_info.height,
+            width: region.width as u32,
+            height: region.height as u32,
             depth: 1
-        }
+        },
     };
 
     vk.cmd_copy_image_to_buffer(
@@ -292,31 +292,32 @@ pub func read_image(
         vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL,
         buffer,
         1,
-        &region
+        &buffer_image_copy,
     );
 
     if !command_buffer.submit() {
         log.exit_scope();
-        return (0, 0, null);
+        return none;
     }
 
     log.info("Copying buffer data to host");
 
     var host_mem: addr;
-    var data = std.memory.alloc(image_size as usize);
+    var data = Array[u8].sized(size as usize);
 
-    vk.map_memory(binding.device, memory.value, 0, image_size, 0, &host_mem);
-    std.memory.copy(host_mem, data, image_size as usize);
-    vk.unmap_memory(binding.device, memory.value);
-
-    var path: *u8 = "out.png";
-    stbi.write_png(path, image_width as i32, image_height as i32, 4, data as *u8, image_width as i32 * 4);
-    std.memory.free(data);
+    vk.map_memory(binding.device, device_memory.value, 0, size, 0, &host_mem);
+    memory.copy(host_mem, data.data, size as usize);
+    vk.unmap_memory(binding.device, device_memory.value);
 
     transition_image(binding, image, vk.ImageLayout.TRANSFER_SRC_OPTIMAL, vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL);
 
     log.exit_scope();
-    return (128, 128, null);
+    
+    return ImageData {
+        width: region.width as u32,
+        height: region.height as u32,
+        data,
+    };
 }
 
 func allocate(
@@ -409,8 +410,8 @@ func transition_image(
             base_mip_level: 0,
             level_count: 1,
             base_array_layer: 0,
-            layer_count: image.create_info.array_size
-        }
+            layer_count: 1,
+        },
     };
 
     vk.cmd_pipeline_barrier(
@@ -420,7 +421,7 @@ func transition_image(
         0,
         0, null,
         0, null,
-        1, &barrier
+        1, &barrier,
     );
 
     if !command_buffer.submit() {
@@ -446,7 +447,7 @@ struct OneTimeCommandBuffer {
             flags:
                 vk.CommandPoolCreateFlagBits.TRANSIENT_BIT as u32 |
                 vk.CommandPoolCreateFlagBits.RESET_COMMAND_BUFFER_BIT as u32,
-            queue_family_index: binding.queue_family_index
+            queue_family_index: binding.queue_family_index,
         };
 
         var command_pool: addr;
@@ -468,7 +469,7 @@ struct OneTimeCommandBuffer {
             p_next: null,
             command_pool,
             level: vk.CommandBufferLevel.PRIMARY,
-            command_buffer_count: 1
+            command_buffer_count: 1,
         };
 
         var command_buffer: addr;
@@ -490,7 +491,7 @@ struct OneTimeCommandBuffer {
         return OneTimeCommandBuffer {
             binding,
             command_pool,
-            command_buffer
+            command_buffer,
         };
     }
 
@@ -511,7 +512,7 @@ struct OneTimeCommandBuffer {
             command_buffer_count: 1,
             p_command_buffers: &self.command_buffer,
             signal_semaphore_count: 0,
-            p_signal_semaphores: null
+            p_signal_semaphores: null,
         };
         vk.queue_submit(queue, 1, &submit_info, null);
         vk.queue_wait_idle(queue);

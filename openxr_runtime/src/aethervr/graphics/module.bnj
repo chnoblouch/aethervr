@@ -97,7 +97,9 @@ union GraphicsBackend {
 
     pub func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData {
         switch *self {
-            case d3d11_backend: GraphicsBackend.D3D11 {
+            case vulkan_backend: GraphicsBackend.Vulkan {
+                return vulkan.copy_image_to_host(&vulkan_backend.binding, image, region);
+            } case d3d11_backend: GraphicsBackend.D3D11 {
                 return d3d11.copy_image_to_host(&d3d11_backend.binding, image, region);
             }
         }
