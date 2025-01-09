@@ -60,6 +60,7 @@ The runtime currently implements these extensions:
 | XR_KHR_D3D11_enable                           | 9       |
 | XR_KHR_vulkan_enable2                         | 2       |
 | XR_KHR_win32_convert_performance_counter_time | 1       |
+| XR_KHR_composition_layer_depth                | 6       |
 
 ### Tracker
 

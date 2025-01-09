@@ -20,7 +20,7 @@ pub func get_requirements(reqs: *xr.GraphicsRequirementsVulkanKHR) -> xr.Result 
 pub func get_supported_formats() -> [i64] {
     return [
         vk.Format.R8G8B8A8_SRGB as i64,
-        vk.Format.R8G8B8A8_UNORM as i64
+        vk.Format.D16_UNORM as i64,
     ];
 }
 
