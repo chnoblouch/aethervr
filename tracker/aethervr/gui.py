@@ -122,7 +122,7 @@ class ConfigPanel(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.setLayout(layout)
 
-        self.setFixedWidth(320)
+        self.setMinimumWidth(320)
 
     def build_controller_group(self, label: str, config: ControllerConfig):
         group = QGroupBox(label)
