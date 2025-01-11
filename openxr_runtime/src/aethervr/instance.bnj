@@ -150,21 +150,6 @@ struct Instance {
         return ActionSet.create(self, create_info);
     }
 
-    pub func get_opengl_graphics_requirements(
-        self,
-        system_id: u64,
-        graphics_requirements: *xr.GraphicsRequirementsOpenGLKHR,
-    ) -> xr.Result {
-        log.info("Getting OpenGL graphics requirements");
-
-        if !check_system(system_id) {
-            return xr.Result.ERROR_SYSTEM_INVALID;
-        }
-
-        self.graphics_reqs_queried = true;
-        return graphics.opengl.get_requirements(graphics_requirements);
-    }
-
     pub func get_vulkan_graphics_requirements(
         self,
         system_id: u64,

@@ -12,7 +12,6 @@ pub func get_extension_properties() -> [xr.ExtensionProperties] {
 
     meta if config.OS == config.WINDOWS {
         extensions = [
-            ("XR_KHR_opengl_enable", 10),
             # ("XR_KHR_vulkan_enable", 8),
             ("XR_KHR_vulkan_enable2", 2),
             ("XR_KHR_win32_convert_performance_counter_time", 1),

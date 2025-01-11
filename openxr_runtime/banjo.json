@@ -1,7 +1,7 @@
 {
   "name": "aethervr",
   "type": "shared_library",
-  "packages": ["xr", "gl", "vulkan", "d3d11"],
+  "packages": ["xr", "vulkan", "d3d11"],
   "build_script": "scripts/build.py",
   "targets": {
     "x86_64-windows-msvc": {

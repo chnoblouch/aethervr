@@ -815,14 +815,6 @@ pub func structure_type_to_string(
     return xr.Result.SUCCESS;
 }
 
-pub func get_opengl_graphics_requirements_khr(
-    instance: *Instance,
-    system_id: u64,
-    graphics_requirements: *xr.GraphicsRequirementsOpenGLKHR
-) -> xr.Result {
-    return instance.get_opengl_graphics_requirements(system_id, graphics_requirements);
-}
-
 pub func get_vulkan_graphics_requirements_khr(
     instance: *Instance,
     system_id: u64,

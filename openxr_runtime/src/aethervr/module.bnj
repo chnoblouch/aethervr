@@ -122,10 +122,6 @@ func get_func(instance: *Instance, name: *u8) -> addr {
         if eq(name, "xrGetD3D11GraphicsRequirementsKHR") { return api.get_d3d11_graphics_requirements_khr; }
     }
 
-    if instance.is_extension_enabled("XR_KHR_opengl_enable") {
-        if eq(name, "xrGetOpenGLGraphicsRequirementsKHR") { return api.get_opengl_graphics_requirements_khr; }
-    }
-
     if instance.is_extension_enabled("XR_KHR_win32_convert_performance_counter_time") {
         if eq(name, "xrConvertWin32PerformanceCounterToTimeKHR") { return api.convert_win32_performance_counter_to_time_khr; }
         if eq(name, "xrConvertTimeToWin32PerformanceCounterKHR") { return api.convert_time_to_win32_performance_counter_khr; }

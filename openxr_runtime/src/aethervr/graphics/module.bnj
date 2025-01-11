@@ -1,10 +1,9 @@
 use xr;
-use gl;
 
 use aethervr.{
     log,
     swapchain.SwapchainImage,
-    graphics.{opengl, vulkan, d3d11},
+    graphics.{vulkan, d3d11},
 };
 
 struct ImageRegion {
@@ -22,25 +21,13 @@ struct ImageData {
 }
 
 union GraphicsBackend {
-    case OpenGL(binding: xr.GraphicsBindingOpenGLXlibKHR);
     case Vulkan(binding: xr.GraphicsBindingVulkanKHR);
     case D3D11(binding: xr.GraphicsBindingD3D11KHR);
 
     pub func new(info: *xr.SessionCreateInfo) -> ?GraphicsBackend {
         var next = info.next as *xr.BaseInStructure;
 
-        if next.type_ == xr.StructureType.GRAPHICS_BINDING_OPENGL_XLIB_KHR {
-            log.info("Graphics binding: OpenGL (Xlib)");
-
-            if gl.load_auto() != 0 {
-                log.info("OpenGL loaded");
-            } else {
-                log.error("Failed to load OpenGL");
-            }
-
-            var binding = next as *xr.GraphicsBindingOpenGLXlibKHR;
-            return GraphicsBackend.OpenGL(*binding);
-        } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_VULKAN_KHR {
+        if next.type_ == xr.StructureType.GRAPHICS_BINDING_VULKAN_KHR {
             log.info("Graphics binding: Vulkan");
 
             var binding = next as *xr.GraphicsBindingVulkanKHR;
@@ -58,9 +45,7 @@ union GraphicsBackend {
 
     pub func get_supported_formats(self) -> [i64] {
         switch *self {
-            case opengl_backend: GraphicsBackend.OpenGL {
-                return opengl.get_supported_formats();
-            } case vulkan_backend: GraphicsBackend.Vulkan {
+            case vulkan_backend: GraphicsBackend.Vulkan {
                 return vulkan.get_supported_formats();
             } case d3d11_backend: GraphicsBackend.D3D11 {
                 return d3d11.get_supported_formats();
@@ -70,9 +55,7 @@ union GraphicsBackend {
 
     pub func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result {
         switch *self {
-            case opengl_backend: GraphicsBackend.OpenGL {
-                return opengl.create_swapchain_image(info, &opengl_backend.binding, image);
-            } case vulkan_backend: GraphicsBackend.Vulkan {
+            case vulkan_backend: GraphicsBackend.Vulkan {
                 return vulkan.create_swapchain_image(info, &vulkan_backend.binding, image);
             } case d3d11_backend: GraphicsBackend.D3D11 {
                 return d3d11.create_swapchain_image(info, &d3d11_backend.binding, image);
@@ -82,10 +65,7 @@ union GraphicsBackend {
 
     pub func store_image(self, handle: usize, out_images: *xr.SwapchainImageBaseHeader, out_index: u32) {
         switch *self {
-            case opengl_backend: GraphicsBackend.OpenGL {
-                var out_images_opengl = out_images as *xr.SwapchainImageOpenGLKHR;
-                out_images_opengl[out_index].image = handle as u32;
-            } case vulkan_backend: GraphicsBackend.Vulkan {
+            case vulkan_backend: GraphicsBackend.Vulkan {
                 var out_images_vulkan = out_images as *xr.SwapchainImageVulkanKHR;
                 out_images_vulkan[out_index].image = handle as addr;
             } case d3d11_backend: GraphicsBackend.D3D11 {

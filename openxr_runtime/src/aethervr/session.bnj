@@ -1,7 +1,6 @@
 use std.{memory, math};
 
 use xr;
-use gl;
 use vulkan as vk;
 use d3d11;
 
