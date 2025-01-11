@@ -1,3 +1,5 @@
+use std.memory;
+
 use xr;
 
 use aethervr.{
@@ -20,68 +22,80 @@ struct ImageData {
     var data: Array[u8];
 }
 
-union GraphicsBackend {
-    case Vulkan(binding: xr.GraphicsBindingVulkanKHR);
-    case D3D11(binding: xr.GraphicsBindingD3D11KHR);
+proto GraphicsBackend {
+    pub func new(info: *xr.SessionCreateInfo) -> ?*GraphicsBackend {
+        # TODO: Free the memory allocated here.
 
-    pub func new(info: *xr.SessionCreateInfo) -> ?GraphicsBackend {
         var next = info.next as *xr.BaseInStructure;
 
         if next.type_ == xr.StructureType.GRAPHICS_BINDING_VULKAN_KHR {
             log.info("Graphics binding: Vulkan");
 
             var binding = next as *xr.GraphicsBindingVulkanKHR;
-            return GraphicsBackend.Vulkan(*binding);
+            return memory.box(VulkanBackend.new(*binding));
         } else if next.type_ == xr.StructureType.GRAPHICS_BINDING_D3D11_KHR {
             log.info("Graphics binding: D3D11");
 
             var binding = next as *xr.GraphicsBindingD3D11KHR;
-            return GraphicsBackend.D3D11(*binding);
+            return memory.box(D3D11Backend.new(*binding));
         } else {
             log.error("Graphics binding is unsupported");
             return none;
         }
     }
 
+    func get_supported_formats(self) -> [i64];
+    func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result;
+    func store_image(self, handle: usize, out_images: *xr.SwapchainImageBaseHeader, out_index: u32);
+    func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData;
+}
+
+struct VulkanBackend: GraphicsBackend {
+    var binding: xr.GraphicsBindingVulkanKHR;
+
+    pub func new(binding: xr.GraphicsBindingVulkanKHR) -> VulkanBackend {
+        return VulkanBackend { binding };
+    }
+
     pub func get_supported_formats(self) -> [i64] {
-        switch *self {
-            case vulkan_backend: GraphicsBackend.Vulkan {
-                return vulkan.get_supported_formats();
-            } case d3d11_backend: GraphicsBackend.D3D11 {
-                return d3d11.get_supported_formats();
-            }
-        }
+        return vulkan.get_supported_formats();
     }
 
     pub func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result {
-        switch *self {
-            case vulkan_backend: GraphicsBackend.Vulkan {
-                return vulkan.create_swapchain_image(info, &vulkan_backend.binding, image);
-            } case d3d11_backend: GraphicsBackend.D3D11 {
-                return d3d11.create_swapchain_image(info, &d3d11_backend.binding, image);
-            }
-        }
+        return vulkan.create_swapchain_image(info, &self.binding, image);
     }
 
     pub func store_image(self, handle: usize, out_images: *xr.SwapchainImageBaseHeader, out_index: u32) {
-        switch *self {
-            case vulkan_backend: GraphicsBackend.Vulkan {
-                var out_images_vulkan = out_images as *xr.SwapchainImageVulkanKHR;
-                out_images_vulkan[out_index].image = handle as addr;
-            } case d3d11_backend: GraphicsBackend.D3D11 {
-                var out_images_d3d11 = out_images as *xr.SwapchainImageD3D11KHR;
-                out_images_d3d11[out_index].texture = handle as addr;
-            }
-        }
+        var out_images_vulkan = out_images as *xr.SwapchainImageVulkanKHR;
+        out_images_vulkan[out_index].image = handle as addr;
+    }
+    
+    pub func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData {
+        return vulkan.copy_image_to_host(&self.binding, image, region);
+    }
+}
+
+struct D3D11Backend: GraphicsBackend {
+    var binding: xr.GraphicsBindingD3D11KHR;
+
+    pub func new(binding: xr.GraphicsBindingD3D11KHR) -> D3D11Backend {
+        return D3D11Backend { binding };
     }
 
+    pub func get_supported_formats(self) -> [i64] {
+        return d3d11.get_supported_formats();
+    }
+
+    pub func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result {
+        return d3d11.create_swapchain_image(info, &self.binding, image);
+    }
+
+    pub func store_image(self, handle: usize, out_images: *xr.SwapchainImageBaseHeader, out_index: u32) {
+        var out_images_d3d11 = out_images as *xr.SwapchainImageD3D11KHR;
+        out_images_d3d11[out_index].texture = handle as addr;
+    }
+    
     pub func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData {
-        switch *self {
-            case vulkan_backend: GraphicsBackend.Vulkan {
-                return vulkan.copy_image_to_host(&vulkan_backend.binding, image, region);
-            } case d3d11_backend: GraphicsBackend.D3D11 {
-                return d3d11.copy_image_to_host(&d3d11_backend.binding, image, region);
-            }
-        }
+        return d3d11.copy_image_to_host(&self.binding, image, region);
     }
 }

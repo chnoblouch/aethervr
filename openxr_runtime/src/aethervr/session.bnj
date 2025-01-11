@@ -31,7 +31,7 @@ struct Session {
     var instance: *Instance;
     var state: xr.SessionState;
 
-    var graphics_backend: GraphicsBackend;
+    var graphics_backend: *GraphicsBackend;
     var frame_state: FrameState;
     var last_present_time: i64;
 
