@@ -9,22 +9,6 @@ use aethervr.{
     pose.{Pose, Quat},
 };
 
-pub func get_view_pose(session: *Session) -> xr.Posef {
-    return session.input_state.headset.pose.to_xr();
-}
-
-pub func get_left_eye_pose(session: *Session) -> xr.Posef {
-    var pose = get_view_pose(session);
-    # pose.position.x -= 0.1;
-    return pose;
-}
-
-pub func get_right_eye_pose(session: *Session) -> xr.Posef {
-    var pose = get_view_pose(session);
-    # pose.position.x += 0.1;
-    return pose;
-}
-
 struct PoseSnapshot {
     var pose: Pose;
     var timestamp: i64;
@@ -120,7 +104,7 @@ struct HeadsetState {
 
         var view_orientation_pitch = Quat.axis_angle(math.deg2rad(self.pitch), 1.0, 0.0, 0.0);
         var view_orientation_yaw = Quat.axis_angle(math.deg2rad(self.yaw), 0.0, 1.0, 0.0);
-        self.pose.orientation = Quat.mul(view_orientation_pitch, view_orientation_yaw);
+        self.pose.orientation = view_orientation_yaw * view_orientation_pitch;
     }
 }
 

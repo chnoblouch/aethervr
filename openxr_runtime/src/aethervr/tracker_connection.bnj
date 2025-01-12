@@ -187,14 +187,11 @@ struct TrackerConnection {
             message.right_orientation_w,
         );
 
-        left_position.y += 1.3;
-        right_position.y += 1.3;
-
         var view_orientation_yaw = Quat.axis_angle(math.deg2rad(self.yaw), 0.0, 1.0, 0.0);
         left_position = view_orientation_yaw.rotate(left_position);
         right_position = view_orientation_yaw.rotate(right_position);
-        left_orientation = Quat.mul(left_orientation, view_orientation_yaw);
-        right_orientation = Quat.mul(right_orientation, view_orientation_yaw);
+        left_orientation = left_orientation * view_orientation_yaw;
+        right_orientation = right_orientation * view_orientation_yaw;
 
         var now = time.now() + 100000000;
 

@@ -13,6 +13,7 @@ use aethervr.{
     utils,
     session.Session,
     action.Action,
+    pose.Pose,
 };
 
 enum SpaceType {
@@ -28,7 +29,8 @@ struct Space {
     var action: *Action;
     var subaction_path: u64;
 
-    var location: xr.Posef;
+    var location: xr.Posef; 
+    var pose_in_action_space: Pose;
 
     func create_reference_space(
         session: *Session,
@@ -59,7 +61,11 @@ struct Space {
             location: {
                 orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
                 position: { x: 0.0, y: 0.0, z: 0.0 }
-            }
+            },
+            pose_in_action_space: {
+                orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
+                position: { x: 0.0, y: 0.0, z: 0.0 }
+            },
         });
 
         return (space, xr.Result.SUCCESS);
@@ -86,8 +92,21 @@ struct Space {
             subaction_path,
             location: {
                 orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
-                position: { x: 0.0, y: 0.0, z: 0.0 }
-            }
+                position: { x: 0.0, y: 0.0, z: 0.0 },
+            },
+            pose_in_action_space: {
+                position: {
+                    x: create_info.pose_in_action_space.position.x,
+                    y: create_info.pose_in_action_space.position.y,
+                    z: create_info.pose_in_action_space.position.z,
+                },
+                orientation: {
+                    x: create_info.pose_in_action_space.orientation.x,
+                    y: create_info.pose_in_action_space.orientation.y,
+                    z: create_info.pose_in_action_space.orientation.z,
+                    w: create_info.pose_in_action_space.orientation.w,
+                },
+            },
         });
 
         log.exit_scope();
@@ -105,7 +124,7 @@ struct Space {
             return xr.Result.ERROR_TIME_INVALID;
         }
         
-        location.pose = base.get_relative_pose(self.locate_in_world_space(time), time);
+        location.pose = base.get_relative_pose(self.locate_in_world_space(time), time).to_xr();
 
         location.location_flags =
             xr.SPACE_LOCATION_ORIENTATION_VALID_BIT |
@@ -116,19 +135,24 @@ struct Space {
         return xr.Result.SUCCESS;
     }
 
-    pub func locate_in_world_space(self, time: i64) -> xr.Posef {
+    pub func locate_in_world_space(self, time: i64) -> Pose {
         if self.type_ == SpaceType.REFERENCE_SPACE {
             if self.reference_space_type == xr.ReferenceSpaceType.VIEW {
-                return input.get_view_pose(self.session);
+                return self.session.input_state.headset.pose;
+            } else if self.reference_space_type == xr.ReferenceSpaceType.LOCAL {
+                return Pose.identity();
+            } else if self.reference_space_type == xr.ReferenceSpaceType.STAGE {
+                return Pose.identity();
             }
         } else if self.type_ == SpaceType.ACTION_SPACE {
-            return self.session.input_mapper.get_space_pose(self.action, self.subaction_path, time);
+            var space_pose = self.session.input_mapper.get_space_pose(self.action, self.subaction_path, time);
+            return space_pose * self.pose_in_action_space;
+        } else {
+            return Pose.identity();
         }
-
-        return pose.pose(pose.orientation_identity(), pose.position(0.0, 0.0, 0.0));
     }
 
-    pub func get_relative_pose(self, p: xr.Posef, time: i64) -> xr.Posef {
-        return pose.relative(self.locate_in_world_space(time), p);
+    pub func get_relative_pose(self, p: Pose, time: i64) -> Pose {
+        return Pose.relative(self.locate_in_world_space(time), p);
     }
 }

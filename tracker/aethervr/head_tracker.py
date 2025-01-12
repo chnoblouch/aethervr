@@ -56,8 +56,8 @@ class HeadTracker:
         y = z_axis[1]
         z = x_axis[2]
 
-        pitch = float(np.rad2deg(np.arcsin(y)))
-        yaw = float(np.rad2deg(np.arctan2(z, x)))
+        pitch = -float(np.rad2deg(np.arcsin(y)))
+        yaw = -float(np.rad2deg(np.arctan2(z, x)))
 
         self.detection_callback(HeadState(position, pitch, yaw))
 

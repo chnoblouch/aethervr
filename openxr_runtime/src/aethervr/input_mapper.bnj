@@ -10,7 +10,7 @@ use aethervr.{
     input.{InputState, ControllerState},
     action.Action,
     action_binding.{ActionBinding, Device, Identifier, Kind},
-    pose.Quat,
+    pose.{Pose, Quat},
 };
 
 struct InputMapper {
@@ -24,7 +24,7 @@ struct InputMapper {
         };
     }
 
-    pub func get_space_pose(self, action: *Action, subaction_path: u64, time: i64) -> xr.Posef {
+    pub func get_space_pose(self, action: *Action, subaction_path: u64, time: i64) -> Pose {
         var binding = self.get_concrete_binding(action.binding, subaction_path);
         var hand_state = self.get_controller_state(binding.device);
 
@@ -32,17 +32,13 @@ struct InputMapper {
             if binding.identifier == Identifier.GRIP || binding.identifier == Identifier.AIM {
                 if binding.kind == Kind.POSE {
                     var pose = hand_state.value.pose_buffer.interpolate(time);
-                    
-                    var view_orientation_yaw = Quat.axis_angle(math.deg2rad(self.state.headset.yaw), 0.0, 1.0, 0.0);
-                    pose.position = view_orientation_yaw.rotate(pose.position);
-                    pose.orientation = Quat.mul(view_orientation_yaw, pose.orientation);
-
-                    return pose.to_xr();
+                    pose = self.state.headset.pose * pose;
+                    return pose;
                 }
             }
         }
 
-        return pose.pose(pose.orientation_identity(), pose.position(0.0, 0.0, 0.0));
+        return Pose.identity();
     }
 
     pub func get_action_bool(self, action: *Action, subaction_path: u64) -> ?u32 {

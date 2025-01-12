@@ -195,8 +195,8 @@ struct Session {
             xr.VIEW_STATE_POSITION_TRACKED_BIT;
 
         var base = view_locate_info.space as *Space;
-        views[0].pose = base.get_relative_pose(input.get_left_eye_pose(self), view_locate_info.display_time);
-        views[1].pose = base.get_relative_pose(input.get_right_eye_pose(self), view_locate_info.display_time);
+        views[0].pose = base.get_relative_pose(self.input_state.headset.pose, view_locate_info.display_time).to_xr();
+        views[1].pose = base.get_relative_pose(self.input_state.headset.pose, view_locate_info.display_time).to_xr();
 
         views[0].fov = xr.Fovf { angle_left: -0.785, angle_right: 0.785, angle_up: 0.785, angle_down: -0.785 };
         views[1].fov = xr.Fovf { angle_left: -0.785, angle_right: 0.785, angle_up: 0.785, angle_down: -0.785 };

@@ -15,6 +15,20 @@ struct Vec3 {
         return new(0.0, 0.0, 0.0);
     }
 
+    pub func dot(v1: Vec3, v2: Vec3) -> f32 {
+        return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+    }
+
+    pub func cross(v1: Vec3, v2: Vec3) -> Vec3 {
+        # Thanks to: https://en.wikipedia.org/wiki/Cross_product
+
+        return new(
+            v1.y * v2.z - v1.z * v2.y,
+            v1.z * v2.x - v1.x * v2.z,
+            v1.x * v2.y - v1.y * v2.x
+        );
+    }
+
     pub func lerp(a: Vec3, b: Vec3, t: f32) -> Vec3 {
         return new(
             a.x + t * (b.x - a.x),
@@ -28,6 +42,22 @@ struct Vec3 {
             x: self.x,
             y: self.y,
             z: self.z,
+        };
+    }
+
+    pub func __add__(self, rhs: Vec3) -> Vec3 {
+        return Vec3 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        };
+    }
+
+    pub func __sub__(self, rhs: Vec3) -> Vec3 {
+        return Vec3 {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
         };
     }
 }
@@ -50,15 +80,6 @@ struct Quat {
         var s = math.sin(0.5 * angle);
         var c = math.cos(0.5 * angle);
         return new(x * s, y * s, z * s, c);
-    }
-
-    pub func mul(q1: Quat, q2: Quat) -> Quat {
-        return new(
-            q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x,
-            -q1.x * q2.z + q1.y * q2.w + q1.z * q2.x + q1.w * q2.y,
-            q1.x * q2.y - q1.y * q2.x + q1.z * q2.w + q1.w * q2.z,
-            -q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w
-        );
     }
 
     pub func slerp(a: Quat, b: Quat, t: f32) -> Quat {
@@ -97,22 +118,11 @@ struct Quat {
     }
 
     pub func rotate(self, vector: Vec3) -> Vec3 {
-        # https://gamedev.stackexchange.com/questions/28395/rotating-vector3-by-a-quaternion
+        # Thanks to: https://gamedev.stackexchange.com/questions/28395/rotating-vector3-by-a-quaternion
 
         var u = new(vector.x, vector.y, vector.z, 0.0);
-        var q = mul(mul(self.inverse(), u), *self);
+        var q = (*self * u) * self.inverse();
         return Vec3.new(q.x, q.y, q.z);
-
-        # var u = position(rotation.x, rotation.y, rotation.z);
-        # var s = rotation.w;
-
-        # return add(
-        #     add(
-        #         mul(2.0 * dot(u, vector), u),
-        #         mul((s * s - dot(u, u)), vector)
-        #     ),
-        #     mul(2.0 * s, cross(u, vector))
-        # );
     }
 
     pub func to_xr(self) -> xr.Quaternionf {
@@ -122,6 +132,15 @@ struct Quat {
             z: self.z,
             w: self.w,
         };
+    }
+
+    pub func __mul__(self, rhs: Quat) -> Quat {
+        return new(
+             self.x * rhs.w + self.y * rhs.z - self.z * rhs.y + self.w * rhs.x,
+            -self.x * rhs.z + self.y * rhs.w + self.z * rhs.x + self.w * rhs.y,
+             self.x * rhs.y - self.y * rhs.x + self.z * rhs.w + self.w * rhs.z,
+            -self.x * rhs.x - self.y * rhs.y - self.z * rhs.z + self.w * rhs.w
+        );
     }
 }
 
@@ -133,6 +152,13 @@ struct Pose {
         return Pose {
             position: Vec3.zero(),
             orientation: Quat.identity(),
+        };
+    }
+
+    pub func relative(a: Pose, b: Pose) -> Pose {
+        return Pose {
+            position: a.orientation.inverse().rotate(b.position - a.position),
+            orientation: a.orientation.inverse() * b.orientation,
         };
     }
 
@@ -149,73 +175,11 @@ struct Pose {
             orientation: self.orientation.to_xr(),
         };
     }
-}
 
-func orientation(x: f32, y: f32, z: f32, w: f32) -> xr.Quaternionf {
-    return { x, y, z, w };
-}
-
-func orientation_identity() -> xr.Quaternionf {
-    return orientation(0.0, 0.0, 0.0, 1.0);
-}
-
-func mul(q1: xr.Quaternionf, q2: xr.Quaternionf) -> xr.Quaternionf {
-    return orientation(
-         q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x,
-        -q1.x * q2.z + q1.y * q2.w + q1.z * q2.x + q1.w * q2.y,
-         q1.x * q2.y - q1.y * q2.x + q1.z * q2.w + q1.w * q2.z,
-        -q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w
-    );
-}
-
-func position(x: f32, y: f32, z: f32) -> xr.Vector3f {
-    return { x, y, z };
-}
-
-func add(v1: xr.Vector3f, v2: xr.Vector3f) -> xr.Vector3f {
-    return position(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
-}
-
-func sub(v1: xr.Vector3f, v2: xr.Vector3f) -> xr.Vector3f {
-    return position(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
-}
-
-func mul(s: f32, v: xr.Vector3f) -> xr.Vector3f {
-    return position(s * v.x, s * v.y, s * v.z);
-}
-
-func dot(v1: xr.Vector3f, v2: xr.Vector3f) -> f32 {
-    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-}
-
-func cross(v1: xr.Vector3f, v2: xr.Vector3f) -> xr.Vector3f {
-    # https://en.wikipedia.org/wiki/Cross_product
-
-    return position(
-        v1.y * v2.z - v1.z * v2.y,
-        v1.z * v2.x - v1.x * v2.z,
-        v1.x * v2.y - v1.y * v2.x
-    );
-}
-
-func pose(orientation: xr.Quaternionf, position: xr.Vector3f) -> xr.Posef {
-    return { orientation, position };
-}
-
-func apply(parent: xr.Posef, child: xr.Posef) -> xr.Posef {
-    # return pose(
-    #     mul(parent.orientation, child.orientation),
-    #     add(parent.position, rotate(parent.orientation, child.position))
-    # );
-}
-
-func relative(p1: xr.Posef, p2: xr.Posef) -> xr.Posef {
-    return pose(
-        mul(p1.orientation, inverse(p2.orientation)),
-        sub(p2.position, p1.position)
-    );
-}
-
-func inverse(q: xr.Quaternionf) -> xr.Quaternionf {
-    return orientation(-q.x, -q.y, -q.z, q.w);
+    pub func __mul__(self, rhs: Pose) -> Pose {
+        return Pose {
+            position: self.position + self.orientation.rotate(rhs.position),
+            orientation: self.orientation * rhs.orientation,
+        };
+    }
 }
