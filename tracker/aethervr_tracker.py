@@ -1,3 +1,6 @@
+from threading import Lock
+import time
+
 from aethervr.gui import GUI
 from aethervr.camera_capture import CameraCapture
 from aethervr.runtime_connection import RuntimeConnection
@@ -8,7 +11,6 @@ from aethervr.input_state import InputState
 from aethervr.gesture_detector import GestureDetector
 from aethervr.config import Config, ControllerConfig
 from aethervr.system_openxr_config import SystemOpenXRConfig
-import time
 
 
 class Application:
@@ -29,8 +31,11 @@ class Application:
         self.hand_tracker = HandTracker(self.head_tracker, self.on_hand_tracking_results)
         self.gesture_detector = GestureDetector(self.config, self.tracking_state, self.input_state)
 
-        self.last_head_tracking_result = time.time()
-        self.last_hand_tracking_result = time.time()
+        self.last_head_tracking_time = time.time()
+        self.last_hand_tracking_time = time.time()
+        self.head_tracking_queue_size = 0
+        self.hand_tracking_queue_size = 0
+        self.tracking_lock = Lock()
 
         self.system_openxr_config = SystemOpenXRConfig()
 
@@ -40,17 +45,23 @@ class Application:
     def on_frame(self, frame):
         now = time.time()
 
-        if now - self.last_head_tracking_result > 0.05:
-            self.last_head_tracking_result = now
-            self.head_tracker.detect(frame)
+        with self.tracking_lock:
+            if self.head_tracking_queue_size < 2 and now - self.last_head_tracking_time > 0.05:
+                self.last_head_tracking_time = now
+                self.head_tracking_queue_size += 1
+                self.head_tracker.detect(frame)
 
-        if now - self.last_hand_tracking_result > 0.05:
-            self.last_hand_tracking_result = now
-            self.hand_tracker.detect(frame)
+            if self.hand_tracking_queue_size < 2 and now - self.last_hand_tracking_time > 0.05:
+                self.last_hand_tracking_time = now
+                self.hand_tracking_queue_size += 1
+                self.hand_tracker.detect(frame)
 
         self.gui.update_camera_frame(frame)
 
     def on_head_tracking_results(self, state: HeadState):
+        with self.tracking_lock:
+            self.head_tracking_queue_size -= 1
+
         self.tracking_state.head = state
 
         self.input_state.headset_state.position = state.position
@@ -60,6 +71,9 @@ class Application:
         self.connection.update_headset_state(self.input_state.headset_state)
 
     def on_hand_tracking_results(self, left_state: HandState, right_state: HandState):
+        with self.tracking_lock:
+            self.hand_tracking_queue_size -= 1
+        
         self.tracking_state.left_hand = left_state
         self.tracking_state.right_hand = right_state
 
