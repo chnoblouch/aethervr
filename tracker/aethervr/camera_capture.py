@@ -1,5 +1,5 @@
 import cv2
-from threading import Thread
+from threading import Thread, Event
 
 
 class CameraCapture:
@@ -7,9 +7,11 @@ class CameraCapture:
     def __init__(self, on_frame):
         print("Opening capture device...")
 
-        self.running = True
         self.frame = None
         self.on_frame = on_frame
+
+        self.running = Event()
+        self.running.set()
 
         self.thread = Thread(target=self.capture_images)
         self.thread.start()
@@ -24,7 +26,7 @@ class CameraCapture:
 
         print("Capture device opened")
 
-        while self.running:
+        while self.running.is_set():
             ret, frame = capture.read()
             if not ret:
                 print("Failed to capture camera image")
@@ -40,4 +42,5 @@ class CameraCapture:
 
     def close(self):
         print("Closing camera capture...")
-        self.running = False
+        self.running.clear()
+        self.thread.join()
