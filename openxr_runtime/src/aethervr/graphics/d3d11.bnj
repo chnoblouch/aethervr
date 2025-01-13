@@ -1,252 +1,254 @@
-use std.memory;
+use std.{memory, config};
 
-use xr;
-use d3d11;
+meta if config.OS == config.WINDOWS {
+    use xr;
+    use d3d11;
 
-use aethervr.{
-    log,
-    swapchain.{SwapchainImage, SwapchainImageState},
-    graphics.{ImageRegion, ImageData},
-    utils.{version, handle_buffer_size},
-};
-
-pub func get_requirements(reqs: *xr.GraphicsRequirementsD3D11KHR) -> xr.Result {
-    var factory: *d3d11.DXGIFactory;
-
-    # GUID for IDXGIFactory
-    var guid = (
-        0x7B7166EC as u32,
-        0x21C7 as u16,
-        0x44AE as u16,
-        0xB2 as u8,
-        0x1A as u8,
-        0xC9 as u8,
-        0xAE as u8,
-        0x32 as u8,
-        0x1A as u8,
-        0xE3 as u8,
-        0x69 as u8
-    );
-
-    if d3d11.create_dxgi_factory(&guid, &factory as *addr) != 0 {
-        log.error("Failed to create DXGI factory");
-    }
-
-    var adapter: *d3d11.DXGIAdapter;
-    if factory.lp_vtbl.enum_adapters(factory, 0, &adapter) == 0x887A0002 {
-        log.error("Failed to enumerate DXGI adapters");
-    }
-
-    log.info("DXGI adapters enumerated");
-    log.info("Picking first DXGI device");
-
-    factory.lp_vtbl.release(factory);
-
-    var desc: d3d11.DXGIAdapterDesc;
-    if adapter.lp_vtbl.get_desc(adapter, &desc) != 0 {
-        log.error("Failed to get DXGI adapter description");
-    }
-
-    log.info("Using adapter with LUID %", desc.adapter_luid);
-
-    reqs.min_feature_level = 0xB100;  # D3D_FEATURE_LEVEL_11_1
-    reqs.adapter_luid = desc.adapter_luid;
-    return xr.Result.SUCCESS;
-}
-
-pub func get_supported_formats() -> [i64] {
-    return [
-        d3d11.DXGIFormat.R8G8B8A8_UNORM_SRGB as i64,
-        d3d11.DXGIFormat.D16_UNORM as i64,
-    ];
-}
-
-pub func create_swapchain_image(
-    create_info: *xr.SwapchainCreateInfo,
-    binding: *xr.GraphicsBindingD3D11KHR,
-    swapchain_image: *SwapchainImage
-) -> xr.Result {
-    log.info("Creating D3D11 image");
-    log.enter_scope();
-
-    var device = binding.device as *d3d11.Device;
-
-    log.info("Usage flags:");
-    log.enter_scope();
-
-    var bind_flags: u32 = 0;
-
-    if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT) != 0 {
-        log.info("- Color attachment");
-        bind_flags |= d3d11.BindFlag.RENDER_TARGET as u32;
-    }
-    if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0 {
-        log.info("- Depth/stencil attachment");
-        bind_flags |= d3d11.BindFlag.DEPTH_STENCIL as u32;
-    }
-    if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT) != 0 {
-        log.info("- Unordered access");
-        bind_flags |= d3d11.BindFlag.UNORDERED_ACCESS as u32;
-    }
-    if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_TRANSFER_SRC_BIT) != 0 {
-        log.info("- Transfer source (ignored)");
-    }
-    if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_TRANSFER_DST_BIT) != 0 {
-        log.info("- Transfer destination (ignored)");
-    }
-    if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_SAMPLED_BIT) != 0 {
-        log.info("- Sampled");
-        bind_flags |= d3d11.BindFlag.SHADER_RESOURCE as u32;
-    }
-    if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT) != 0 {
-        log.info("- Mutable (ignored)");
-    }
-
-    log.exit_scope();
-
-    var typeless_format: d3d11.DXGIFormat;
-
-    if create_info.format as d3d11.DXGIFormat == d3d11.DXGIFormat.R8G8B8A8_UNORM_SRGB {
-        typeless_format = d3d11.DXGIFormat.R8G8B8A8_TYPELESS;
-    } else {
-        log.error("Invalid texture format");
-    }
-
-    var desc = d3d11.Texture2dDesc {
-        width: create_info.width,
-        height: create_info.height,
-        mip_levels: create_info.mip_count,
-        array_size: create_info.array_size,
-        format: typeless_format,
-        sample_desc: {
-            count: create_info.sample_count,
-            quality: 0
-        },
-        usage: d3d11.Usage.DEFAULT,
-        bind_flags,
-        c_puaccess_flags: 0,
-        misc_flags: 0
+    use aethervr.{
+        log,
+        swapchain.{SwapchainImage, SwapchainImageState},
+        graphics.{ImageRegion, ImageData},
+        utils.{version, handle_buffer_size},
     };
 
-    var texture: *d3d11.Texture2D;
-    if device.lp_vtbl.create_texture2_d(device, &desc, null, &texture) != 0 {
-        log.error("Failed to create texture");
-    }
+    pub func get_requirements(reqs: *xr.GraphicsRequirementsD3D11KHR) -> xr.Result {
+        var factory: *d3d11.DXGIFactory;
 
-    *swapchain_image = SwapchainImage {
-        create_info: *create_info,
-        api_handle: texture as usize,
-        state: SwapchainImageState.AVAILABLE
-    };
+        # GUID for IDXGIFactory
+        var guid = (
+            0x7B7166EC as u32,
+            0x21C7 as u16,
+            0x44AE as u16,
+            0xB2 as u8,
+            0x1A as u8,
+            0xC9 as u8,
+            0xAE as u8,
+            0x32 as u8,
+            0x1A as u8,
+            0xE3 as u8,
+            0x69 as u8
+        );
 
-    log.exit_scope();
-    return xr.Result.SUCCESS;
-}
-
-pub func copy_image_to_host(
-    binding: *xr.GraphicsBindingD3D11KHR,
-    image: *SwapchainImage,
-    region: ImageRegion
-) -> ?ImageData {
-    # TODO: Better error handling, resource cleanup
-
-    var device = binding.device as *d3d11.Device;
-    
-    var flipped_vertically = false;
-
-    if region.width < 0 {
-        log.error("D3D11: Negative width in image region is currently unsupported");
-    }
-
-    if region.height < 0 {
-        region.height = -region.height;
-        region.y -= region.height;
-        flipped_vertically = true;
-    }
-
-    var staging_texture_desc = d3d11.Texture2dDesc {
-        width: region.width as u32,
-        height: region.height as u32,
-        mip_levels: image.create_info.mip_count,
-        array_size: 1,
-        format: image.create_info.format as d3d11.DXGIFormat,
-        sample_desc: {
-            count: image.create_info.sample_count,
-            quality: 0
-        },
-        usage: d3d11.Usage.STAGING,
-        bind_flags: 0,
-        c_puaccess_flags: d3d11.CpuAccessFlag.READ as u32,
-        misc_flags: 0
-    };
-
-    var staging_texture: *d3d11.Texture2D;
-    if device.lp_vtbl.create_texture2_d(device, &staging_texture_desc, null, &staging_texture) != 0 {
-        log.error("Failed to create staging texture");
-        return none;
-    }
-
-    var context: *d3d11.DeviceContext;
-    device.lp_vtbl.get_immediate_context(device, &context);
-
-    var box = d3d11.Box {
-        left: region.x as u32,
-        top: region.y as u32,
-        front: 0,
-        right: (region.x + region.width) as u32,
-        bottom: (region.y + region.height) as u32,
-        back: 1,
-    };
-
-    context.lp_vtbl.copy_subresource_region(
-        context,
-        staging_texture as *d3d11.Resource,
-        0,
-        0,
-        0,
-        0,
-        image.api_handle as *d3d11.Resource,
-        region.array_index,
-        &box,
-    );
-
-    var mapped_resource: d3d11.MappedSubresource;
-    if context.lp_vtbl.map(context, staging_texture as *d3d11.Resource, 0, d3d11.Map.READ, 0, &mapped_resource) != 0 {
-        log.error("Failed to map staging texture");
-        return none;
-    }
-
-    var result: ?ImageData = none;
-
-    if mapped_resource.p_data != null && (image.create_info.usage_flags & xr.SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT) != 0 {
-        var bytes = mapped_resource.p_data as *u8;
-
-        var width = region.width as usize;
-        var height = region.height as usize;
-        var row_size = 4 * width;
-        var array = Array[u8].sized(row_size * height);
-        
-        for row in 0..height {
-            var src_row = &bytes[row * mapped_resource.row_pitch as usize];
-            var dst_row = &array.data[row * row_size];
-            
-            if flipped_vertically {
-                dst_row = &array.data[(height - row - 1) * row_size];
-            }
-
-            memory.copy(src_row, dst_row, row_size);
+        if d3d11.create_dxgi_factory(&guid, &factory as *addr) != 0 {
+            log.error("Failed to create DXGI factory");
         }
 
-        result = ImageData {
-            width: width as u32,
-            height: height as u32,
-            data: array,
-        };
+        var adapter: *d3d11.DXGIAdapter;
+        if factory.lp_vtbl.enum_adapters(factory, 0, &adapter) == 0x887A0002 {
+            log.error("Failed to enumerate DXGI adapters");
+        }
+
+        log.info("DXGI adapters enumerated");
+        log.info("Picking first DXGI device");
+
+        factory.lp_vtbl.release(factory);
+
+        var desc: d3d11.DXGIAdapterDesc;
+        if adapter.lp_vtbl.get_desc(adapter, &desc) != 0 {
+            log.error("Failed to get DXGI adapter description");
+        }
+
+        log.info("Using adapter with LUID %", desc.adapter_luid);
+
+        reqs.min_feature_level = 0xB100;  # D3D_FEATURE_LEVEL_11_1
+        reqs.adapter_luid = desc.adapter_luid;
+        return xr.Result.SUCCESS;
     }
 
-    context.lp_vtbl.unmap(context, staging_texture as *d3d11.Resource, 0);
-    context.lp_vtbl.release(context);
-    staging_texture.lp_vtbl.release(staging_texture);
+    pub func get_supported_formats() -> [i64] {
+        return [
+            d3d11.DXGIFormat.R8G8B8A8_UNORM_SRGB as i64,
+            d3d11.DXGIFormat.D16_UNORM as i64,
+        ];
+    }
 
-    return result;
+    pub func create_swapchain_image(
+        create_info: *xr.SwapchainCreateInfo,
+        binding: *xr.GraphicsBindingD3D11KHR,
+        swapchain_image: *SwapchainImage
+    ) -> xr.Result {
+        log.info("Creating D3D11 image");
+        log.enter_scope();
+
+        var device = binding.device as *d3d11.Device;
+
+        log.info("Usage flags:");
+        log.enter_scope();
+
+        var bind_flags: u32 = 0;
+
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT) != 0 {
+            log.info("- Color attachment");
+            bind_flags |= d3d11.BindFlag.RENDER_TARGET as u32;
+        }
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0 {
+            log.info("- Depth/stencil attachment");
+            bind_flags |= d3d11.BindFlag.DEPTH_STENCIL as u32;
+        }
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT) != 0 {
+            log.info("- Unordered access");
+            bind_flags |= d3d11.BindFlag.UNORDERED_ACCESS as u32;
+        }
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_TRANSFER_SRC_BIT) != 0 {
+            log.info("- Transfer source (ignored)");
+        }
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_TRANSFER_DST_BIT) != 0 {
+            log.info("- Transfer destination (ignored)");
+        }
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_SAMPLED_BIT) != 0 {
+            log.info("- Sampled");
+            bind_flags |= d3d11.BindFlag.SHADER_RESOURCE as u32;
+        }
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT) != 0 {
+            log.info("- Mutable (ignored)");
+        }
+
+        log.exit_scope();
+
+        var typeless_format: d3d11.DXGIFormat;
+
+        if create_info.format as d3d11.DXGIFormat == d3d11.DXGIFormat.R8G8B8A8_UNORM_SRGB {
+            typeless_format = d3d11.DXGIFormat.R8G8B8A8_TYPELESS;
+        } else {
+            log.error("Invalid texture format");
+        }
+
+        var desc = d3d11.Texture2dDesc {
+            width: create_info.width,
+            height: create_info.height,
+            mip_levels: create_info.mip_count,
+            array_size: create_info.array_size,
+            format: typeless_format,
+            sample_desc: {
+                count: create_info.sample_count,
+                quality: 0
+            },
+            usage: d3d11.Usage.DEFAULT,
+            bind_flags,
+            c_puaccess_flags: 0,
+            misc_flags: 0
+        };
+
+        var texture: *d3d11.Texture2D;
+        if device.lp_vtbl.create_texture2_d(device, &desc, null, &texture) != 0 {
+            log.error("Failed to create texture");
+        }
+
+        *swapchain_image = SwapchainImage {
+            create_info: *create_info,
+            api_handle: texture as usize,
+            state: SwapchainImageState.AVAILABLE
+        };
+
+        log.exit_scope();
+        return xr.Result.SUCCESS;
+    }
+
+    pub func copy_image_to_host(
+        binding: *xr.GraphicsBindingD3D11KHR,
+        image: *SwapchainImage,
+        region: ImageRegion
+    ) -> ?ImageData {
+        # TODO: Better error handling, resource cleanup
+
+        var device = binding.device as *d3d11.Device;
+        
+        var flipped_vertically = false;
+
+        if region.width < 0 {
+            log.error("D3D11: Negative width in image region is currently unsupported");
+        }
+
+        if region.height < 0 {
+            region.height = -region.height;
+            region.y -= region.height;
+            flipped_vertically = true;
+        }
+
+        var staging_texture_desc = d3d11.Texture2dDesc {
+            width: region.width as u32,
+            height: region.height as u32,
+            mip_levels: image.create_info.mip_count,
+            array_size: 1,
+            format: image.create_info.format as d3d11.DXGIFormat,
+            sample_desc: {
+                count: image.create_info.sample_count,
+                quality: 0
+            },
+            usage: d3d11.Usage.STAGING,
+            bind_flags: 0,
+            c_puaccess_flags: d3d11.CpuAccessFlag.READ as u32,
+            misc_flags: 0
+        };
+
+        var staging_texture: *d3d11.Texture2D;
+        if device.lp_vtbl.create_texture2_d(device, &staging_texture_desc, null, &staging_texture) != 0 {
+            log.error("Failed to create staging texture");
+            return none;
+        }
+
+        var context: *d3d11.DeviceContext;
+        device.lp_vtbl.get_immediate_context(device, &context);
+
+        var box = d3d11.Box {
+            left: region.x as u32,
+            top: region.y as u32,
+            front: 0,
+            right: (region.x + region.width) as u32,
+            bottom: (region.y + region.height) as u32,
+            back: 1,
+        };
+
+        context.lp_vtbl.copy_subresource_region(
+            context,
+            staging_texture as *d3d11.Resource,
+            0,
+            0,
+            0,
+            0,
+            image.api_handle as *d3d11.Resource,
+            region.array_index,
+            &box,
+        );
+
+        var mapped_resource: d3d11.MappedSubresource;
+        if context.lp_vtbl.map(context, staging_texture as *d3d11.Resource, 0, d3d11.Map.READ, 0, &mapped_resource) != 0 {
+            log.error("Failed to map staging texture");
+            return none;
+        }
+
+        var result: ?ImageData = none;
+
+        if mapped_resource.p_data != null && (image.create_info.usage_flags & xr.SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT) != 0 {
+            var bytes = mapped_resource.p_data as *u8;
+
+            var width = region.width as usize;
+            var height = region.height as usize;
+            var row_size = 4 * width;
+            var array = Array[u8].sized(row_size * height);
+            
+            for row in 0..height {
+                var src_row = &bytes[row * mapped_resource.row_pitch as usize];
+                var dst_row = &array.data[row * row_size];
+                
+                if flipped_vertically {
+                    dst_row = &array.data[(height - row - 1) * row_size];
+                }
+
+                memory.copy(src_row, dst_row, row_size);
+            }
+
+            result = ImageData {
+                width: width as u32,
+                height: height as u32,
+                data: array,
+            };
+        }
+
+        context.lp_vtbl.unmap(context, staging_texture as *d3d11.Resource, 0);
+        context.lp_vtbl.release(context);
+        staging_texture.lp_vtbl.release(staging_texture);
+
+        return result;
+    }
 }

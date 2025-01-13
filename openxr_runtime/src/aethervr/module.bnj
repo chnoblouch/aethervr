@@ -1,5 +1,6 @@
 use std.{
     memory,
+    config,
     path.Path,
 };
 
@@ -104,27 +105,31 @@ func get_func(instance: *Instance, name: *u8) -> addr {
     if eq(name, "xrResultToString") { return api.result_to_string; }
     if eq(name, "xrStructureTypeToString") { return api.structure_type_to_string; }
 
-    if instance.is_extension_enabled("XR_KHR_vulkan_enable") {
-        if eq(name, "xrGetVulkanGraphicsRequirementsKHR") { return api.get_vulkan_graphics_requirements_khr; }
-        if eq(name, "xrGetVulkanGraphicsDeviceKHR") { return api.get_vulkan_graphics_device_khr; }
-        if eq(name, "xrGetVulkanInstanceExtensionsKHR") { return api.get_vulkan_instance_extensions_khr; }
-        if eq(name, "xrGetVulkanDeviceExtensionsKHR") { return api.get_vulkan_device_extensions_khr; }
+    meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
+        if instance.is_extension_enabled("XR_KHR_vulkan_enable") {
+            if eq(name, "xrGetVulkanGraphicsRequirementsKHR") { return api.get_vulkan_graphics_requirements_khr; }
+            if eq(name, "xrGetVulkanGraphicsDeviceKHR") { return api.get_vulkan_graphics_device_khr; }
+            if eq(name, "xrGetVulkanInstanceExtensionsKHR") { return api.get_vulkan_instance_extensions_khr; }
+            if eq(name, "xrGetVulkanDeviceExtensionsKHR") { return api.get_vulkan_device_extensions_khr; }
+        }
+
+        if instance.is_extension_enabled("XR_KHR_vulkan_enable2") {
+            if eq(name, "xrGetVulkanGraphicsRequirements2KHR") { return api.get_vulkan_graphics_requirements_2_khr; }
+            if eq(name, "xrGetVulkanGraphicsDevice2KHR") { return api.get_vulkan_graphics_device_2_khr; }
+            if eq(name, "xrCreateVulkanInstanceKHR") { return api.create_vulkan_instance_khr; }
+            if eq(name, "xrCreateVulkanDeviceKHR") { return api.create_vulkan_device_khr; }
+        }
     }
 
-    if instance.is_extension_enabled("XR_KHR_vulkan_enable2") {
-        if eq(name, "xrGetVulkanGraphicsRequirements2KHR") { return api.get_vulkan_graphics_requirements_2_khr; }
-        if eq(name, "xrGetVulkanGraphicsDevice2KHR") { return api.get_vulkan_graphics_device_2_khr; }
-        if eq(name, "xrCreateVulkanInstanceKHR") { return api.create_vulkan_instance_khr; }
-        if eq(name, "xrCreateVulkanDeviceKHR") { return api.create_vulkan_device_khr; }
-    }
+    meta if config.OS == config.WINDOWS {
+        if instance.is_extension_enabled("XR_KHR_D3D11_enable") {
+            if eq(name, "xrGetD3D11GraphicsRequirementsKHR") { return api.get_d3d11_graphics_requirements_khr; }
+        }
 
-    if instance.is_extension_enabled("XR_KHR_D3D11_enable") {
-        if eq(name, "xrGetD3D11GraphicsRequirementsKHR") { return api.get_d3d11_graphics_requirements_khr; }
-    }
-
-    if instance.is_extension_enabled("XR_KHR_win32_convert_performance_counter_time") {
-        if eq(name, "xrConvertWin32PerformanceCounterToTimeKHR") { return api.convert_win32_performance_counter_to_time_khr; }
-        if eq(name, "xrConvertTimeToWin32PerformanceCounterKHR") { return api.convert_time_to_win32_performance_counter_khr; }
+        if instance.is_extension_enabled("XR_KHR_win32_convert_performance_counter_time") {
+            if eq(name, "xrConvertWin32PerformanceCounterToTimeKHR") { return api.convert_win32_performance_counter_to_time_khr; }
+            if eq(name, "xrConvertTimeToWin32PerformanceCounterKHR") { return api.convert_time_to_win32_performance_counter_khr; }
+        }
     }
     
     log.info("Function % is not implemented", name);

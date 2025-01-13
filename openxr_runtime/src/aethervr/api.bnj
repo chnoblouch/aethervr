@@ -1,8 +1,7 @@
-use std.{memory, convert.to_string};
+use std.{memory, config, convert.to_string};
 use c.lib.string.strcpy;
 
 use xr;
-use vulkan as vk;
 
 use aethervr.{
     log,
@@ -16,6 +15,10 @@ use aethervr.{
     action.{ActionSet, Action},
     utils.{version, handle_buffer_size, handle_buffer, is_successful},
 };
+
+meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
+    use vulkan as vk;
+}
 
 pub func enumerate_instance_extension_properties(
     layer_name: *u8,
@@ -815,83 +818,87 @@ pub func structure_type_to_string(
     return xr.Result.SUCCESS;
 }
 
-pub func get_vulkan_graphics_requirements_khr(
-    instance: *Instance,
-    system_id: u64,
-    graphics_requirements: *xr.GraphicsRequirementsVulkanKHR
-) -> xr.Result {
-    return instance.get_vulkan_graphics_requirements(system_id, graphics_requirements);
+meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
+    pub func get_vulkan_graphics_requirements_khr(
+        instance: *Instance,
+        system_id: u64,
+        graphics_requirements: *xr.GraphicsRequirementsVulkanKHR
+    ) -> xr.Result {
+        return instance.get_vulkan_graphics_requirements(system_id, graphics_requirements);
+    }
+
+    pub func get_vulkan_graphics_device_khr(
+        instance: *Instance,
+        system_id: u64,
+        vk_instance: addr,
+        vk_physical_device: *addr
+    ) -> xr.Result {
+        return instance.get_vulkan_device(system_id, vk_instance, vk_physical_device);
+    }
+
+    pub func get_vulkan_instance_extensions_khr(
+        instance: *Instance,
+        system_id: u64,
+        buffer_capacity_input: u32,
+        buffer_count_output: *u32,
+        buffer: *u8
+    ) -> xr.Result {
+        return instance.get_vulkan_instance_extensions(system_id, buffer_capacity_input, buffer_count_output, buffer);
+    }
+
+    pub func get_vulkan_device_extensions_khr(
+        instance: *Instance,
+        system_id: u64,
+        buffer_capacity_input: u32,
+        buffer_count_output: *u32,
+        buffer: *u8
+    ) -> xr.Result {
+        return instance.get_vulkan_device_extensions(system_id, buffer_capacity_input, buffer_count_output, buffer);
+    }
+
+    pub func get_vulkan_graphics_requirements_2_khr(
+        instance: *Instance,
+        system_id: u64,
+        graphics_requirements: *xr.GraphicsRequirementsVulkanKHR
+    ) -> xr.Result {
+        return instance.get_vulkan_graphics_requirements(system_id, graphics_requirements);
+    }
+
+    pub func get_vulkan_graphics_device_2_khr(
+        instance: *Instance,
+        get_info: *xr.VulkanGraphicsDeviceGetInfoKHR,
+        vulkan_physical_device: *addr
+    ) -> xr.Result {
+        return instance.get_vulkan_device_2(get_info.vulkan_instance, vulkan_physical_device);
+    }
+
+    pub func create_vulkan_instance_khr(
+        instance: *Instance,
+        create_info: *xr.VulkanInstanceCreateInfoKHR,
+        vulkan_instance: *addr,
+        vulkan_result: *vk.Result
+    ) -> xr.Result {
+        return instance.create_vulkan_instance(create_info, vulkan_instance, vulkan_result);
+    }
+
+    pub func create_vulkan_device_khr(
+        instance: *Instance,
+        create_info: *xr.VulkanDeviceCreateInfoKHR,
+        vulkan_device: *addr,
+        vulkan_result: *vk.Result
+    ) -> xr.Result {
+        return instance.create_vulkan_device(create_info, vulkan_device, vulkan_result);
+    }
 }
 
-pub func get_vulkan_graphics_device_khr(
-    instance: *Instance,
-    system_id: u64,
-    vk_instance: addr,
-    vk_physical_device: *addr
-) -> xr.Result {
-    return instance.get_vulkan_device(system_id, vk_instance, vk_physical_device);
-}
-
-pub func get_vulkan_instance_extensions_khr(
-    instance: *Instance,
-    system_id: u64,
-    buffer_capacity_input: u32,
-    buffer_count_output: *u32,
-    buffer: *u8
-) -> xr.Result {
-    return instance.get_vulkan_instance_extensions(system_id, buffer_capacity_input, buffer_count_output, buffer);
-}
-
-pub func get_vulkan_device_extensions_khr(
-    instance: *Instance,
-    system_id: u64,
-    buffer_capacity_input: u32,
-    buffer_count_output: *u32,
-    buffer: *u8
-) -> xr.Result {
-    return instance.get_vulkan_device_extensions(system_id, buffer_capacity_input, buffer_count_output, buffer);
-}
-
-pub func get_vulkan_graphics_requirements_2_khr(
-    instance: *Instance,
-    system_id: u64,
-    graphics_requirements: *xr.GraphicsRequirementsVulkanKHR
-) -> xr.Result {
-    return instance.get_vulkan_graphics_requirements(system_id, graphics_requirements);
-}
-
-pub func get_vulkan_graphics_device_2_khr(
-    instance: *Instance,
-    get_info: *xr.VulkanGraphicsDeviceGetInfoKHR,
-    vulkan_physical_device: *addr
-) -> xr.Result {
-    return instance.get_vulkan_device_2(get_info.vulkan_instance, vulkan_physical_device);
-}
-
-pub func create_vulkan_instance_khr(
-    instance: *Instance,
-    create_info: *xr.VulkanInstanceCreateInfoKHR,
-    vulkan_instance: *addr,
-    vulkan_result: *vk.Result
-) -> xr.Result {
-    return instance.create_vulkan_instance(create_info, vulkan_instance, vulkan_result);
-}
-
-pub func create_vulkan_device_khr(
-    instance: *Instance,
-    create_info: *xr.VulkanDeviceCreateInfoKHR,
-    vulkan_device: *addr,
-    vulkan_result: *vk.Result
-) -> xr.Result {
-    return instance.create_vulkan_device(create_info, vulkan_device, vulkan_result);
-}
-
-pub func get_d3d11_graphics_requirements_khr(
-    instance: *Instance,
-    system_id: u64,
-    graphics_requirements: *xr.GraphicsRequirementsD3D11KHR
-) -> xr.Result {
-    return instance.get_d3d11_graphics_requirements(system_id, graphics_requirements);
+meta if config.OS == config.WINDOWS {
+    pub func get_d3d11_graphics_requirements_khr(
+        instance: *Instance,
+        system_id: u64,
+        graphics_requirements: *xr.GraphicsRequirementsD3D11KHR
+    ) -> xr.Result {
+        return instance.get_d3d11_graphics_requirements(system_id, graphics_requirements);
+    }
 }
 
 # ----------------------------------------------------------------

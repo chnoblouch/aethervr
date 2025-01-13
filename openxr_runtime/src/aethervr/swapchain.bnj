@@ -1,7 +1,6 @@
 use std.memory;
 
 use xr;
-use vulkan as vk;
 
 use aethervr.{
     graphics,

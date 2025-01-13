@@ -1,8 +1,6 @@
 use std.{memory, math};
 
 use xr;
-use vulkan as vk;
-use d3d11;
 
 use aethervr.{
     pose,

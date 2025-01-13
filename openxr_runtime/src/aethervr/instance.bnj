@@ -1,8 +1,7 @@
-use std.memory;
+use std.{memory, config};
 use c.lib.string.strcpy;
 
 use xr;
-use vulkan as vk;
 
 use aethervr.{
     graphics,
@@ -16,6 +15,10 @@ use aethervr.{
     action.ActionSet,
     utils.{version, handle_buffer, is_successful, streq},
 };
+
+meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
+    use vulkan as vk;
+}
 
 struct Instance {
     var extensions: Array[String];
@@ -150,105 +153,107 @@ struct Instance {
         return ActionSet.create(self, create_info);
     }
 
-    pub func get_vulkan_graphics_requirements(
-        self,
-        system_id: u64,
-        reqs: *xr.GraphicsRequirementsVulkanKHR,
-    ) -> xr.Result {
-        log.info("Getting Vulkan graphics requirements");
+    meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
+        pub func get_vulkan_graphics_requirements(
+            self,
+            system_id: u64,
+            reqs: *xr.GraphicsRequirementsVulkanKHR,
+        ) -> xr.Result {
+            log.info("Getting Vulkan graphics requirements");
 
-        if !check_system(system_id) {
-            return xr.Result.ERROR_SYSTEM_INVALID;
+            if !check_system(system_id) {
+                return xr.Result.ERROR_SYSTEM_INVALID;
+            }
+
+            self.graphics_reqs_queried = true;
+            return graphics.vulkan.get_requirements(reqs);
         }
 
-        self.graphics_reqs_queried = true;
-        return graphics.vulkan.get_requirements(reqs);
-    }
+        pub func get_vulkan_device(self, system_id: u64, vk_instance: addr, vk_physical_device: *addr) -> xr.Result {
+            log.info("Getting Vulkan graphics device (XR_EXT_vulkan_enable)");
 
-    pub func get_vulkan_device(self, system_id: u64, vk_instance: addr, vk_physical_device: *addr) -> xr.Result {
-        log.info("Getting Vulkan graphics device (XR_EXT_vulkan_enable)");
+            if !check_system(system_id) {
+                return xr.Result.ERROR_SYSTEM_INVALID;
+            }
 
-        if !check_system(system_id) {
-            return xr.Result.ERROR_SYSTEM_INVALID;
+            return graphics.vulkan.get_device(vk_instance, vk_physical_device);
         }
 
-        return graphics.vulkan.get_device(vk_instance, vk_physical_device);
-    }
-
-    pub func get_vulkan_device_2(self, vk_instance: addr, vk_physical_device: *addr) -> xr.Result {
-        log.info("Getting Vulkan graphics device (XR_EXT_vulkan_enable2)");
-        return graphics.vulkan.get_device(vk_instance, vk_physical_device);
-    }
-
-    pub func get_vulkan_instance_extensions(
-        self,
-        system_id: u64,
-        buffer_capacity_input: u32,
-        buffer_count_output: *u32,
-        buffer: *u8,
-    ) -> xr.Result {
-        log.info("Getting Vulkan instance extensions");
-
-        if !check_system(system_id) {
-            return xr.Result.ERROR_SYSTEM_INVALID;
+        pub func get_vulkan_device_2(self, vk_instance: addr, vk_physical_device: *addr) -> xr.Result {
+            log.info("Getting Vulkan graphics device (XR_EXT_vulkan_enable2)");
+            return graphics.vulkan.get_device(vk_instance, vk_physical_device);
         }
 
-        var extensions = graphics.vulkan.get_instance_extensions();
-        handle_buffer(&extensions, buffer_capacity_input, buffer_count_output, &buffer);
-        return xr.Result.SUCCESS;
-    }
+        pub func get_vulkan_instance_extensions(
+            self,
+            system_id: u64,
+            buffer_capacity_input: u32,
+            buffer_count_output: *u32,
+            buffer: *u8,
+        ) -> xr.Result {
+            log.info("Getting Vulkan instance extensions");
 
-    pub func get_vulkan_device_extensions(
-        self,
-        system_id: u64,
-        buffer_capacity_input: u32,
-        buffer_count_output: *u32,
-        buffer: *u8,
-    ) -> xr.Result {
-        log.info("Getting Vulkan device extensions");
+            if !check_system(system_id) {
+                return xr.Result.ERROR_SYSTEM_INVALID;
+            }
 
-        if !check_system(system_id) {
-            return xr.Result.ERROR_SYSTEM_INVALID;
+            var extensions = graphics.vulkan.get_instance_extensions();
+            handle_buffer(&extensions, buffer_capacity_input, buffer_count_output, &buffer);
+            return xr.Result.SUCCESS;
         }
 
-        var extensions = graphics.vulkan.get_device_extensions();
-        handle_buffer(&extensions, buffer_capacity_input, buffer_count_output, &buffer);
-        return xr.Result.SUCCESS;
-    }
+        pub func get_vulkan_device_extensions(
+            self,
+            system_id: u64,
+            buffer_capacity_input: u32,
+            buffer_count_output: *u32,
+            buffer: *u8,
+        ) -> xr.Result {
+            log.info("Getting Vulkan device extensions");
 
-    # Creates a Vulkan instance (XR_EXT_vulkan_enable2)
-    pub func create_vulkan_instance(
-        self,
-        info: *xr.VulkanInstanceCreateInfoKHR,
-        vk_instance: *addr,
-        vk_result: *vk.Result,
-    ) -> xr.Result {
-        return graphics.vulkan.create_instance(info, vk_instance, vk_result);
-    }
+            if !check_system(system_id) {
+                return xr.Result.ERROR_SYSTEM_INVALID;
+            }
 
-    # Createas a Vulkan device (XR_EXT_vulkan_enable2)
-    pub func create_vulkan_device(
-        self,
-        info: *xr.VulkanDeviceCreateInfoKHR,
-        vk_device: *addr,
-        vk_result: *vk.Result,
-    ) -> xr.Result {
-        return graphics.vulkan.create_device(info, vk_device, vk_result);
-    }
-
-    pub func get_d3d11_graphics_requirements(
-        self,
-        system_id: u64,
-        reqs: *xr.GraphicsRequirementsD3D11KHR,
-    ) -> xr.Result {
-        log.info("Getting D3D11 graphics requirements");
-
-        if !check_system(system_id) {
-            return xr.Result.ERROR_SYSTEM_INVALID;
+            var extensions = graphics.vulkan.get_device_extensions();
+            handle_buffer(&extensions, buffer_capacity_input, buffer_count_output, &buffer);
+            return xr.Result.SUCCESS;
         }
 
-        self.graphics_reqs_queried = true;
-        return graphics.d3d11.get_requirements(reqs);
+        pub func create_vulkan_instance(
+            self,
+            info: *xr.VulkanInstanceCreateInfoKHR,
+            vk_instance: *addr,
+            vk_result: *vk.Result,
+        ) -> xr.Result {
+            return graphics.vulkan.create_instance(info, vk_instance, vk_result);
+        }
+
+        pub func create_vulkan_device(
+            self,
+            info: *xr.VulkanDeviceCreateInfoKHR,
+            vk_device: *addr,
+            vk_result: *vk.Result,
+        ) -> xr.Result {
+            return graphics.vulkan.create_device(info, vk_device, vk_result);
+        }
+    }
+
+    meta if config.OS == config.WINDOWS {
+        pub func get_d3d11_graphics_requirements(
+            self,
+            system_id: u64,
+            reqs: *xr.GraphicsRequirementsD3D11KHR,
+        ) -> xr.Result {
+            log.info("Getting D3D11 graphics requirements");
+
+            if !check_system(system_id) {
+                return xr.Result.ERROR_SYSTEM_INVALID;
+            }
+
+            self.graphics_reqs_queried = true;
+            return graphics.d3d11.get_requirements(reqs);
+        }
     }
 
     pub func check_system(system_id: u64) -> bool {
