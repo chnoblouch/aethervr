@@ -23,6 +23,11 @@ pub func get_extension_properties() -> [xr.ExtensionProperties] {
             ("XR_KHR_vulkan_enable2", 2),
             ("XR_KHR_composition_layer_depth", 6),
         ];
+    } else if config.OS == config.MACOS {
+        extensions = [
+            ("XR_KHR_metal_enable", 1),
+            ("XR_KHR_composition_layer_depth", 6),
+        ];
     }
 
     var properties: [xr.ExtensionProperties] = [];

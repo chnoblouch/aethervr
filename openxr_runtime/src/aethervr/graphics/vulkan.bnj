@@ -54,7 +54,6 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         return [];
     }
 
-    # Creates a Vulkan instance (XR_EXT_vulkan_enable2)
     pub func create_instance(
         info: *xr.VulkanInstanceCreateInfoKHR,
         vk_instance: *addr,
@@ -69,8 +68,6 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         return xr.Result.SUCCESS;
     }
 
-
-    # Creates a Vulkan device (XR_EXT_vulkan_enable2)
     pub func create_device(
         info: *xr.VulkanDeviceCreateInfoKHR,
         vk_device: *addr,

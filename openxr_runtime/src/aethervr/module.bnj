@@ -131,6 +131,12 @@ func get_func(instance: *Instance, name: *u8) -> addr {
             if eq(name, "xrConvertTimeToWin32PerformanceCounterKHR") { return api.convert_time_to_win32_performance_counter_khr; }
         }
     }
+
+    meta if config.OS == config.MACOS {
+        if instance.is_extension_enabled("XR_KHR_metal_enable") {
+            if eq(name, "xrGetMetalGraphicsRequirementsKHR") { return api.get_metal_graphics_requirements_khr; }
+        }
+    }
     
     log.info("Function % is not implemented", name);
     return null;

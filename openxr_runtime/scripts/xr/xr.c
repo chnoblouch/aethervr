@@ -6,9 +6,9 @@
 #include <d3d11_1.h>
 
 #define XR_DEFINE_HANDLE(object) typedef void *object;
-#define XR_USE_GRAPHICS_API_OPENGL
 #define XR_USE_GRAPHICS_API_VULKAN
 #define XR_USE_GRAPHICS_API_D3D11
+#define XR_USE_GRAPHICS_API_METAL
 #define XR_USE_PLATFORM_WIN32
 #define XR_USE_PLATFORM_XLIB
 #define XR_USE_PLATFORM_XCB

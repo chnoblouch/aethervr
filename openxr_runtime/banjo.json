@@ -9,6 +9,10 @@
     },
     "x86_64-linux-gnu": {
       "packages": ["xr", "vulkan"]
+    },
+    "aarch64-macos": {
+      "packages": ["xr"],
+      "macos.frameworks": ["Metal"]
     }
   }
 }

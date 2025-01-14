@@ -256,6 +256,23 @@ struct Instance {
         }
     }
 
+    meta if config.OS == config.MACOS {
+        pub func get_metal_graphics_requirements(
+            self,
+            system_id: u64,
+            reqs: *xr.GraphicsRequirementsMetalKHR,
+        ) -> xr.Result {
+            log.info("Getting Metal graphics requirements");
+
+            if !check_system(system_id) {
+                return xr.Result.ERROR_SYSTEM_INVALID;
+            }
+
+            self.graphics_reqs_queried = true;
+            return graphics.metal.get_requirements(reqs);
+        }
+    }
+
     pub func check_system(system_id: u64) -> bool {
         if system_id != constants.SYSTEM_ID {
             log.info("Invalid system ID %", system_id);

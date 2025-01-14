@@ -5,7 +5,7 @@ use xr;
 use aethervr.{
     log,
     swapchain.SwapchainImage,
-    graphics.{vulkan, d3d11},
+    graphics.{vulkan, d3d11, metal},
 };
 
 struct ImageRegion {
@@ -43,6 +43,15 @@ proto GraphicsBackend {
 
                 var binding = next as *xr.GraphicsBindingD3D11KHR;
                 return memory.box(D3D11Backend.new(*binding));
+            }
+        }
+
+        meta if config.OS == config.MACOS {
+            if next.type_ == xr.StructureType.GRAPHICS_BINDING_METAL_KHR {
+                log.info("Graphics binding: Metal");
+
+                var binding = next as *xr.GraphicsBindingMetalKHR;
+                return memory.box(MetalBackend.new(*binding));
             }
         }
 
@@ -106,6 +115,33 @@ meta if config.OS == config.WINDOWS {
         
         pub func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData {
             return d3d11.copy_image_to_host(&self.binding, image, region);
+        }
+    }
+}
+
+meta if config.OS == config.MACOS {
+    struct MetalBackend: GraphicsBackend {
+        var binding: xr.GraphicsBindingMetalKHR;
+
+        pub func new(binding: xr.GraphicsBindingMetalKHR) -> MetalBackend {
+            return MetalBackend { binding };
+        }
+
+        pub func get_supported_formats(self) -> [i64] {
+            return metal.get_supported_formats();
+        }
+
+        pub func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result {
+            return metal.create_swapchain_image(info, &self.binding, image);
+        }
+
+        pub func store_image(self, handle: usize, out_images: *xr.SwapchainImageBaseHeader, out_index: u32) {
+            var out_images_metal = out_images as *xr.SwapchainImageMetalKHR;
+            out_images_metal[out_index].texture = handle as addr;
+        }
+
+        pub func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData {
+            return none;
         }
     }
 }

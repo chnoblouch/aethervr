@@ -1,0 +1,128 @@
+use std.{memory, config};
+
+meta if config.OS == config.MACOS {
+    use xr;
+    use os.objc;
+
+    use aethervr.{
+        log,
+        swapchain.{SwapchainImage, SwapchainImageState},
+        graphics.{ImageRegion, ImageData},
+        utils.{version, handle_buffer_size},
+    };
+
+    enum MTLTextureType {
+        TYPE_2D = 2,
+        TYPE_2D_ARRAY = 3,
+    }
+
+    enum MTLPixelFormat {
+        RGBA8_UNORM_SRGB = 71,
+        DEPTH24_UNOFMR_STENCIL8 = 255,
+    }
+
+    type MTLTextureUsage = u64;
+
+    const MTL_TEXTURE_USAGE_UNKNOWN: u64 = 0x00000000;
+    const MTL_TEXTURE_USAGE_SHADER_READ: u64 = 0x00000001;
+    const MTL_TEXTURE_USAGE_SHADER_WRITE: u64 = 0x00000002;
+    const MTL_TEXTURE_USAGE_RENDER_TARGET: u64 = 0x00000004;
+    const MTL_TEXTURE_USAGE_PIXEL_FORMAT_VIEW: u64 = 0x00000010;
+
+    @[link_name=MTLCreateSystemDefaultDevice]
+    native func mtl_create_system_default_device() -> addr;
+
+    pub func get_requirements(reqs: *xr.GraphicsRequirementsMetalKHR) -> xr.Result {
+        log.info("Metal: Using system default device");
+
+        var device = objc.Object.from_id(mtl_create_system_default_device());
+        reqs.metal_device = device.id;
+
+        var name_ns = objc.Object.from_id(device.send_message("name", 0) as addr);
+        var name = String.from_cstr(name_ns.send_message("UTF8String", 0) as *u8);
+
+        log.enter_scope();
+        log.info("Name: %", name);
+        log.exit_scope();
+    }
+
+    pub func get_supported_formats() -> [i64] {
+        return [
+            MTLPixelFormat.RGBA8_UNORM_SRGB as i64,
+            MTLPixelFormat.DEPTH24_UNOFMR_STENCIL8 as i64,
+        ];
+    }
+
+    pub func create_swapchain_image(
+        create_info: *xr.SwapchainCreateInfo,
+        binding: *xr.GraphicsBindingMetalKHR,
+        swapchain_image: *SwapchainImage
+    ) -> xr.Result {
+        log.info("Creating Metal image");
+        log.enter_scope();
+    
+        log.info("Usage flags:");
+        log.enter_scope();
+
+        var usage: MTLTextureUsage = 0;
+
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT) != 0 {
+            log.info("- Color attachment");
+            usage |= MTL_TEXTURE_USAGE_RENDER_TARGET;
+        }
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0 {
+            log.info("- Depth/stencil attachment");
+            usage |= MTL_TEXTURE_USAGE_RENDER_TARGET;
+        }
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT) != 0 {
+            log.info("- Unordered access");
+            usage |= MTL_TEXTURE_USAGE_SHADER_READ | MTL_TEXTURE_USAGE_SHADER_WRITE;
+        }
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_TRANSFER_SRC_BIT) != 0 {
+            log.info("- Transfer source (ignored)");
+        }
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_TRANSFER_DST_BIT) != 0 {
+            log.info("- Transfer destination (ignored)");
+        }
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_SAMPLED_BIT) != 0 {
+            log.info("- Sampled");
+            usage |= MTL_TEXTURE_USAGE_SHADER_READ;
+        }
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT) != 0 {
+            log.info("- Mutable");
+            usage |= MTL_TEXTURE_USAGE_PIXEL_FORMAT_VIEW;
+        }
+
+        log.exit_scope();
+
+        var device = objc.Object.from_id(mtl_create_system_default_device());
+
+        var class = objc.Class.from_name("MTLTextureDescriptor");
+        var descriptor = objc.Object.from_id(class.send_message("new", 0) as addr);
+
+        if (create_info.array_size == 1) {
+            descriptor.send_message("setTextureType:", MTLTextureType.TYPE_2D as u64);
+        } else {
+            descriptor.send_message("setTextureType:", MTLTextureType.TYPE_2D_ARRAY as u64);
+        }
+
+        descriptor.send_message("setPixelFormat:", create_info.format as u64);
+        descriptor.send_message("setWidth:", create_info.width as u64);
+        descriptor.send_message("setHeight:", create_info.height as u64);
+        descriptor.send_message("setMipmapLevelCount:", create_info.mip_count as u64);
+        descriptor.send_message("setSampleCount:", create_info.sample_count as u64);
+        descriptor.send_message("setArrayLength:", create_info.array_size as u64);
+        descriptor.send_message("setUsage:", usage);
+
+        var texture = device.send_message("newTextureWithDescriptor:", descriptor.id as u64);
+
+        *swapchain_image = SwapchainImage {
+            create_info: *create_info,
+            api_handle: texture as usize,
+            state: SwapchainImageState.AVAILABLE,
+        };
+
+        log.exit_scope();
+        return xr.Result.SUCCESS;
+    }
+}

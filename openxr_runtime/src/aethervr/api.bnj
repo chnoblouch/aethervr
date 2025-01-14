@@ -901,6 +901,16 @@ meta if config.OS == config.WINDOWS {
     }
 }
 
+meta if config.OS == config.MACOS {
+    pub func get_metal_graphics_requirements_khr(
+        instance: *Instance,
+        system_id: u64,
+        graphics_requirements: *xr.GraphicsRequirementsMetalKHR
+    ) -> xr.Result {
+        return instance.get_metal_graphics_requirements(system_id, graphics_requirements);
+    }
+}
+
 # ----------------------------------------------------------------
 # XR_KHR_win32_convert_performance_counter_time functions
 # Note: These functions assume that time.now() return QueryPerformanceCounter values directly so they don't
