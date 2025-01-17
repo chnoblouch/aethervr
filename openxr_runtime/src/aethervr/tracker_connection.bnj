@@ -15,7 +15,7 @@ use aethervr.{
     log,
     pose.{Pose, Vec3, Quat},
     input.{InputState, HeadsetState, ControllerState, PoseSnapshot},
-    graphics.ImageData,
+    graphics.{ImageData, SharedImage},
 };
 
 struct HeadsetStateMsg {
@@ -237,27 +237,32 @@ struct TrackerConnection {
         return true;
     }
 
-    pub func send_frame(self, frame: *ImageData) {
-        # TODO: Error handling
-
+    pub func register_image(self, id: u32, process_id: u32, texture_handle: addr) {
         var lock = self.mutex.lock();
-        
-        var frame_message: u8 = 1;
-        var result = self.stream.send(&frame_message, 1);
+
+        var type_message: u8 = 1;
+        if !self.stream.send(&type_message, 1).successful {
+            return;
+        }
+
+        var data = (id, process_id, texture_handle);
+        if !self.stream.send(&data as *u8, 16).successful {
+            return;
+        }
+    }
+
+    pub func present_image(self, id: u32) {
+        var lock = self.mutex.lock();
+
+        var type_message: u8 = 2;
+        var result = self.stream.send(&type_message, 1);
         if !result.successful {
             return;
         }
 
-        result = self.stream.send(&frame.width as *u8, 4);
+        result = self.stream.send(&id as *u8, 4);
         if !result.successful {
             return;
         }
-        
-        result = self.stream.send(&frame.height as *u8, 4);
-        if !result.successful {
-            return;
-        }
-        
-        self.stream.send(frame.data.data, frame.data.length);
     }
 }

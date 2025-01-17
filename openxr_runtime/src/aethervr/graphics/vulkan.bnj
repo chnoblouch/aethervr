@@ -194,9 +194,11 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         vk.bind_image_memory(binding.device, image, device_memory.value, 0);
 
         *swapchain_image = SwapchainImage {
+            id: 0,
             create_info: *create_info,
             api_handle: image as usize,
             state: SwapchainImageState.AVAILABLE,
+            acquired: false,
         };
 
         transition_image(binding, swapchain_image, vk.ImageLayout.UNDEFINED, vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL);

@@ -1,0 +1,6 @@
+{
+  "name": "aethervr_display_surface",
+  "type": "shared_library",
+  "packages": ["d3d11"],
+  "libraries": ["d3d11", "dxgi"]
+}

@@ -18,9 +18,11 @@ enum SwapchainImageState {
 }
 
 struct SwapchainImage {
+    var id: u32;
     var create_info: xr.SwapchainCreateInfo;
     var api_handle: usize;
     var state: SwapchainImageState;
+    var acquired: bool;
 }
 
 struct Swapchain {
@@ -75,6 +77,9 @@ struct Swapchain {
                 return (null, result);
             }
 
+            image.id = session.last_image_id;
+            session.last_image_id += 1;
+
             images.append(image);
         }
 
@@ -84,6 +89,12 @@ struct Swapchain {
             images,
             last_released_index: 0,
         });
+
+        for *image in swapchain.images {
+            try shared_image in session.graphics_backend.share_image(image) {
+                session.tracker_connection.register_image(image.id, shared_image.process_id, shared_image.texture_handle);
+            }
+        }
 
         log.exit_scope();
         return (swapchain, xr.Result.SUCCESS);
@@ -114,6 +125,7 @@ struct Swapchain {
         for i in 0..self.images.length {
             if self.images[i].state == SwapchainImageState.AVAILABLE {
                 *index = i as u32;
+                self.session.graphics_backend.acquire_image(&self.images[i]);
                 self.images[i].state = SwapchainImageState.ACQUIRED;
                 return xr.Result.SUCCESS;
             }
@@ -136,6 +148,7 @@ struct Swapchain {
     pub func release_image(self, info: *xr.SwapchainImageReleaseInfo) -> xr.Result {        
         for i in 0..self.images.length {
             if self.images[i].state == SwapchainImageState.WAITED {
+                self.session.graphics_backend.release_image(&self.images[i]);
                 self.images[i].state = SwapchainImageState.AVAILABLE;
                 self.last_released_index = i;
                 return xr.Result.SUCCESS;

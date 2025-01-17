@@ -14,7 +14,8 @@ class RuntimeConnection:
     def __init__(self, port: int):
         self.on_connected = lambda: None
         self.on_disconnected = lambda: None
-        self.on_frame_received = lambda width, height, data: None
+        self.on_register_image = lambda id, process_id, texture_handle: None 
+        self.on_present_image = lambda id: None
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.settimeout(RuntimeConnection.TIMEOUT)
@@ -68,7 +69,9 @@ class RuntimeConnection:
                 if request == b"\x00":
                     self.send_tracking_state()
                 elif request == b"\x01":
-                    self.receive_frame()
+                    self.receive_register_image()
+                elif request == b"\x02":
+                    self.receive_present_image()
                 else:
                     print(f"Warning: Unknown request from runtime: {request}")
             except OSError as error:
@@ -95,12 +98,14 @@ class RuntimeConnection:
             self.headset_state_available = False
             self.controller_state_available = False
 
-    def receive_frame(self):
-        width = struct.unpack("I", self.stream.recv(4))[0]
-        height = struct.unpack("I", self.stream.recv(4))[0]
+    def receive_register_image(self):
+        image_id, process_id, texture_handle = struct.unpack("IIP", self.stream.recv(16))
+        print(f"Registering image with ID {image_id} (process: {process_id}, handle: {texture_handle})")
+        self.on_register_image(image_id, process_id, texture_handle)
 
-        frame = self.stream.recv(4 * width * height, socket.MSG_WAITALL)
-        self.on_frame_received(width, height, frame)
+    def receive_present_image(self):
+        image_id = struct.unpack("I", self.stream.recv(4))[0]
+        self.on_present_image(image_id)
 
     def update_headset_state(self, state: HeadsetState):
         with self.lock:

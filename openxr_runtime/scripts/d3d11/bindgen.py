@@ -2,25 +2,26 @@ import utils
 
 
 def filter_file_path(path):
-    return "d3d11" in path or "dxgi" in path
+    return "d3d" in path or "dxgi" in path
 
 
 def filter_symbol(sym):
     if sym.kind == "func":
-        return sym.name == "CreateDXGIFactory"
-    if sym.kind == "struct":
+        return True
+    elif sym.kind == "struct":
         return sym.name.startswith(("D3D11_", "ID3D11", "DXGI_", "IDXGI"))
     elif sym.kind == "enum":
-        return sym.name.startswith(("D3D11_", "DXGI_"))
+        return sym.name.startswith(("D3D_", "D3D11_", "DXGI_"))
+    elif sym.kind == "const":
+        return sym.name.startswith("DXGI_") and not sym.name.startswith("DXGI_DEBUG_")
     else:
         return False
 
 
 def rename_symbol(sym):
     if sym.kind == "func":
-        if sym.name == "CreateDXGIFactory":
-            sym.name = "create_dxgi_factory"
-    if sym.kind == "struct":
+        sym.name = utils.to_snake_case(sym.name)
+    elif sym.kind == "struct":
         if sym.name.startswith("D3D11_"):
             sym.name = utils.to_pascal_case(sym.name[6:])
         elif sym.name.startswith("ID3D11"):
@@ -31,6 +32,10 @@ def rename_symbol(sym):
             sym.name = "DXGI" + sym.name[5:]
 
         for field in sym.fields:
+            if field.name == "lpVtbl":
+                field.name = "vtable"
+                continue
+        
             if len(field.name) > 0:
                 field.name = utils.to_snake_case(field.name)
     elif sym.kind == "enum":
@@ -52,7 +57,9 @@ def rename_symbol(sym):
                     prefix = sym.name[:-len(suffix) + 1]
                     break
         
-        if sym.name.startswith("D3D11_"):
+        if sym.name.startswith("D3D_"):
+            sym.name = utils.to_pascal_case(sym.name[4:])
+        elif sym.name.startswith("D3D11_"):
             sym.name = utils.to_pascal_case(sym.name[6:])
         elif sym.name.startswith("DXGI_"):
             sym.name = "DXGI" + utils.to_pascal_case(sym.name[5:])

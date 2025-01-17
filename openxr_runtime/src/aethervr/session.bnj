@@ -31,7 +31,7 @@ struct Session {
 
     var graphics_backend: *GraphicsBackend;
     var frame_state: FrameState;
-    var last_present_time: i64;
+    var last_image_id: u32;
 
     var view_configuration_type: xr.ViewConfigurationType;
 
@@ -72,7 +72,7 @@ struct Session {
             state: xr.SessionState.UNKNOWN,
             graphics_backend: graphics_backend.value,
             frame_state: FrameState.ENDED,
-            last_present_time: time.now(),
+            last_image_id: 0,
             view_configuration_type: undefined,
             tracker_connection: TrackerConnection.connect(),
             input_state: InputState.new(),
@@ -279,28 +279,19 @@ struct Session {
             return;
         }
         
-        var now = time.now();
-        if now - self.last_present_time < constants.FRAME_PRESENT_TIME_NS {
-            return;
-        }
-
-        self.last_present_time = now;
-
         var sub_image = &layer.views[0].sub_image;                
         var swapchain = sub_image.swapchain as *Swapchain;
         var image = swapchain.images[swapchain.last_released_index];
 
-        var region = ImageRegion {
-            x: sub_image.image_rect.offset.x,
-            y: sub_image.image_rect.offset.y,
-            width: sub_image.image_rect.extent.width,
-            height: sub_image.image_rect.extent.height,
-            array_index: sub_image.image_array_index,
-        };
+        # var region = ImageRegion {
+        #     x: sub_image.image_rect.offset.x,
+        #     y: sub_image.image_rect.offset.y,
+        #     width: sub_image.image_rect.extent.width,
+        #     height: sub_image.image_rect.extent.height,
+        #     array_index: sub_image.image_array_index,
+        # };
 
-        try data in self.graphics_backend.copy_image_to_host(&image, region) {
-            self.tracker_connection.send_frame(&data);
-        }
+        self.tracker_connection.present_image(image.id);
     }
 
     pub func create_reference_space(self, create_info: *xr.ReferenceSpaceCreateInfo) -> (*Space, xr.Result) {

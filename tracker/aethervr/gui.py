@@ -28,6 +28,7 @@ from aethervr.tracking_state import TrackingState
 from aethervr.input_state import ControllerButton
 from aethervr.runtime_connection import RuntimeConnection
 from aethervr.system_openxr_config import SystemOpenXRConfig
+from aethervr.display_surface import DisplaySurface
 
 
 STYLESHEET = """
@@ -63,20 +64,21 @@ class Window(QMainWindow):
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self.create_horizontal_widget())
+        layout.addWidget(self._create_horizontal_widget())
         layout.addWidget(StatusBar(connection))
 
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
 
-    def create_horizontal_widget(self):
+    def _create_horizontal_widget(self):
         widget = QWidget()
 
         self.camera_view = CameraView()
         self.frame_view = FrameView()
 
-        self.connection.on_frame_received = self.frame_view.update_frame
+        self.connection.on_register_image = self.frame_view.register_image
+        self.connection.on_present_image = self.frame_view.present_image
 
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.VLine)
@@ -84,8 +86,8 @@ class Window(QMainWindow):
 
         tab_widget = QTabWidget()
         tab_widget.setContentsMargins(10, 10, 10, 10)
-        tab_widget.addTab(self.camera_view, "Camera")
-        tab_widget.addTab(self.frame_view, "Application")
+        tab_widget.addTab(self._create_camera_tab(), "Camera")
+        tab_widget.addTab(self._create_application_tab(), "Application")
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -100,6 +102,18 @@ class Window(QMainWindow):
         size_policy.setVerticalStretch(1)
         widget.setSizePolicy(size_policy)
 
+        return widget
+
+    def _create_camera_tab(self):
+        return self.camera_view
+
+    def _create_application_tab(self):
+        widget = QWidget()
+
+        layout = QHBoxLayout()
+        layout.addWidget(self.frame_view, Qt.AlignmentFlag.AlignCenter)
+        widget.setLayout(layout)
+        
         return widget
 
     def update_camera_frame(self, frame):
@@ -117,14 +131,14 @@ class ConfigPanel(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(OpenXRConfigGroup(system_openxr_config))
-        layout.addWidget(self.build_controller_group("Left Controller", config.left_controller_config))
-        layout.addWidget(self.build_controller_group("Right Controller", config.right_controller_config))
+        layout.addWidget(self._build_controller_group("Left Controller", config.left_controller_config))
+        layout.addWidget(self._build_controller_group("Right Controller", config.right_controller_config))
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.setLayout(layout)
 
         self.setMinimumWidth(320)
 
-    def build_controller_group(self, label: str, config: ControllerConfig):
+    def _build_controller_group(self, label: str, config: ControllerConfig):
         group = QGroupBox(label)
 
         layout = QFormLayout()
@@ -307,34 +321,23 @@ class FrameView(QLabel):
     def __init__(self):
         super().__init__()
 
-        self.frame_width = 1
-        self.frame_height = 1
-        self.frame_data = bytes([0, 0, 0, 255])
+        self.surface = DisplaySurface(self.winId())
+        self.image_id = None
+
+        self.setFixedWidth(640)
+        self.setFixedHeight(640)
     
-    def update_frame(self, width: int, height: int, data: bytes):
-        self.frame_width = width
-        self.frame_height = height
-        self.frame_data = data
-        
+    def register_image(self, image_id: int, process_id: int, texture_handle: int):
+        self.surface.register_image(image_id, process_id, texture_handle)
+
+    def present_image(self, image_id: int):
+        self.image_id = image_id
         self.update()
 
     def paintEvent(self, e: QPaintEvent):
-        canvas_width, canvas_height = self.width(), self.height()
+        if self.image_id is not None:
+            self.surface.present_image(self.image_id)
 
-        height = canvas_height - 100
-        width = height * (self.frame_width / self.frame_height)
-
-        x = (canvas_width - width) / 2
-        y = (canvas_height - height) / 2
-        rect = QRect(x, y, width, height)
-
-        image = QImage(self.frame_data, self.frame_width, self.frame_height, QImage.Format.Format_RGBA8888)
-
-        painter = QPainter(self)
-        painter.drawImage(rect, image)
-        painter.end()
-
-        return super().paintEvent(e)
 
 class StatusBar(QLabel):
 

@@ -22,6 +22,11 @@ struct ImageData {
     var data: Array[u8];
 }
 
+struct SharedImage {
+    var process_id: u32;
+    var texture_handle: addr;
+}
+
 proto GraphicsBackend {
     pub func new(info: *xr.SessionCreateInfo) -> ?*GraphicsBackend {
         # TODO: Free the memory allocated here.
@@ -63,6 +68,13 @@ proto GraphicsBackend {
     func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result;
     func store_image(self, handle: usize, out_images: *xr.SwapchainImageBaseHeader, out_index: u32);
     func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData;
+    
+    func share_image(self, image: *SwapchainImage) -> ?SharedImage {
+        return none;
+    }
+    
+    func acquire_image(self, image: *SwapchainImage) {}
+    func release_image(self, image: *SwapchainImage) {}
 }
 
 meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
@@ -112,9 +124,21 @@ meta if config.OS == config.WINDOWS {
             var out_images_d3d11 = out_images as *xr.SwapchainImageD3D11KHR;
             out_images_d3d11[out_index].texture = handle as addr;
         }
+
+        pub func acquire_image(self, image: *SwapchainImage) {
+            d3d11.acquire_image(&self.binding, image);
+        }
+
+        pub func release_image(self, image: *SwapchainImage) {
+            d3d11.release_image(&self.binding, image);
+        }
         
         pub func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData {
             return d3d11.copy_image_to_host(&self.binding, image, region);
+        }
+
+        pub func share_image(self, image: *SwapchainImage) -> ?SharedImage {
+            return d3d11.share_image(&self.binding, image);
         }
     }
 }
