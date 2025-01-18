@@ -14,6 +14,7 @@ class RuntimeConnection:
     def __init__(self, port: int):
         self.on_connected = lambda: None
         self.on_disconnected = lambda: None
+        self.on_runtime_info: lambda application_name: None
         self.on_register_image = lambda id, process_id, texture_handle: None 
         self.on_present_image = lambda id: None
 
@@ -69,8 +70,10 @@ class RuntimeConnection:
                 if request == b"\x00":
                     self.send_tracking_state()
                 elif request == b"\x01":
-                    self.receive_register_image()
+                    self.receive_runtime_info()
                 elif request == b"\x02":
+                    self.receive_register_image()
+                elif request == b"\x03":
                     self.receive_present_image()
                 else:
                     print(f"Warning: Unknown request from runtime: {request}")
@@ -97,6 +100,11 @@ class RuntimeConnection:
             
             self.headset_state_available = False
             self.controller_state_available = False
+
+    def receive_runtime_info(self):
+        name_length = struct.unpack("I", self.stream.recv(4))[0]
+        name = self.stream.recv(name_length).decode("utf-8")
+        self.on_runtime_info(name)
 
     def receive_register_image(self):
         image_id, process_id, texture_handle = struct.unpack("IIP", self.stream.recv(16))

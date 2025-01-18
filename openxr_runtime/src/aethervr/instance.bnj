@@ -21,6 +21,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
 }
 
 struct Instance {
+    var application_name: String;
     var extensions: Array[String];
     var event_queue: EventQueue;
     var path_mapping: PathMapping;
@@ -43,6 +44,7 @@ struct Instance {
 
         var instance = memory.box(Instance {
             extensions,
+            application_name: String.from_cstr(&create_info.application_info.application_name[0]),
             event_queue: EventQueue.new(),
             path_mapping: PathMapping.new(),
             interaction_profiles: InteractionProfile.all(),

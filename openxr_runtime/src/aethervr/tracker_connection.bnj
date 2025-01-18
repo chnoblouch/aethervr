@@ -237,10 +237,28 @@ struct TrackerConnection {
         return true;
     }
 
-    pub func register_image(self, id: u32, process_id: u32, texture_handle: addr) {
+    pub func send_info(self, application_name: StringSlice) {
         var lock = self.mutex.lock();
 
         var type_message: u8 = 1;
+        if !self.stream.send(&type_message, 1).successful {
+            return;
+        }
+
+        var name_length = application_name.length as u32;
+        if !self.stream.send(&name_length as *u8, 4).successful {
+            return;
+        }
+
+        if !self.stream.send(&application_name.data[0], application_name.length).successful {
+            return;
+        }
+    }
+
+    pub func register_image(self, id: u32, process_id: u32, texture_handle: addr) {
+        var lock = self.mutex.lock();
+
+        var type_message: u8 = 2;
         if !self.stream.send(&type_message, 1).successful {
             return;
         }
@@ -254,14 +272,12 @@ struct TrackerConnection {
     pub func present_image(self, id: u32) {
         var lock = self.mutex.lock();
 
-        var type_message: u8 = 2;
-        var result = self.stream.send(&type_message, 1);
-        if !result.successful {
+        var type_message: u8 = 3;
+        if !self.stream.send(&type_message, 1).successful {
             return;
         }
 
-        result = self.stream.send(&id as *u8, 4);
-        if !result.successful {
+        if !self.stream.send(&id as *u8, 4).successful {
             return;
         }
     }

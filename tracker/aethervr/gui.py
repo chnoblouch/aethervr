@@ -341,22 +341,48 @@ class FrameView(QLabel):
 
 class StatusBar(QLabel):
 
+    OPENCOMPOSITE_PREFIX = "OpenComposite_"
+
     def __init__(self, connection: RuntimeConnection):
         super().__init__()
+
         self.connection = connection
-
-        self.set_state(False)
-
         self.connection.on_connected = lambda: self.set_state(True)
         self.connection.on_disconnected = lambda: self.set_state(False)
+        self.connection.on_runtime_info = self.update_runtime_info
+
+        self.connected = False
+        self.application_name = None
+        self.build()
 
     def set_state(self, connected: bool):
-        if connected:
+        self.connected = connected
+
+        if not connected:
+            self.application_name = None
+
+        self.build()
+
+    def update_runtime_info(self, application_name: str):
+        self.application_name = application_name
+        self.build()
+
+    def build(self):
+        if self.connected:
             text = "Connected"
             color = "#00a426"
         else:
             text = "Disconnected"
             color = "#575757"
+        
+        if self.application_name:
+            text += " | Application: "
+            
+            if self.application_name.startswith(StatusBar.OPENCOMPOSITE_PREFIX):
+                text += self.application_name[len(StatusBar.OPENCOMPOSITE_PREFIX):]
+                text += " (OpenComposite)"
+            else:
+                text += self.application_name
 
         self.setText(text)
         self.setStyleSheet("QLabel { background-color: " + color + "; }")
