@@ -1,5 +1,6 @@
 from threading import Lock
 import time
+import os
 
 from aethervr.gui import GUI
 from aethervr.camera_capture import CameraCapture
@@ -17,6 +18,7 @@ class Application:
 
     def __init__(self):
         self.config = Config(
+            tracking_fps_cap=20,
             left_controller_config=ControllerConfig(),
             right_controller_config=ControllerConfig(),
         )
@@ -39,19 +41,25 @@ class Application:
 
         self.system_openxr_config = SystemOpenXRConfig()
 
-        self.gui = GUI(self.config, self.connection, self.system_openxr_config)
-        self.gui.run()
+        try:
+            self.gui = GUI(self.config, self.connection, self.system_openxr_config)
+            self.gui.run()
+        except Exception as e:
+            print(e)
+            os._exit(1)
 
     def on_frame(self, frame):
         now = time.time()
 
         with self.tracking_lock:
-            if self.head_tracking_queue_size < 2 and now - self.last_head_tracking_time > 0.05:
+            min_tracking_delay = 1.0 / self.config.tracking_fps_cap
+
+            if self.head_tracking_queue_size < 2 and now - self.last_head_tracking_time >= min_tracking_delay:
                 self.last_head_tracking_time = now
                 self.head_tracking_queue_size += 1
                 self.head_tracker.detect(frame)
 
-            if self.hand_tracking_queue_size < 2 and now - self.last_hand_tracking_time > 0.05:
+            if self.hand_tracking_queue_size < 2 and now - self.last_hand_tracking_time >= min_tracking_delay:
                 self.last_hand_tracking_time = now
                 self.hand_tracking_queue_size += 1
                 self.hand_tracker.detect(frame)

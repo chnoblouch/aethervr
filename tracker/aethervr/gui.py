@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QMessageBox,
     QTabWidget,
+    QLineEdit,
 )
 
 from PySide6.QtCore import QEvent, Qt, QSize, QEvent, QRect, QTimer
@@ -131,12 +132,42 @@ class ConfigPanel(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(OpenXRConfigGroup(system_openxr_config))
+        layout.addWidget(self._build_tracking_group(config))
         layout.addWidget(self._build_controller_group("Left Controller", config.left_controller_config))
         layout.addWidget(self._build_controller_group("Right Controller", config.right_controller_config))
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.setLayout(layout)
 
         self.setMinimumWidth(320)
+
+    def _build_tracking_group(self, config: Config):
+        group = QGroupBox("Tracking")
+
+        fps_input = QLineEdit()
+        fps_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Ignored))
+
+        layout = QFormLayout()
+        layout.addRow(QLabel("Max. Frames per Second:"), fps_input)
+        group.setLayout(layout)
+
+        def update_fps_input():
+            fps_input.setText(str(config.tracking_fps_cap))
+
+        def on_fps_input_changed():
+            try:
+                value = int(fps_input.text())
+                
+                if value > 0:
+                    config.tracking_fps_cap = value
+            except ValueError:
+                pass
+
+            update_fps_input()
+
+        update_fps_input()
+        fps_input.editingFinished.connect(on_fps_input_changed)
+
+        return group
 
     def _build_controller_group(self, label: str, config: ControllerConfig):
         group = QGroupBox(label)
