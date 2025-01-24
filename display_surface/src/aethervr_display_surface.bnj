@@ -1,371 +1,244 @@
 use std.{system.panic, memory};
-use os.winapi;
-
-use d3d11;
-
-@[link_name=OpenProcess]
-native func open_process(
-	winapi.Dword,
-	winapi.Bool,
-	winapi.Dword,
-) -> addr;
-
-@[link_name=DuplicateHandle]
-native func duplicate_handle(
-	winapi.Handle,
-	winapi.Handle,
-	winapi.Handle,
-	*winapi.Handle,
-	winapi.Dword,
-	winapi.Bool,
-	winapi.Dword,
-) -> winapi.Bool;
-
-@[link_name=GetCurrentProcess]
-native func get_current_process() -> winapi.Handle;
+use windows as winapi;
 
 struct SharedImage {
-	var id: u32;
-	var texture: *d3d11.Texture2D;
-	var mutex: *d3d11.DXGIKeyedMutex;
+    var id: u32;
+    var texture: *winapi.ID3D11Texture2D;
+    var mutex: *winapi.IDXGIKeyedMutex;
 }
 
 struct DisplaySurface {
-	var device1: *d3d11.Device1;
-	var device_context: *d3d11.DeviceContext;
-	var buffer: *d3d11.Texture2D;
-	var swapchain: *d3d11.DXGISwapChain1;
-	var images: Array[SharedImage];
+    var device1: *winapi.ID3D11Device1;
+    var device_context: *winapi.ID3D11DeviceContext;
+    var buffer: *winapi.ID3D11Texture2D;
+    var swapchain: *winapi.IDXGISwapChain1;
+    var images: Array[SharedImage];
 
-	pub func create(hwnd: winapi.Handle) -> *DisplaySurface {
-		var guid_dxgi_resource_1 = (
-			0x30961379 as u32,
-			0x4609 as u16,
-			0x4a41 as u16,
-			0x99 as u8,
-			0x8e as u8,
-			0x54 as u8,
-			0xFE as u8,
-			0x56 as u8,
-			0x7E as u8,
-			0xE0 as u8,
-			0xC1 as u8,
-		);
-        
-        var guid_dxgi_factory_2 = (
-            0x50C83A1C as u32,
-            0xE072 as u16,
-            0x4C48 as u16,
-            0x87 as u8,
-            0xB0 as u8,
-            0x36 as u8,
-            0x30 as u8,
-            0xFA as u8,
-            0x36 as u8,
-            0xA6 as u8,
-            0xD0 as u8,
-        );
+    pub func create(hwnd: winapi.HANDLE) -> *DisplaySurface {
+        var factory: *winapi.IDXGIFactory2;
 
-		var factory: *d3d11.DXGIFactory2;
+        if winapi.CreateDXGIFactory1(&winapi.IDXGIFactory2_Guid, &factory as **void) != 0 {
+            panic("Failed to create DXGI factory");
+        }
 
-		if d3d11.create_dxgifactory1(&guid_dxgi_factory_2, &factory as *addr) != 0 {
-			panic("Failed to create DXGI factory");
-		}
+        var adapter: *winapi.IDXGIAdapter;
 
-		var adapter: *d3d11.DXGIAdapter;
-		if factory.vtable.enum_adapters(factory, 0, &adapter) == 0x887A0002 {
-			panic("Failed to enumerate DXGI adapters");
-		}
+        if factory.EnumAdapters(0, &adapter) != 0 {
+            panic("Failed to find a DXGI adapter");
+        }
 
-		factory.vtable.release(factory);
+        factory.Release();
 
-		var desc: d3d11.DXGIAdapterDesc;
-		if adapter.vtable.get_desc(adapter, &desc) != 0 {
-			panic("Failed to get DXGI adapter description");
-		}
+        var desc: winapi.DXGI_ADAPTER_DESC;
 
-		print("Using adapter with LUID ");
-		println(desc.adapter_luid);
+        if adapter.GetDesc(&desc) != 0 {
+            panic("Failed to get DXGI adapter description");
+        }
 
-		var feature_level = d3d11.FeatureLevel._11_1;
-		var device: *d3d11.Device;
-		var device_context: *d3d11.DeviceContext;
+        print("Using adapter with LUID ");
+        println(desc.AdapterLuid);
 
-		if d3d11.d3_d11_create_device(
-			adapter,
-			d3d11.DriverType.TYPE_UNKNOWN,
-			null,
-			2,
-			&feature_level,
-			1,
-			7,
-			&device,
-			null,
-			&device_context
-		) != 0 {
-			panic("Failed to create D3D11 device");
-		}
+        var feature_level = winapi.D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_1;
+        var device: *winapi.ID3D11Device;
+        var device_context: *winapi.ID3D11DeviceContext;
 
-		println("Device created");
+        if winapi.D3D11CreateDevice(
+            adapter,
+            winapi.D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_UNKNOWN,
+            null,
+            2,
+            &feature_level,
+            1,
+            7,
+            &device,
+            null,
+            &device_context
+        ) != 0 {
+            panic("Failed to create D3D11 device");
+        }
 
-		var guid_d3d11_device_1 = (
-			0xA04BFB29 as u32,
-			0x08EF as u16,
-			0x43D6 as u16,
-			0xA4 as u8,
-			0x9C as u8,
-			0xA9 as u8,
-			0xBD as u8,
-			0xBD as u8,
-			0xCB as u8,
-			0xE6 as u8,
-			0x86 as u8,
-		);
+        println("Device created");
 
-		var device1: *d3d11.Device1;
+        var device_as_device1: *winapi.ID3D11Device1;
+        var device_as_iunknown: *winapi.IUnknown;
 
-		if device.vtable.query_interface(device, &guid_d3d11_device_1, &device1 as *addr) != 0 {
-			panic("Failed to access ID3D11Device1 interface");
-		}
+        if device.QueryInterface(&winapi.ID3D11Device1_Guid, &device_as_device1 as **void) != 0 {
+            panic("Failed to access ID3D11Device1 interface of device");
+        }
 
-		println("Accessed ID3D11Device1 interface");
+        if device.QueryInterface(&winapi.IUnknown_Guid, &device_as_iunknown as **void) != 0 {
+            panic("Failed to access IUnknown interface of device");
+        }
 
-		var swapchain_desc = d3d11.DXGISwapChainDesc1 {
-			width: 1080,
-			height: 1080,
-			format: d3d11.DXGIFormat.R8G8B8A8_UNORM,
-			stereo: 0,
-			sample_desc: d3d11.DXGISampleDesc {
-				count: 1,
-				quality: 0,
-			},
-			buffer_usage:
-				# d3d11.DXGI_USAGE_RENDER_TARGET_OUTPUT as u32 |
-				d3d11.DXGI_USAGE_UNORDERED_ACCESS as u32,
-			buffer_count: 2,
-			swap_effect: d3d11.DXGISwapEffect.FLIP_DISCARD,
-			scaling: d3d11.DXGIScaling.STRETCH,
-			alpha_mode: d3d11.DXGIAlphaMode.MODE_UNSPECIFIED,
-			flags: 0,
-		};
+        var swapchain_desc = winapi.DXGI_SWAP_CHAIN_DESC1 {
+            Width: 1080,
+            Height: 1080,
+            Format: winapi.DXGI_FORMAT.DXGI_FORMAT_R8G8B8A8_UNORM,
+            Stereo: 0,
+            SampleDesc: winapi.DXGI_SAMPLE_DESC {
+                Count: 1,
+                Quality: 0,
+            },
+            BufferUsage:
+                # d3d11.DXGI_USAGE_RENDER_TARGET_OUTPUT as u32 |
+                winapi.DXGI_USAGE_UNORDERED_ACCESS as u32,
+            BufferCount: 2,
+            SwapEffect: winapi.DXGI_SWAP_EFFECT.DXGI_SWAP_EFFECT_FLIP_DISCARD,
+            Scaling: winapi.DXGI_SCALING.DXGI_SCALING_STRETCH,
+            AlphaMode: winapi.DXGI_ALPHA_MODE.DXGI_ALPHA_MODE_UNSPECIFIED,
+            Flags: 0,
+        };
 
-		var swapchain: *d3d11.DXGISwapChain1;
+        var swapchain: *winapi.IDXGISwapChain1;
 
-		if factory.vtable.create_swap_chain_for_hwnd(
-			factory,
-			device,
-			hwnd,
-			&swapchain_desc,
-			null,
-			null,
-			&swapchain,
-		) != 0 {
-			panic("Failed to create swapchain");
-		}
+        if factory.CreateSwapChainForHwnd(device_as_iunknown, hwnd, &swapchain_desc, null, null, &swapchain) != 0 {
+            panic("Failed to create swapchain");
+        }
 
-		println("Swapchain created");
+        println("Swapchain created");
 
-		var buffer: *d3d11.Texture2D;
+        var buffer: *winapi.ID3D11Texture2D;
 
-		var guid_texture_2d: (u32, u16, u16, u8, u8, u8, u8, u8, u8, u8, u8) = (
-			0x6F15AAF2,
-			0xD208,
-			0x4E89,
-			0x9A,
-			0xB4,
-			0x48,
-			0x95,
-			0x35,
-			0xD3,
-			0x4F,
-			0x9C,
-		);
+        if swapchain.GetBuffer(0, &winapi.ID3D11Texture2D_Guid, &buffer as **void) != 0 {
+            panic("Failed to get swapchain buffer");
+        }
 
-		if swapchain.vtable.get_buffer(swapchain, 0, &guid_texture_2d, &buffer as *addr) != 0 {
-			panic("Failed to get swapchain buffer");
-		}
+        println("Got swapchain buffer");
 
-		println("Got swapchain buffer");
+        return memory.box(DisplaySurface {
+            device1: device_as_device1,
+            device_context: device_context,
+            buffer: buffer,
+            swapchain: swapchain,
+            images: [],
+        });
+    }
 
-		return memory.box(DisplaySurface {
-			device1,
-			device_context,
-			buffer,
-			swapchain,
-			images: [],
-		});
-	}
+    pub func register_image(
+        self,
+        id: u32,
+        target_process_id: u32,
+        shared_texture_handle: winapi.HANDLE,
+    ) {
+        var process = winapi.OpenProcess(0x40, 0, target_process_id);
 
-	pub func register_image(
-		self,
-		id: u32,
-		target_process_id: winapi.Dword,
-		shared_texture_handle: winapi.Handle
-	) {
-		var guid_texture_2d: (u32, u16, u16, u8, u8, u8, u8, u8, u8, u8, u8) = (
-			0x6F15AAF2,
-			0xD208,
-			0x4E89,
-			0x9A,
-			0xB4,
-			0x48,
-			0x95,
-			0x35,
-			0xD3,
-			0x4F,
-			0x9C,
-		);
+        if process == null {
+            panic("Failed to open target process");
+        }
 
-		var guid_dxgi_keyed_mutex = (
-			0x9D8E1289 as u32,
-			0xD7B3 as u16,
-			0x465F as u16,
-			0x81 as u8,
-			0x26 as u8,
-			0x25 as u8,
-			0x0E as u8,
-			0x34 as u8,
-			0x9A as u8,
-			0xF8 as u8,
-			0x5D as u8,
-		);
+        println("Opened target process");
 
-		var process = open_process(0x40, 0, target_process_id);
+        var local_handle: addr = null;
 
-		if process == null {
-			panic("Failed to open target process");
-		}
+        if winapi.DuplicateHandle(
+            process,
+            shared_texture_handle,
+            winapi.GetCurrentProcess(),
+            &local_handle,
+            0,
+            0,
+            0x2
+        ) == 0 {
+            panic("Failed to duplicate handle");
+        }
 
-		println("Opened target process");
+        println("Handle duplicated");
 
-		var local_handle: addr = null;
+        if winapi.CloseHandle(process) == 0 {
+            panic("Failed to close process handle");
+        }
 
-		if duplicate_handle(process, shared_texture_handle, get_current_process(), &local_handle, 0, 0, 0x2) == 0 {
-			panic("Failed to duplicate handle");
-		}
+        println("Process handle closed");
 
-		println("Handle duplicated");
+        var texture: *winapi.ID3D11Texture2D;
 
-		if !winapi.close_handle(process) {
-			panic("Failed to close process handle");
-		}
+        if self.device1.OpenSharedResource1(local_handle, &winapi.ID3D11Texture2D_Guid, &texture as **void) != 0 {
+            panic("Failed to open foreign texture");
+        }
 
-		println("Process handle closed");
+        println("Opened foreign texture");
 
-		var texture: *d3d11.Texture2D;
+        var mutex: *winapi.IDXGIKeyedMutex;
 
-		if self.device1.vtable.open_shared_resource1(self.device1, local_handle, &guid_texture_2d, &texture as *addr) != 0 {
-			panic("Failed to open foreign texture");
-		}
+        if texture.QueryInterface(&winapi.IDXGIKeyedMutex_Guid, &mutex as **void) != 0 {
+            panic("Failed to access IDXGIKeyedMutex interface of mutex");
+        }
 
-		println("Opened foreign texture");
+        self.images.append(SharedImage { id, texture, mutex });
+    }
 
-		var mutex: *d3d11.DXGIKeyedMutex;
+    pub func present_image(self, id: u32) {
+        var shared_image: *SharedImage = null;
 
-		if texture.vtable.query_interface(texture, &guid_dxgi_keyed_mutex, &mutex as *addr) != 0 {
-			panic("Failed to access IDXGIKeyedMutex interface");
-		}
+        for *image in self.images {
+            if image.id == id {
+                shared_image = image;
+            }
+        }
 
-		println("Accessed IDXGIKeyedMutex interface");
+        if shared_image == null {
+            return;
+        }
 
-		self.images.append(SharedImage { id, texture, mutex });
-	}
+        var destination: *winapi.ID3D11Resource;
 
-	pub func present_image(self, id: u32) {
-		var guid_d3d11_resource = (
-			0xDC8E63F3 as u32,
-			0xD12B as u16,
-			0x4952 as u16,
-			0xB4 as u8,
-			0x7B as u8,
-			0x5E as u8,
-			0x45 as u8,
-			0x02 as u8,
-			0x6A as u8,
-			0x86 as u8,
-			0x2D as u8,
-		);
+        if self.buffer.QueryInterface(&winapi.ID3D11Resource_Guid, &destination as **void) != 0 {
+            panic("Failed to query ID3D11Resource interface of copy destination");
+        }
 
-		var shared_image: *SharedImage = null;
-		
-		for *image in self.images {
-			if image.id == id {
-				shared_image = image;
-			}
-		}
+        var source: *winapi.ID3D11Resource;
 
-		if shared_image == null {
-			return;
-		}
+        if shared_image.texture.QueryInterface(&winapi.ID3D11Resource_Guid, &source as **void) != 0 {
+            panic("Failed to query ID3D11Resource interface of copy source");
+        }
 
-		var destination: *d3d11.Resource;
-		if self.buffer.vtable.query_interface(self.buffer, &guid_d3d11_resource, &destination as *addr) != 0 {
-			panic("Failed to query ID3D11Resource interface of destination");
-		}
+        var source_box = winapi.D3D11_BOX {
+            left: 0,
+            top: 0,
+            front: 0,
+            right: 1080,
+            bottom: 1080,
+            back: 1,
+        };
 
-		var source: *d3d11.Resource;
-		if shared_image.texture.vtable.query_interface(shared_image.texture, &guid_d3d11_resource, &source as *addr) != 0 {
-			panic("Failed to query ID3D11Resource interface of source");
-		}
+        if shared_image.mutex.AcquireSync(1, winapi.INFINITE) != 0 {
+            println("Failed to acquire mutex!");
+        }
 
-		var src_box = d3d11.Box {
-			left: 0,
-			top: 0,
-			front: 0,
-			right: 1080,
-			bottom: 1080,
-			back: 1,
-		};
-		
-		if shared_image.mutex.vtable.acquire_sync(shared_image.mutex, 1, winapi.INFINITE) != 0 {
-			println("Failed to acquire mutex!");
-		}
+        self.device_context.CopySubresourceRegion(destination, 0, 0, 0, 0, source, 0, &source_box);
+        self.swapchain.Present(0, 0);
 
-		self.device_context.vtable.copy_subresource_region(
-			self.device_context,
-			destination,
-			0,
-			0,
-			0,
-			0,
-			source,
-			0,
-			&src_box,
-		);
+        if shared_image.mutex.ReleaseSync(0) != 0 {
+            println("Failed to release mutex!");
+        }
+    }
 
-		self.swapchain.vtable.present(self.swapchain, 0, 0);
-		
-		if shared_image.mutex.vtable.release_sync(shared_image.mutex, 0) != 0 {
-			println("Failed to release mutex!");
-		}
-	}
-
-	pub func destroy(surface: *DisplaySurface) {
-		memory.free(surface);
-	}
+    pub func destroy(surface: *DisplaySurface) {
+        memory.free(surface);
+    }
 }
 
 @[dllexport]
-func aethervr_display_surface_create(hwnd: winapi.Handle) -> *DisplaySurface {
-	return DisplaySurface.create(hwnd);
+func aethervr_display_surface_create(hwnd: winapi.HANDLE) -> *DisplaySurface {
+    return DisplaySurface.create(hwnd);
 }
 
 @[dllexport]
 func aethervr_display_surface_register_image(
-	surface: *DisplaySurface,
-	id: u32,
-	target_process_id: winapi.Dword,
-	shared_texture_handle: winapi.Handle,
+    surface: *DisplaySurface,
+    id: u32,
+    target_process_id: u32,
+    shared_texture_handle: winapi.HANDLE,
 ) {
-	surface.register_image(id, target_process_id, shared_texture_handle);
+    surface.register_image(id, target_process_id, shared_texture_handle);
 }
 
 @[dllexport]
 func aethervr_display_surface_present_image(surface: *DisplaySurface, id: u32) {
-	surface.present_image(id);
+    surface.present_image(id);
 }
 
 @[dllexport]
 func aethervr_display_surface_destroy(surface: *DisplaySurface) {
-	DisplaySurface.destroy(surface);
+    DisplaySurface.destroy(surface);
 }
