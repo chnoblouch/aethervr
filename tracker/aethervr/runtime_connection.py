@@ -14,7 +14,7 @@ class RuntimeConnection:
     def __init__(self, port: int):
         self.on_connected = lambda: None
         self.on_disconnected = lambda: None
-        self.on_runtime_info: lambda application_name: None
+        self.on_runtime_info: lambda application_name, graphics_api: None
         self.on_register_image = lambda id, process_id, texture_handle: None 
         self.on_present_image = lambda id: None
 
@@ -104,7 +104,9 @@ class RuntimeConnection:
     def receive_runtime_info(self):
         name_length = struct.unpack("I", self.stream.recv(4))[0]
         name = self.stream.recv(name_length).decode("utf-8")
-        self.on_runtime_info(name)
+        graphics_api = struct.unpack("I", self.stream.recv(4))[0]
+
+        self.on_runtime_info(name, graphics_api)
 
     def receive_register_image(self):
         image_id, process_id, texture_handle = struct.unpack("IIP", self.stream.recv(16))

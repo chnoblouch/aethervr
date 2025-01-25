@@ -237,7 +237,7 @@ struct TrackerConnection {
         return true;
     }
 
-    pub func send_info(self, application_name: StringSlice) {
+    pub func send_info(self, application_name: StringSlice, graphics_api: u32) {
         var lock = self.mutex.lock();
 
         var type_message: u8 = 1;
@@ -251,6 +251,10 @@ struct TrackerConnection {
         }
 
         if !self.stream.send(&application_name.data[0], application_name.length).successful {
+            return;
+        }
+
+        if !self.stream.send(&graphics_api as *u8, 4).successful {
             return;
         }
     }

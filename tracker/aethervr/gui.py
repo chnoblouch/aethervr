@@ -384,6 +384,7 @@ class StatusBar(QLabel):
 
         self.connected = False
         self.application_name = None
+        self.graphics_api = None
         self.build()
 
     def set_state(self, connected: bool):
@@ -391,11 +392,13 @@ class StatusBar(QLabel):
 
         if not connected:
             self.application_name = None
+            self.graphics_api = None
 
         self.build()
 
-    def update_runtime_info(self, application_name: str):
+    def update_runtime_info(self, application_name: str, graphics_api: int):
         self.application_name = application_name
+        self.graphics_api = graphics_api
         self.build()
 
     def build(self):
@@ -406,14 +409,26 @@ class StatusBar(QLabel):
             text = "Disconnected"
             color = "#575757"
         
-        if self.application_name:
-            text += " | Application: "
+        if self.application_name is not None:
+            text += " | "
             
             if self.application_name.startswith(StatusBar.OPENCOMPOSITE_PREFIX):
                 text += self.application_name[len(StatusBar.OPENCOMPOSITE_PREFIX):]
                 text += " (OpenComposite)"
             else:
                 text += self.application_name
+
+        if self.graphics_api is not None:
+            text += " | "
+
+            if self.graphics_api == 0:
+                text += "Vulkan"
+            elif self.graphics_api == 1:
+                text += "Direct3D 11"
+            elif self.graphics_api == 2:
+                text += "Metal"
+            else:
+                text += "Unknown Graphics API"
 
         self.setText(text)
         self.setStyleSheet("QLabel { background-color: " + color + "; }")

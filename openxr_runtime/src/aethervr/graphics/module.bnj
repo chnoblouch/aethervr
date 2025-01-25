@@ -64,6 +64,7 @@ proto GraphicsBackend {
         return none;
     }
 
+    func id(self) -> u32;
     func get_supported_formats(self) -> [i64];
     func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result;
     func store_image(self, handle: usize, out_images: *xr.SwapchainImageBaseHeader, out_index: u32);
@@ -83,6 +84,10 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
 
         pub func new(binding: xr.GraphicsBindingVulkanKHR) -> VulkanBackend {
             return VulkanBackend { binding };
+        }
+
+        pub func id(self) -> u32 {
+            return 0;
         }
 
         pub func get_supported_formats(self) -> [i64] {
@@ -110,6 +115,10 @@ meta if config.OS == config.WINDOWS {
 
         pub func new(binding: xr.GraphicsBindingD3D11KHR) -> D3D11Backend {
             return D3D11Backend { binding };
+        }
+
+        pub func id(self) -> u32 {
+            return 1;
         }
 
         pub func get_supported_formats(self) -> [i64] {
@@ -149,6 +158,10 @@ meta if config.OS == config.MACOS {
 
         pub func new(binding: xr.GraphicsBindingMetalKHR) -> MetalBackend {
             return MetalBackend { binding };
+        }
+
+        pub func id(self) -> u32 {
+            return 2;
         }
 
         pub func get_supported_formats(self) -> [i64] {

@@ -85,7 +85,11 @@ struct Session {
         });
 
         session.input_mapper = InputMapper.new(session);
-        session.tracker_connection.send_info(instance.application_name.slice());
+        
+        session.tracker_connection.send_info(
+            instance.application_name.slice(),
+            graphics_backend.value.id(),
+        );
 
         session.transition_to(xr.SessionState.IDLE);
         session.transition_to(xr.SessionState.READY);
