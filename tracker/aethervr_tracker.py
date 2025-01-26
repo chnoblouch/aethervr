@@ -37,7 +37,8 @@ class Application:
         self.last_hand_tracking_time = time.time()
         self.head_tracking_queue_size = 0
         self.hand_tracking_queue_size = 0
-        self.tracking_lock = Lock()
+        self.head_tracking_lock = Lock()
+        self.hand_tracking_lock = Lock()
 
         self.system_openxr_config = SystemOpenXRConfig()
 
@@ -50,16 +51,16 @@ class Application:
 
     def on_frame(self, frame):
         now = time.time()
+        min_tracking_delay = 1.0 / self.config.tracking_fps_cap
 
-        with self.tracking_lock:
-            min_tracking_delay = 1.0 / self.config.tracking_fps_cap
-
-            if self.head_tracking_queue_size < 2 and now - self.last_head_tracking_time >= min_tracking_delay:
+        if self.head_tracking_queue_size < 2 and now - self.last_head_tracking_time >= min_tracking_delay:
+            with self.head_tracking_lock:
                 self.last_head_tracking_time = now
                 self.head_tracking_queue_size += 1
                 self.head_tracker.detect(frame)
 
-            if self.hand_tracking_queue_size < 2 and now - self.last_hand_tracking_time >= min_tracking_delay:
+        if self.hand_tracking_queue_size < 2 and now - self.last_hand_tracking_time >= min_tracking_delay:
+            with self.hand_tracking_lock:
                 self.last_hand_tracking_time = now
                 self.hand_tracking_queue_size += 1
                 self.hand_tracker.detect(frame)
@@ -67,7 +68,7 @@ class Application:
         self.gui.update_camera_frame(frame)
 
     def on_head_tracking_results(self, state: HeadState):
-        with self.tracking_lock:
+        with self.head_tracking_lock:
             self.head_tracking_queue_size -= 1
 
         self.tracking_state.head = state
@@ -79,7 +80,7 @@ class Application:
         self.connection.update_headset_state(self.input_state.headset_state)
 
     def on_hand_tracking_results(self, left_state: HandState, right_state: HandState):
-        with self.tracking_lock:
+        with self.hand_tracking_lock:
             self.hand_tracking_queue_size -= 1
         
         self.tracking_state.left_hand = left_state
