@@ -1,5 +1,10 @@
 use std.{memory, config};
 
+use aethervr.{
+    graphics.SharedImage,
+    utils.process_id,
+};
+
 meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
     use c.lib.string.strcpy;
 
@@ -59,10 +64,36 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         vk_instance: *addr,
         vk_result: *vk.Result
     ) -> xr.Result {
+        var vk_create_info = *(info.vulkan_create_info as *vk.InstanceCreateInfo);
+
+        var vk_extensions: Array[*u8] = [];
+
+        for i in 0..vk_create_info.enabled_extension_count {
+            vk_extensions.append(vk_create_info.pp_enabled_extension_names[i]);
+        }
+
+        # TODO: Don't create duplicate extensions.
+        vk_extensions.append("VK_KHR_external_memory");
+        vk_extensions.append("VK_KHR_external_memory_win32");
+
+        log.enter_scope();
+        log.info("Vulkan extensions:");
+        log.enter_scope();
+
+        for vk_extension in vk_extensions {
+            log.info("- %", vk_extension);
+        }
+
+        log.exit_scope();
+        log.exit_scope();
+
+        vk_create_info.enabled_extension_count = vk_extensions.length as u32;
+        vk_create_info.pp_enabled_extension_names = vk_extensions.data;
+
         *vk_result = vk.create_instance(
-            info.vulkan_create_info as *vk.InstanceCreateInfo,
+            &vk_create_info,
             info.vulkan_allocator as *vk.AllocationCallbacks,
-            vk_instance
+            vk_instance,
         );
 
         return xr.Result.SUCCESS;
@@ -145,18 +176,15 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             return xr.Result.ERROR_RUNTIME_FAILURE;
         }
 
-        log.info("Image format properties");
-        log.enter_scope();
-        log.info("Max width: %", format_props.max_extent.width);
-        log.info("Max height: %", format_props.max_extent.height);
-        log.info("Max depth: %", format_props.max_extent.depth);
-        log.info("Max mip levels: %", format_props.max_mip_levels);
-        log.info("Max array layers: %", format_props.max_array_layers);
-        log.exit_scope();
+        var external_image_create_info = vk.ExternalMemoryImageCreateInfo {
+            s_type: vk.StructureType.EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+            p_next: null,
+            handle_types: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT as u32,
+        };
 
         var image_create_info = vk.ImageCreateInfo {
             s_type: vk.StructureType.IMAGE_CREATE_INFO,
-            p_next: null,
+            p_next: &external_image_create_info,
             flags,
             image_type,
             format,
@@ -186,7 +214,13 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         var mem_reqs: vk.MemoryRequirements;
         vk.get_image_memory_requirements(binding.device, image, &mem_reqs);
 
-        var device_memory = allocate(binding, &mem_reqs, vk.MemoryPropertyFlagBits.DEVICE_LOCAL_BIT as u32);
+        var device_memory = allocate_exported(
+            binding,
+            &mem_reqs,
+            vk.MemoryPropertyFlagBits.DEVICE_LOCAL_BIT as u32,
+            image,
+        );
+
         if !device_memory.has_value {
             log.exit_scope();
             return xr.Result.ERROR_RUNTIME_FAILURE;
@@ -197,6 +231,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             id: 0,
             create_info: *create_info,
             api_handle: image as usize,
+            api_memory: device_memory.value,
             state: SwapchainImageState.AVAILABLE,
             acquired: false,
         };
@@ -205,6 +240,39 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
 
         log.exit_scope();
         return xr.Result.SUCCESS;
+    }
+
+    pub func share_image(
+        binding: *xr.GraphicsBindingVulkanKHR,
+        image: *SwapchainImage,
+    ) -> ?SharedImage {
+        var vk_get_memory_win32_handle_khr =
+            vk.get_instance_proc_addr(binding.instance, "vkGetMemoryWin32HandleKHR")
+            as func(addr, *vk.MemoryGetWin32HandleInfoKHR, *addr) -> vk.Result;
+
+        if vk_get_memory_win32_handle_khr == null {
+            log.error("Vulkan: Failed to obtain `vkGetMemoryWin32HandleKHR` function pointer");
+            return none;
+        }
+
+        var get_info = vk.MemoryGetWin32HandleInfoKHR {
+            s_type: vk.StructureType.MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+            p_next: null,
+            handle_type: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT,
+            memory: image.api_memory,
+        };
+
+        var handle: addr = null;
+
+        if vk_get_memory_win32_handle_khr(binding.device, &get_info, &handle) != vk.Result.SUCCESS {
+            log.error("Vulkan: Failed to get win32 memory handle");
+            return none;
+        }
+
+        return SharedImage {
+            process_id: process_id(),
+            texture_handle: handle,
+        };
     }
 
     pub func copy_image_to_host(
@@ -245,7 +313,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         var device_memory = allocate(
             binding,
             &mem_reqs,
-            vk.MemoryPropertyFlagBits.HOST_VISIBLE_BIT as u32 | vk.MemoryPropertyFlagBits.HOST_COHERENT_BIT as u32,
+            vk.MemoryPropertyFlagBits.DEVICE_LOCAL_BIT as u32,
         );
 
         if !device_memory.has_value {
@@ -278,12 +346,12 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             image_offset: {
                 x: region.x,
                 y: region.y,
-                z: 0
+                z: 0,
             },
             image_extent: {
                 width: region.width as u32,
                 height: region.height as u32,
-                depth: 1
+                depth: 1,
             },
         };
 
@@ -324,7 +392,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
     func allocate(
         binding: *xr.GraphicsBindingVulkanKHR,
         mem_reqs: *vk.MemoryRequirements,
-        prop_flags: u32
+        prop_flags: u32,
     ) -> ?addr {
         log.info("Allocating memory");
         log.enter_scope();
@@ -343,6 +411,57 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         var alloc_info = vk.MemoryAllocateInfo {
             s_type: vk.StructureType.MEMORY_ALLOCATE_INFO,
             p_next: null,
+            allocation_size: mem_reqs.size,
+            memory_type_index: mem_type_index.value
+        };
+
+        var memory: addr;
+        if vk.allocate_memory(binding.device, &alloc_info, null, &memory) != vk.Result.SUCCESS {
+            log.error("Failed to allocate memory");
+            log.exit_scope();
+            return none;
+        }
+
+        log.exit_scope();
+        return memory;
+    }
+
+    func allocate_exported(
+        binding: *xr.GraphicsBindingVulkanKHR,
+        mem_reqs: *vk.MemoryRequirements,
+        prop_flags: u32,
+        image: addr,
+    ) -> ?addr {
+        log.info("Allocating exported memory");
+        log.enter_scope();
+
+        log.info("Size: % bytes", mem_reqs.size);
+
+        var mem_type_index = find_memory_type(binding, mem_reqs, prop_flags);
+
+        if !mem_type_index.has_value {
+            log.error("Failed to find suitable memory type");
+            log.exit_scope();
+            return none;
+        }
+        log.info("Memory type index: %", mem_type_index.value);
+
+        var dedicated_alloc_info = vk.MemoryDedicatedAllocateInfo {
+            s_type: vk.StructureType.MEMORY_DEDICATED_ALLOCATE_INFO,
+            p_next: null,
+            buffer: null,
+            image,
+        };
+
+        var export_info = vk.ExportMemoryAllocateInfo {
+            s_type: vk.StructureType.EXPORT_MEMORY_ALLOCATE_INFO,
+            p_next: &dedicated_alloc_info,
+            handle_types: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT as u32,
+        };
+
+        var alloc_info = vk.MemoryAllocateInfo {
+            s_type: vk.StructureType.MEMORY_ALLOCATE_INFO,
+            p_next: &export_info,
             allocation_size: mem_reqs.size,
             memory_type_index: mem_type_index.value
         };

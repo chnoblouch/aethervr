@@ -352,7 +352,7 @@ class FrameView(QLabel):
     def __init__(self):
         super().__init__()
 
-        self.surface = DisplaySurface(self.winId())
+        self.surface = DisplaySurface(1, self.winId())
         self.image_id = None
 
         self.setFixedWidth(640)

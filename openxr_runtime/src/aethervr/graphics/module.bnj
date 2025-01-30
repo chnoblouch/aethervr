@@ -68,10 +68,9 @@ proto GraphicsBackend {
     func get_supported_formats(self) -> [i64];
     func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result;
     func store_image(self, handle: usize, out_images: *xr.SwapchainImageBaseHeader, out_index: u32);
-    func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData;
     
     func share_image(self, image: *SwapchainImage) -> ?SharedImage {
-        return none;
+        return vulkan.share_image(&self.binding, image);
     }
     
     func acquire_image(self, image: *SwapchainImage) {}
@@ -101,10 +100,6 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         pub func store_image(self, handle: usize, out_images: *xr.SwapchainImageBaseHeader, out_index: u32) {
             var out_images_vulkan = out_images as *xr.SwapchainImageVulkanKHR;
             out_images_vulkan[out_index].image = handle as addr;
-        }
-        
-        pub func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData {
-            return vulkan.copy_image_to_host(&self.binding, image, region);
         }
     }
 }
@@ -141,10 +136,6 @@ meta if config.OS == config.WINDOWS {
         pub func release_image(self, image: *SwapchainImage) {
             d3d11.release_image(&self.binding, image);
         }
-        
-        pub func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData {
-            return d3d11.copy_image_to_host(&self.binding, image, region);
-        }
 
         pub func share_image(self, image: *SwapchainImage) -> ?SharedImage {
             return d3d11.share_image(&self.binding, image);
@@ -175,10 +166,6 @@ meta if config.OS == config.MACOS {
         pub func store_image(self, handle: usize, out_images: *xr.SwapchainImageBaseHeader, out_index: u32) {
             var out_images_metal = out_images as *xr.SwapchainImageMetalKHR;
             out_images_metal[out_index].texture = handle as addr;
-        }
-
-        pub func copy_image_to_host(self, image: *SwapchainImage, region: ImageRegion) -> ?ImageData {
-            return none;
         }
     }
 }

@@ -1,0 +1,47 @@
+use std.{system.panic, memory};
+use windows as winapi;
+
+use aethervr.{
+    surface_vulkan.VulkanSurface,
+    surface_d3d11.D3D11Surface,
+};
+
+proto Surface {
+    func register_image(self, id: u32, process_id: u32, shared_texture_handle: winapi.HANDLE);
+    func present_image(self, id: u32);
+    func destroy(self);
+}
+
+@[dllexport]
+func aethervr_display_surface_create(graphics_api: u32, hwnd: winapi.HANDLE) -> **Surface {
+    var surface: *Surface;
+
+    if graphics_api == 0 {
+        surface = VulkanSurface.create(hwnd);
+    } else if graphics_api == 1 {
+        surface = D3D11Surface.create(hwnd);
+    }
+
+    return memory.box(surface);
+}
+
+@[dllexport]
+func aethervr_display_surface_register_image(
+    surface: **Surface,
+    id: u32,
+    target_process_id: u32,
+    shared_texture_handle: winapi.HANDLE,
+) {
+    surface.register_image(id, target_process_id, shared_texture_handle);
+}
+
+@[dllexport]
+func aethervr_display_surface_present_image(surface: **Surface, id: u32) {
+    surface.present_image(id);
+}
+
+@[dllexport]
+func aethervr_display_surface_destroy(surface: **Surface) {
+    surface.destroy();
+    memory.free(surface);
+}

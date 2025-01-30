@@ -1,0 +1,575 @@
+use std.{system.panic, memory};
+
+use vulkan as vk;
+use windows as winapi;
+
+use aethervr.{
+    display_surface.Surface,
+    platform_windows as platform,
+};
+
+struct SharedImage {
+    var id: u32;
+    var image: addr;
+}
+
+struct VulkanSurface: Surface {
+    var instance: addr;
+    var surface: addr;
+    var graphics_family_index: u32;
+    var device: addr;
+    var queue: addr;
+    var command_pool: addr;
+    var image_copy_command_buffer: addr;
+    var swapchain: addr;
+    var swapchain_size: (u32, u32);
+    var swapchain_images: Array[addr];
+
+    var image_acquire_semaphore: addr;
+    var image_copy_semaphore: addr;
+
+    var images: Array[SharedImage];
+
+    pub func create(hwnd: winapi.HANDLE) -> *VulkanSurface {
+        var application_info = vk.ApplicationInfo {
+            s_type: vk.StructureType.APPLICATION_INFO,
+            p_next: null,
+            p_application_name: "AetherVR Display Surface",
+            application_version: make_vulkan_version(1, 0, 0),
+            p_engine_name: "",
+            engine_version: make_vulkan_version(1, 0, 0),
+            api_version: make_vulkan_version(1, 1, 0),
+        };
+
+        var instance_layers: Array[*u8] = [
+            "VK_LAYER_KHRONOS_validation"
+        ];
+
+        var instance_extensions: Array[*u8] = [
+            "VK_KHR_surface",
+            "VK_KHR_win32_surface",
+        ];
+
+        var create_info = vk.InstanceCreateInfo {
+            s_type: vk.StructureType.INSTANCE_CREATE_INFO,
+            p_next: null,
+            flags: 0,
+            p_application_info: &application_info,
+            enabled_layer_count: instance_layers.length as u32,
+            pp_enabled_layer_names: instance_layers.data,
+            enabled_extension_count: instance_extensions.length as u32,
+            pp_enabled_extension_names: instance_extensions.data,
+        };
+
+        var instance: addr;
+
+        if vk.create_instance(&create_info, null, &instance) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to create instance");
+        }
+
+        var surface_create_info = vk.Win32SurfaceCreateInfoKHR {
+            s_type: vk.StructureType.WIN32_SURFACE_CREATE_INFO_KHR,
+            p_next: null,
+            flags: 0,
+            hinstance: winapi.GetModuleHandleA(null),
+            hwnd: hwnd,
+        };
+
+        var surface: addr;
+
+        if vk.create_win32_surface_khr(instance, &surface_create_info, null, &surface) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to create surface");
+        }
+
+        var physical_device_count: u32 = 0;
+        vk.enumerate_physical_devices(instance, &physical_device_count, null);
+
+        if physical_device_count == 0 {
+            panic("Vulkan: No physical devices have been found");
+        }
+
+        var physical_devices: Array[addr] = [];
+        physical_devices.resize(physical_device_count as usize);
+        vk.enumerate_physical_devices(instance, &physical_device_count, physical_devices.data);
+
+        var physical_device = physical_devices[0];
+
+        var queue_family_count: u32 = 0;
+        vk.get_physical_device_queue_family_properties(physical_device, &queue_family_count, null);
+
+        var queue_families: Array[vk.QueueFamilyProperties] = [];
+        queue_families.resize(queue_family_count as usize);
+        vk.get_physical_device_queue_family_properties(physical_device, &queue_family_count, queue_families.data);
+
+        var graphics_family_index: ?u32 = none;
+
+        for i in 0..queue_families.length {
+            if queue_families[i].queue_flags & vk.QueueFlagBits.GRAPHICS_BIT as u32 != 0 {
+                graphics_family_index = i as u32;
+                break;
+            }
+        }
+
+        if !graphics_family_index.has_value {
+            panic("Vulkan: Failed to find graphics queue family");
+        }
+
+        var has_present_support: u32 = 0;
+        vk.get_physical_device_surface_support_khr(physical_device, graphics_family_index.value, surface, &has_present_support);
+
+        # TODO: Create separate graphics and present queues and transfer ownership of swapchain images between them.
+
+        if has_present_support == 0 {
+            panic("Vulkan: Queue family has no surface support");
+        }
+
+        var queue_priority: f32 = 1.0;
+
+        var queue_create_info = vk.DeviceQueueCreateInfo {
+            s_type: vk.StructureType.DEVICE_QUEUE_CREATE_INFO,
+            p_next: null,
+            flags: 0,
+            queue_family_index: graphics_family_index.value,
+            queue_count: 1,
+            p_queue_priorities: &queue_priority,
+        };
+
+        var device_extensions: Array[*u8] = [
+            "VK_KHR_swapchain",
+        ];
+
+        var physical_device_features = memory.zero[vk.PhysicalDeviceFeatures]();
+
+        var device_create_info = vk.DeviceCreateInfo {
+            s_type: vk.StructureType.DEVICE_CREATE_INFO,
+            p_next: null,
+            flags: 0,
+            queue_create_info_count: 1,
+            p_queue_create_infos: &queue_create_info,
+            enabled_layer_count: 0,
+            pp_enabled_layer_names: null,
+            enabled_extension_count: device_extensions.length as u32,
+            pp_enabled_extension_names: device_extensions.data,
+            p_enabled_features: &physical_device_features,
+        };
+
+        var device: addr;
+
+        if vk.create_device(physical_device, &device_create_info, null, &device) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to create device");
+        }
+
+        var queue: addr;
+        vk.get_device_queue(device, graphics_family_index.value, 0, &queue);
+
+        var command_pool_create_info = vk.CommandPoolCreateInfo {
+            s_type: vk.StructureType.COMMAND_POOL_CREATE_INFO,
+            p_next: null,
+            flags: vk.CommandPoolCreateFlagBits.RESET_COMMAND_BUFFER_BIT as u32,
+            queue_family_index: graphics_family_index.value,
+        };
+
+        var command_pool: addr;
+
+        if vk.create_command_pool(device, &command_pool_create_info, null, &command_pool) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to create command pool");
+        }
+
+        var command_buffer_alloc_info = vk.CommandBufferAllocateInfo {
+            s_type: vk.StructureType.COMMAND_BUFFER_ALLOCATE_INFO,
+            p_next: null,
+            command_pool,
+            level: vk.CommandBufferLevel.PRIMARY,
+            command_buffer_count: 1,
+        };
+
+        var image_copy_command_buffer: addr;
+
+        if vk.allocate_command_buffers(device, &command_buffer_alloc_info, &image_copy_command_buffer) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to allocate command buffer");
+        }
+
+        var surface_capabilities: vk.SurfaceCapabilitiesKHR;
+        vk.get_physical_device_surface_capabilities_khr(physical_device, surface, &surface_capabilities);
+
+        var surface_format_count: u32 = 0;
+        vk.get_physical_device_surface_formats_khr(physical_device, surface, &surface_format_count, null);
+
+        var surface_formats: Array[vk.SurfaceFormatKHR] = [];
+        surface_formats.resize(surface_format_count as usize);
+        vk.get_physical_device_surface_formats_khr(physical_device, surface, &surface_format_count, surface_formats.data);
+
+        var surface_format: ?vk.SurfaceFormatKHR = none;
+
+        for candidate in surface_formats {
+            if candidate.format == vk.Format.R8G8B8A8_SRGB {
+                surface_format = candidate;
+                break;
+            }
+        }
+
+        if !surface_format.has_value {
+            panic("Vulkan: Surface does not support any compatible format");
+        }
+
+        var swapchain_width: u32 = 1080;
+        var swapchain_height: u32 = 1080;
+
+        if surface_capabilities.current_extent.width != 0xFFFFFFFF {
+            swapchain_width = surface_capabilities.current_extent.width;
+        }
+
+        if surface_capabilities.current_extent.height != 0xFFFFFFFF {
+            swapchain_height = surface_capabilities.current_extent.height;
+        }
+
+        var swapchain_create_info = vk.SwapchainCreateInfoKHR {
+            s_type: vk.StructureType.SWAPCHAIN_CREATE_INFO_KHR,
+            p_next: null,
+            flags: 0,
+            surface,
+            min_image_count: surface_capabilities.min_image_count,
+            image_format: surface_format.value.format,
+            image_color_space: surface_format.value.color_space,
+            image_extent: vk.Extent2D {
+                width: swapchain_width,
+                height: swapchain_height,
+            },
+            image_array_layers: 1,
+            image_usage: vk.ImageUsageFlagBits.TRANSFER_DST_BIT as u32,
+            image_sharing_mode: vk.SharingMode.EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: null,
+            pre_transform: surface_capabilities.current_transform,
+            composite_alpha: vk.CompositeAlphaFlagBitsKHR.OPAQUE_BIT_KHR,
+            present_mode: vk.PresentModeKHR.FIFO_KHR,
+            clipped: 1,
+            old_swapchain: null,
+        };
+
+        var swapchain: addr;
+
+        if vk.create_swapchain_khr(device, &swapchain_create_info, null, &swapchain) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to create swapchain");
+        }
+
+        var swapchain_image_count: u32 = 0;
+        vk.get_swapchain_images_khr(device, swapchain, &swapchain_image_count, null);
+
+        var swapchain_images: Array[addr];
+        swapchain_images.resize(swapchain_image_count as usize);
+        vk.get_swapchain_images_khr(device, swapchain, &swapchain_image_count, swapchain_images.data);
+
+        var semaphore_create_info = vk.SemaphoreCreateInfo {
+            s_type: vk.StructureType.SEMAPHORE_CREATE_INFO,
+            p_next: null,
+            flags: 0,
+        };
+
+        var image_acquire_semaphore: addr;
+
+        if vk.create_semaphore(device, &semaphore_create_info, null, &image_acquire_semaphore) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to create semaphore");
+        }
+
+        var image_copy_semaphore: addr;
+
+        if vk.create_semaphore(device, &semaphore_create_info, null, &image_copy_semaphore) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to create semaphore");
+        }
+
+        return memory.box(VulkanSurface{
+            instance,
+            surface,
+            graphics_family_index: graphics_family_index.value,
+            device,
+            queue,
+            command_pool,
+            image_copy_command_buffer,
+            swapchain,
+            swapchain_size: (swapchain_width, swapchain_height),
+            swapchain_images,
+            image_acquire_semaphore,
+            image_copy_semaphore,
+            images: [],
+        });
+    }
+
+    pub func register_image(self, id: u32, process_id: u32, texture_handle: winapi.HANDLE) {
+        var local_handle = platform.access_handle(process_id, texture_handle);
+
+        var external_memory_image_create_info = vk.ExternalMemoryImageCreateInfo {
+            s_type: vk.StructureType.EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+            p_next: null,
+            handle_types: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT as u32,
+        };
+
+        var image_create_info = vk.ImageCreateInfo {
+            s_type: vk.StructureType.IMAGE_CREATE_INFO,
+            p_next: &external_memory_image_create_info,
+            flags: 0,
+            image_type: vk.ImageType._2D,
+            format: vk.Format.R8G8B8A8_UNORM,
+            extent: vk.Extent3D {
+                width: 1080,
+                height: 1080,
+                depth: 1, 
+            },
+            mip_levels: 1,
+            array_layers: 2,
+            samples: vk.SampleCountFlagBits._1_BIT,
+            tiling: vk.ImageTiling.OPTIMAL,
+            usage:
+                vk.ImageUsageFlagBits.COLOR_ATTACHMENT_BIT as u32 |
+                vk.ImageUsageFlagBits.TRANSFER_SRC_BIT as u32,
+            sharing_mode: vk.SharingMode.EXCLUSIVE,
+            queue_family_index_count: 1,
+            p_queue_family_indices: &self.graphics_family_index,
+            initial_layout: vk.ImageLayout.UNDEFINED,
+        };
+
+        var image: addr;
+
+        if vk.create_image(self.device, &image_create_info, null, &image) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to create image");
+        }
+
+        var dedicated_alloc_info = vk.MemoryDedicatedAllocateInfo {
+            s_type: vk.StructureType.MEMORY_DEDICATED_ALLOCATE_INFO,
+            p_next: null,
+            buffer: null,
+            image: image,
+        };
+
+        var import_info = vk.ImportMemoryWin32HandleInfoKHR {
+            s_type: vk.StructureType.IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+            p_next: &dedicated_alloc_info,
+            handle_type: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT,
+            handle: local_handle,
+            name: null,
+        };
+
+        var alloc_info = vk.MemoryAllocateInfo {
+            s_type: vk.StructureType.MEMORY_ALLOCATE_INFO,
+            p_next: &import_info,
+            allocation_size: 10616832,
+            memory_type_index: 0,
+        };
+
+        var memory: addr;
+
+        if vk.allocate_memory(self.device, &alloc_info, null, &memory) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to import image memory");
+        }
+
+        if vk.bind_image_memory(self.device, image, memory, 0) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to bind imported memory to image");
+        }
+
+        self.images.append(SharedImage { id, image });
+    }
+
+    pub func present_image(self, id: u32) {
+        var shared_image: *SharedImage = null;
+
+        for *image in self.images {
+            if image.id == id {
+                shared_image = image;
+            }
+        }
+
+        if shared_image == null {
+            return;
+        }
+
+        var swapchain_image_index: u32;
+        
+        vk.acquire_next_image_khr(
+            self.device,
+            self.swapchain,
+            0xFFFFFFFFFFFFFFFFF,
+            self.image_acquire_semaphore,
+            null,
+            &swapchain_image_index,
+        );
+
+        if vk.reset_command_buffer(self.image_copy_command_buffer, 0) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to reset image copy command buffer");
+        }
+
+        var command_buffer_begin_info = vk.CommandBufferBeginInfo {
+            s_type: vk.StructureType.COMMAND_BUFFER_BEGIN_INFO,
+            p_next: null,
+            flags: vk.CommandBufferUsageFlagBits.ONE_TIME_SUBMIT_BIT as u32,
+            p_inheritance_info: null,
+        };
+
+        if vk.begin_command_buffer(self.image_copy_command_buffer, &command_buffer_begin_info) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to begin image copy command buffer");
+        }
+
+        insert_image_layout_transition(
+            self.image_copy_command_buffer,
+            shared_image.image,
+            vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL,
+            vk.ImageLayout.TRANSFER_SRC_OPTIMAL
+        );
+
+        insert_image_layout_transition(
+            self.image_copy_command_buffer,
+            self.swapchain_images[swapchain_image_index],
+            vk.ImageLayout.UNDEFINED,
+            vk.ImageLayout.TRANSFER_DST_OPTIMAL,
+        );
+
+        var blit_region = vk.ImageBlit {
+            src_subresource: vk.ImageSubresourceLayers {
+                aspect_mask: vk.ImageAspectFlagBits.COLOR_BIT as u32,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            src_offsets: [
+                vk.Offset3D {
+                    x: 0,
+                    y: 0,
+                    z: 0,
+                },
+                vk.Offset3D {
+                    x: 1080,
+                    y: 1080, 
+                    z: 1,
+                },
+            ],
+            dst_subresource: vk.ImageSubresourceLayers {
+                aspect_mask: vk.ImageAspectFlagBits.COLOR_BIT as u32,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            dst_offsets: [
+                vk.Offset3D {
+                    x: 0,
+                    y: 0,
+                    z: 0,
+                },
+                vk.Offset3D {
+                    x: self.swapchain_size.0 as i32,
+                    y: self.swapchain_size.1 as i32,
+                    z: 1,
+                },
+            ],
+        };
+
+        vk.cmd_blit_image(
+            self.image_copy_command_buffer,
+            shared_image.image,
+            vk.ImageLayout.TRANSFER_SRC_OPTIMAL,
+            self.swapchain_images[swapchain_image_index],
+            vk.ImageLayout.TRANSFER_DST_OPTIMAL,
+            1,
+            &blit_region,
+            vk.Filter.LINEAR,
+        );
+
+        insert_image_layout_transition(
+            self.image_copy_command_buffer,
+            shared_image.image,
+            vk.ImageLayout.TRANSFER_SRC_OPTIMAL,
+            vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL,
+        );
+        
+        insert_image_layout_transition(
+            self.image_copy_command_buffer,
+            self.swapchain_images[swapchain_image_index],
+            vk.ImageLayout.TRANSFER_DST_OPTIMAL,
+            vk.ImageLayout.PRESENT_SRC_KHR,
+        );
+        
+        if vk.end_command_buffer(self.image_copy_command_buffer) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to end image copy command buffer");
+        }
+
+        var submit_wait_stage: u32 = vk.PipelineStageFlagBits.TOP_OF_PIPE_BIT as u32;
+
+        var submit_info = vk.SubmitInfo {
+            s_type: vk.StructureType.SUBMIT_INFO,
+            p_next: null,
+            wait_semaphore_count: 1,
+            p_wait_semaphores: &self.image_acquire_semaphore,
+            p_wait_dst_stage_mask: &submit_wait_stage,
+            command_buffer_count: 1,
+            p_command_buffers: &self.image_copy_command_buffer,
+            signal_semaphore_count: 1,
+            p_signal_semaphores: &self.image_copy_semaphore,
+        };
+
+        if vk.queue_submit(self.queue, 1, &submit_info, null) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to submit to queue");
+        }
+
+        var present_info = vk.PresentInfoKHR {
+            s_type: vk.StructureType.PRESENT_INFO_KHR,
+            p_next: null,
+            wait_semaphore_count: 1,
+            p_wait_semaphores: &self.image_copy_semaphore,
+            swapchain_count: 1,
+            p_swapchains: &self.swapchain,
+            p_image_indices: &swapchain_image_index,
+            p_results: null,
+        };
+
+        vk.queue_present_khr(self.queue, &present_info);
+
+        vk.device_wait_idle(self.device);
+    }
+
+    func insert_image_layout_transition(
+        command_buffer: addr,
+        image: addr,
+        old_layout: vk.ImageLayout,
+        new_layout: vk.ImageLayout
+    ) {
+        var barrier = vk.ImageMemoryBarrier {
+            s_type: vk.StructureType.IMAGE_MEMORY_BARRIER,
+            p_next: null,
+            src_access_mask: 0,
+            dst_access_mask: vk.AccessFlagBits.TRANSFER_WRITE_BIT as u32,
+            old_layout,
+            new_layout,
+            src_queue_family_index: 0xFFFFFFFF,
+            dst_queue_family_index: 0xFFFFFFFF,
+            image: image,
+            subresource_range: {
+                aspect_mask: vk.ImageAspectFlagBits.COLOR_BIT as u32,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        };
+
+        vk.cmd_pipeline_barrier(
+            command_buffer,
+            vk.PipelineStageFlagBits.TOP_OF_PIPE_BIT as u32,
+            vk.PipelineStageFlagBits.TRANSFER_BIT as u32,
+            0,
+            0, null,
+            0, null,
+            1, &barrier,
+        );
+    }
+
+    pub func destroy(self) {
+        vk.destroy_semaphore(self.device, self.image_acquire_semaphore, null);
+
+        vk.destroy_swapchain_khr(self.device, self.swapchain, null);
+        vk.destroy_device(self.device, null);
+        vk.destroy_surface_khr(self.instance, self.surface, null);
+        vk.destroy_instance(self.instance, null);
+    }
+}
+
+func make_vulkan_version(major: u32, minor: u32, patch: u32) -> u32 {
+    return (major << 22) | (minor << 12) | patch;
+}

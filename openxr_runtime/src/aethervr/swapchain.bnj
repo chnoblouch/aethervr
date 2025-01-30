@@ -21,6 +21,7 @@ struct SwapchainImage {
     var id: u32;
     var create_info: xr.SwapchainCreateInfo;
     var api_handle: usize;
+    var api_memory: addr;
     var state: SwapchainImageState;
     var acquired: bool;
 }

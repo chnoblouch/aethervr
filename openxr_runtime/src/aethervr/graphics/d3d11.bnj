@@ -10,11 +10,8 @@ meta if config.OS == config.WINDOWS {
         log,
         swapchain.{SwapchainImage, SwapchainImageState},
         graphics.{ImageRegion, ImageData, SharedImage},
-        utils.{version, handle_buffer_size},
+        utils.{version, handle_buffer_size, process_id},
     };
-
-    @[link_name=GetCurrentProcessId]
-    native func get_current_process_id() -> u32;
 
     pub func get_requirements(reqs: *xr.GraphicsRequirementsD3D11KHR) -> xr.Result {
         var factory: *d3d11.DXGIFactory;
@@ -145,6 +142,7 @@ meta if config.OS == config.WINDOWS {
             id: 0,
             create_info: *create_info,
             api_handle: texture as usize,
+            api_memory: null,
             state: SwapchainImageState.AVAILABLE,
             acquired: false,
         };
@@ -259,7 +257,7 @@ meta if config.OS == config.WINDOWS {
         log.info("Texture resource handle is %", handle as usize);
 
         return SharedImage {
-            process_id: get_current_process_id(),
+            process_id: process_id(),
             texture_handle: handle,
         };
     }

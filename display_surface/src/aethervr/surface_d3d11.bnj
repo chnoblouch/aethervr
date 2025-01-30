@@ -1,20 +1,25 @@
 use std.{system.panic, memory};
 use windows as winapi;
 
+use aethervr.{
+    display_surface.Surface,
+    platform_windows as platform,
+};
+
 struct SharedImage {
     var id: u32;
     var texture: *winapi.ID3D11Texture2D;
     var mutex: *winapi.IDXGIKeyedMutex;
 }
 
-struct DisplaySurface {
+struct D3D11Surface: Surface {
     var device1: *winapi.ID3D11Device1;
     var device_context: *winapi.ID3D11DeviceContext;
     var buffer: *winapi.ID3D11Texture2D;
     var swapchain: *winapi.IDXGISwapChain1;
     var images: Array[SharedImage];
 
-    pub func create(hwnd: winapi.HANDLE) -> *DisplaySurface {
+    pub func create(hwnd: winapi.HANDLE) -> *D3D11Surface {
         var factory: *winapi.IDXGIFactory2;
 
         if winapi.CreateDXGIFactory1(&winapi.IDXGIFactory2_Guid, &factory as **void) != 0 {
@@ -105,7 +110,7 @@ struct DisplaySurface {
 
         println("Got swapchain buffer");
 
-        return memory.box(DisplaySurface {
+        return memory.box(D3D11Surface {
             device1: device_as_device1,
             device_context: device_context,
             buffer: buffer,
@@ -120,36 +125,8 @@ struct DisplaySurface {
         target_process_id: u32,
         shared_texture_handle: winapi.HANDLE,
     ) {
-        var process = winapi.OpenProcess(0x40, 0, target_process_id);
-
-        if process == null {
-            panic("Failed to open target process");
-        }
-
-        println("Opened target process");
-
-        var local_handle: addr = null;
-
-        if winapi.DuplicateHandle(
-            process,
-            shared_texture_handle,
-            winapi.GetCurrentProcess(),
-            &local_handle,
-            0,
-            0,
-            0x2
-        ) == 0 {
-            panic("Failed to duplicate handle");
-        }
-
-        println("Handle duplicated");
-
-        if winapi.CloseHandle(process) == 0 {
-            panic("Failed to close process handle");
-        }
-
-        println("Process handle closed");
-
+        var local_handle = platform.access_handle(target_process_id, shared_texture_handle);
+        
         var texture: *winapi.ID3D11Texture2D;
 
         if self.device1.OpenSharedResource1(local_handle, &winapi.ID3D11Texture2D_Guid, &texture as **void) != 0 {
@@ -213,32 +190,7 @@ struct DisplaySurface {
         }
     }
 
-    pub func destroy(surface: *DisplaySurface) {
-        memory.free(surface);
+    pub func destroy(self) {
+        memory.free(self);
     }
-}
-
-@[dllexport]
-func aethervr_display_surface_create(hwnd: winapi.HANDLE) -> *DisplaySurface {
-    return DisplaySurface.create(hwnd);
-}
-
-@[dllexport]
-func aethervr_display_surface_register_image(
-    surface: *DisplaySurface,
-    id: u32,
-    target_process_id: u32,
-    shared_texture_handle: winapi.HANDLE,
-) {
-    surface.register_image(id, target_process_id, shared_texture_handle);
-}
-
-@[dllexport]
-func aethervr_display_surface_present_image(surface: *DisplaySurface, id: u32) {
-    surface.present_image(id);
-}
-
-@[dllexport]
-func aethervr_display_surface_destroy(surface: *DisplaySurface) {
-    DisplaySurface.destroy(surface);
 }

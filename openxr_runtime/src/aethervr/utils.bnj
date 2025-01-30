@@ -1,7 +1,12 @@
-use std.math;
+use std.{math, config};
 use c.lib.string.strcmp;
 
 use xr;
+
+meta if config.OS == config.WINDOWS {
+    @[link_name=GetCurrentProcessId]
+    native func get_current_process_id() -> u32;
+}
 
 pub func streq(a: *u8, b: *u8) -> bool {
     return strcmp(a, b) == 0;
@@ -49,4 +54,12 @@ pub func is_orientation_valid(q: xr.Quaternionf) -> bool {
    
     # An orientation is considered invalid if the length of the quaternion deviates by more than 1% from unit length.
     return length_squared >= 0.99 * 0.99 && length_squared <= 1.01 * 1.01;
+}
+
+pub func process_id() -> u32 {
+    meta if config.OS == config.WINDOWS {
+        return get_current_process_id();
+    } else {
+        return 0;
+    }
 }

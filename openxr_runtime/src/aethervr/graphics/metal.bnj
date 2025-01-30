@@ -120,6 +120,7 @@ meta if config.OS == config.MACOS {
             id: 0,
             create_info: *create_info,
             api_handle: texture as usize,
+            api_memory: null,
             state: SwapchainImageState.AVAILABLE,
             acquired: false,
         };

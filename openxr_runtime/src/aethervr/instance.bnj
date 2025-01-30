@@ -228,6 +228,7 @@ struct Instance {
             vk_instance: *addr,
             vk_result: *vk.Result,
         ) -> xr.Result {
+            log.info("Creating Vulkan instance");
             return graphics.vulkan.create_instance(info, vk_instance, vk_result);
         }
 
@@ -237,6 +238,7 @@ struct Instance {
             vk_device: *addr,
             vk_result: *vk.Result,
         ) -> xr.Result {
+            log.info("Creating Vulkan device");
             return graphics.vulkan.create_device(info, vk_device, vk_result);
         }
     }
