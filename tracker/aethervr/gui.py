@@ -76,10 +76,10 @@ class Window(QMainWindow):
         widget = QWidget()
 
         self.camera_view = CameraView()
-        self.frame_view = FrameView()
+        self.frame_view = FrameView(self.connection)
 
-        self.connection.on_register_image = self.frame_view.register_image
-        self.connection.on_present_image = self.frame_view.present_image
+        self.connection.on_register_image.subscribe(self.frame_view.register_image)
+        self.connection.on_present_image.subscribe(self.frame_view.present_image)
 
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.VLine)
@@ -349,15 +349,21 @@ class CameraView(QLabel):
 
 class FrameView(QLabel):
 
-    def __init__(self):
+    def __init__(self, connection: RuntimeConnection):
         super().__init__()
 
-        self.surface = DisplaySurface(0, self.winId())
+        self.window_id = self.winId()
+        self.surface = DisplaySurface()
         self.image_data = None
 
         self.setFixedWidth(640)
         self.setFixedHeight(640)
+
+        connection.on_runtime_info.subscribe(self.on_runtime_info)
     
+    def on_runtime_info(self, _: str, graphics_api: int):
+        self.surface.create(graphics_api, self.window_id)
+
     def register_image(self, data):
         self.surface.register_image(data)
 
@@ -378,9 +384,9 @@ class StatusBar(QLabel):
         super().__init__()
 
         self.connection = connection
-        self.connection.on_connected = lambda: self.set_state(True)
-        self.connection.on_disconnected = lambda: self.set_state(False)
-        self.connection.on_runtime_info = self.update_runtime_info
+        self.connection.on_connected.subscribe(lambda: self.set_state(True))
+        self.connection.on_disconnected.subscribe(lambda: self.set_state(False))
+        self.connection.on_runtime_info.subscribe(self.update_runtime_info)
 
         self.connected = False
         self.application_name = None

@@ -41,7 +41,7 @@ struct D3D11Surface: Surface {
         }
 
         print("Using adapter with LUID ");
-        println(desc.AdapterLuid);
+        println(*(&desc.AdapterLuid as *u64));
 
         var feature_level = winapi.D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_1;
         var device: *winapi.ID3D11Device;

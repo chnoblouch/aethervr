@@ -5,16 +5,30 @@ import ctypes
 class DisplaySurface:
     _library = None
 
-    def __init__(self, graphics_api, window):
+    def __init__(self):
         if not DisplaySurface._library:
             print("Loading display surface library...")
             DisplaySurface._library = DisplaySurface._load_library()
+
+        self.handle = None
+        self.graphics_api = None
+
+    def create(self, graphics_api, window):
+        if graphics_api == self.graphics_api:
+            return
+
+        if self.handle is not None:
+            DisplaySurface._library.aethervr_display_surface_destroy(self.handle)
 
         self.handle = DisplaySurface._library.aethervr_display_surface_create(
             graphics_api, window
         )
 
+        self.graphics_api = graphics_api
+
     def register_image(self, data):
+        assert self.handle
+
         DisplaySurface._library.aethervr_display_surface_register_image(
             self.handle,
             data.id,
@@ -30,6 +44,8 @@ class DisplaySurface:
         )
 
     def present_image(self, data):
+        assert self.handle
+
         DisplaySurface._library.aethervr_display_surface_present_image(
             self.handle,
             data.id,

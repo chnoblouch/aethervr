@@ -3,9 +3,9 @@ from dataclasses import dataclass
 import socket
 import struct
 import errno
-import time
 
 from aethervr.input_state import InputState, HeadsetState, ControllerState, ControllerButton
+from aethervr.event_source import EventSource
 
 
 @dataclass
@@ -37,11 +37,11 @@ class RuntimeConnection:
     TIMEOUT = 1.0
 
     def __init__(self, port: int):
-        self.on_connected = lambda: None
-        self.on_disconnected = lambda: None
-        self.on_runtime_info: lambda application_name, graphics_api: None
-        self.on_register_image = lambda _: None 
-        self.on_present_image = lambda _: None
+        self.on_connected = EventSource()
+        self.on_disconnected = EventSource()
+        self.on_runtime_info = EventSource()
+        self.on_register_image = EventSource() 
+        self.on_present_image = EventSource()
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.settimeout(RuntimeConnection.TIMEOUT)
@@ -75,13 +75,13 @@ class RuntimeConnection:
                     continue
 
             print("OpenXR runtime connected")
-            self.on_connected()
+            self.on_connected.trigger()
 
             self.communicate()
 
             print("OpenXR runtime disconnected")
             self.connected = False
-            self.on_disconnected()
+            self.on_disconnected.trigger()
 
         self.socket.close()
 
@@ -131,15 +131,15 @@ class RuntimeConnection:
         name = self.stream.recv(name_length).decode("utf-8")
         graphics_api = struct.unpack("I", self.stream.recv(4))[0]
 
-        self.on_runtime_info(name, graphics_api)
+        self.on_runtime_info.trigger(name, graphics_api)
 
     def receive_register_image(self):
         message = RegisterImageData(*struct.unpack("IINqIIIIQQ", self.stream.recv(56)))
-        self.on_register_image(message)
+        self.on_register_image.trigger(message)
 
     def receive_present_image(self):
         image_id = PresentImageData(*struct.unpack("IIIIII", self.stream.recv(24)))
-        self.on_present_image(image_id)
+        self.on_present_image.trigger(image_id)
 
     def update_headset_state(self, state: HeadsetState):
         with self.lock:

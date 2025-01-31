@@ -115,6 +115,8 @@ func aethervr_display_surface_present_image(
 
 @[dllexport]
 func aethervr_display_surface_destroy(surface: **Surface) {
+    println("Destroying display surface");
+
     surface.destroy();
     memory.free(surface);
 }
