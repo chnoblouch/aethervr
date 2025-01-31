@@ -22,6 +22,7 @@ struct SwapchainImage {
     var create_info: xr.SwapchainCreateInfo;
     var api_handle: usize;
     var api_memory: addr;
+    var api_opaque_values: [u64; 2];
     var state: SwapchainImageState;
     var acquired: bool;
 }
@@ -92,8 +93,8 @@ struct Swapchain {
         });
 
         for *image in swapchain.images {
-            try shared_image in session.graphics_backend.share_image(image) {
-                session.tracker_connection.register_image(image.id, shared_image.process_id, shared_image.texture_handle);
+            try shared_handle in session.graphics_backend.share_image(image) {
+                session.tracker_connection.register_image(image, shared_handle);
             }
         }
 

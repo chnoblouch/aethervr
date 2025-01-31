@@ -6,20 +6,43 @@ use aethervr.{
     surface_d3d11.D3D11Surface,
 };
 
+struct ImageRegisterInfo {
+    var process_id: u32;
+    var shared_handle: usize;
+    var format: i64;
+    var width: u32;
+    var height: u32;
+    var array_size: u32;
+    var mip_count: u32;
+    var opaque_values: [u64; 2];
+}
+
+struct ImagePresentInfo {
+    var x: u32;
+    var y: u32;
+    var width: u32;
+    var height: u32;
+    var array_index: u32;
+}
+
 proto Surface {
-    func register_image(self, id: u32, process_id: u32, shared_texture_handle: winapi.HANDLE);
-    func present_image(self, id: u32);
+    func register_image(self, id: u32, info: ImageRegisterInfo);
+    func present_image(self, id: u32, info: ImagePresentInfo);
     func destroy(self);
 }
 
 @[dllexport]
-func aethervr_display_surface_create(graphics_api: u32, hwnd: winapi.HANDLE) -> **Surface {
+func aethervr_display_surface_create(graphics_api: u32, hwnd: winapi.HANDLE) -> **Surface {        
+    println("Creating display surface");
+    
     var surface: *Surface;
 
     if graphics_api == 0 {
         surface = VulkanSurface.create(hwnd);
+        println("Vulkan surface created");
     } else if graphics_api == 1 {
         surface = D3D11Surface.create(hwnd);
+        println("D3D11 surface created");
     }
 
     return memory.box(surface);
@@ -29,15 +52,65 @@ func aethervr_display_surface_create(graphics_api: u32, hwnd: winapi.HANDLE) -> 
 func aethervr_display_surface_register_image(
     surface: **Surface,
     id: u32,
-    target_process_id: u32,
-    shared_texture_handle: winapi.HANDLE,
+    process_id: u32,
+    shared_handle: usize,
+    format: i64,
+    width: u32,
+    height: u32,
+    array_size: u32,
+    mip_count: u32,
+    opaque_value_0: u64,
+    opaque_value_1: u64,
 ) {
-    surface.register_image(id, target_process_id, shared_texture_handle);
+    println("Registering surface image");
+    print("  Process ID: ");
+    println(process_id);
+    print("  Shared handle: ");
+    println(shared_handle);
+    print("  Format: ");
+    println(format);
+    print("  Width: ");
+    println(width);
+    print("  Height: ");
+    println(height);
+    print("  Array size: ");
+    println(array_size);
+    print("  Mip count: ");
+    println(mip_count);
+
+    var info = ImageRegisterInfo {
+        process_id,
+        shared_handle,
+        format,
+        width,
+        height,
+        array_size,
+        mip_count,
+        opaque_values: [opaque_value_0, opaque_value_1],
+    };
+
+    surface.register_image(id, info);
 }
 
 @[dllexport]
-func aethervr_display_surface_present_image(surface: **Surface, id: u32) {
-    surface.present_image(id);
+func aethervr_display_surface_present_image(
+    surface: **Surface,
+    id: u32,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    array_index: u32,
+) {
+    var info = ImagePresentInfo {
+        x,
+        y,
+        width,
+        height,
+        array_index,
+    };
+
+    surface.present_image(id, info);
 }
 
 @[dllexport]

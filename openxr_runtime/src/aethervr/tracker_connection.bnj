@@ -13,9 +13,10 @@ use aethervr.{
     pose,
     time,
     log,
+    env,
     pose.{Pose, Vec3, Quat},
     input.{InputState, HeadsetState, ControllerState, PoseSnapshot},
-    graphics.{ImageData, SharedImage},
+    graphics.{ImageRegion, ImageData, SwapchainImage},
 };
 
 struct HeadsetStateMsg {
@@ -259,7 +260,7 @@ struct TrackerConnection {
         }
     }
 
-    pub func register_image(self, id: u32, process_id: u32, texture_handle: addr) {
+    pub func register_image(self, image: *SwapchainImage, shared_handle: usize) {
         var lock = self.mutex.lock();
 
         var type_message: u8 = 2;
@@ -267,13 +268,25 @@ struct TrackerConnection {
             return;
         }
 
-        var data = (id, process_id, texture_handle);
-        if !self.stream.send(&data as *u8, 16).successful {
+        var data = (
+            image.id,
+            env.process_id(),
+            shared_handle,
+            image.create_info.format,
+            image.create_info.width,
+            image.create_info.height,
+            image.create_info.array_size,
+            image.create_info.mip_count,
+            image.api_opaque_values[0],
+            image.api_opaque_values[1],
+        );
+
+        if !self.stream.send(&data as *u8, 56).successful {
             return;
         }
     }
 
-    pub func present_image(self, id: u32) {
+    pub func present_image(self, id: u32, region: ImageRegion) {
         var lock = self.mutex.lock();
 
         var type_message: u8 = 3;
@@ -281,7 +294,16 @@ struct TrackerConnection {
             return;
         }
 
-        if !self.stream.send(&id as *u8, 4).successful {
+        var data = (
+            id,
+            region.x,
+            region.y,
+            region.width,
+            region.height,
+            region.array_index,
+        );
+
+        if !self.stream.send(&data as *u8, 24).successful {
             return;
         }
     }

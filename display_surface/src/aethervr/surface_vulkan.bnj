@@ -4,7 +4,7 @@ use vulkan as vk;
 use windows as winapi;
 
 use aethervr.{
-    display_surface.Surface,
+    display_surface.{Surface, ImageRegisterInfo, ImagePresentInfo},
     platform_windows as platform,
 };
 
@@ -212,8 +212,8 @@ struct VulkanSurface: Surface {
             panic("Vulkan: Surface does not support any compatible format");
         }
 
-        var swapchain_width: u32 = 1080;
-        var swapchain_height: u32 = 1080;
+        var swapchain_width: u32 = 640;
+        var swapchain_height: u32 = 640;
 
         if surface_capabilities.current_extent.width != 0xFFFFFFFF {
             swapchain_width = surface_capabilities.current_extent.width;
@@ -295,8 +295,8 @@ struct VulkanSurface: Surface {
         });
     }
 
-    pub func register_image(self, id: u32, process_id: u32, texture_handle: winapi.HANDLE) {
-        var local_handle = platform.access_handle(process_id, texture_handle);
+    pub func register_image(self, id: u32, info: ImageRegisterInfo) {
+        var local_handle = platform.access_handle(info.process_id, info.shared_handle as addr);
 
         var external_memory_image_create_info = vk.ExternalMemoryImageCreateInfo {
             s_type: vk.StructureType.EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
@@ -309,14 +309,14 @@ struct VulkanSurface: Surface {
             p_next: &external_memory_image_create_info,
             flags: 0,
             image_type: vk.ImageType._2D,
-            format: vk.Format.R8G8B8A8_UNORM,
+            format: info.format as vk.Format,
             extent: vk.Extent3D {
-                width: 1080,
-                height: 1080,
-                depth: 1, 
+                width: info.width,
+                height: info.height,
+                depth: 1,
             },
-            mip_levels: 1,
-            array_layers: 2,
+            mip_levels: info.mip_count,
+            array_layers: info.array_size,
             samples: vk.SampleCountFlagBits._1_BIT,
             tiling: vk.ImageTiling.OPTIMAL,
             usage:
@@ -334,7 +334,7 @@ struct VulkanSurface: Surface {
             panic("Vulkan: Failed to create image");
         }
 
-        var dedicated_alloc_info = vk.MemoryDedicatedAllocateInfo {
+        var dedicated_allocate_info = vk.MemoryDedicatedAllocateInfo {
             s_type: vk.StructureType.MEMORY_DEDICATED_ALLOCATE_INFO,
             p_next: null,
             buffer: null,
@@ -343,22 +343,22 @@ struct VulkanSurface: Surface {
 
         var import_info = vk.ImportMemoryWin32HandleInfoKHR {
             s_type: vk.StructureType.IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
-            p_next: &dedicated_alloc_info,
+            p_next: &dedicated_allocate_info,
             handle_type: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT,
             handle: local_handle,
             name: null,
         };
 
-        var alloc_info = vk.MemoryAllocateInfo {
+        var allocate_info = vk.MemoryAllocateInfo {
             s_type: vk.StructureType.MEMORY_ALLOCATE_INFO,
             p_next: &import_info,
-            allocation_size: 10616832,
-            memory_type_index: 0,
+            allocation_size: info.opaque_values[0],
+            memory_type_index: info.opaque_values[1] as u32,
         };
 
         var memory: addr;
 
-        if vk.allocate_memory(self.device, &alloc_info, null, &memory) != vk.Result.SUCCESS {
+        if vk.allocate_memory(self.device, &allocate_info, null, &memory) != vk.Result.SUCCESS {
             panic("Vulkan: Failed to import image memory");
         }
 
@@ -369,7 +369,7 @@ struct VulkanSurface: Surface {
         self.images.append(SharedImage { id, image });
     }
 
-    pub func present_image(self, id: u32) {
+    pub func present_image(self, id: u32, info: ImagePresentInfo) {
         var shared_image: *SharedImage = null;
 
         for *image in self.images {
@@ -383,7 +383,7 @@ struct VulkanSurface: Surface {
         }
 
         var swapchain_image_index: u32;
-        
+
         vk.acquire_next_image_khr(
             self.device,
             self.swapchain,
@@ -426,18 +426,18 @@ struct VulkanSurface: Surface {
             src_subresource: vk.ImageSubresourceLayers {
                 aspect_mask: vk.ImageAspectFlagBits.COLOR_BIT as u32,
                 mip_level: 0,
-                base_array_layer: 0,
+                base_array_layer: info.array_index,
                 layer_count: 1,
             },
             src_offsets: [
                 vk.Offset3D {
-                    x: 0,
-                    y: 0,
+                    x: info.x as i32,
+                    y: info.y as i32,
                     z: 0,
                 },
                 vk.Offset3D {
-                    x: 1080,
-                    y: 1080, 
+                    x: (info.x + info.width) as i32,
+                    y: (info.y + info.height) as i32,
                     z: 1,
                 },
             ],
@@ -478,14 +478,14 @@ struct VulkanSurface: Surface {
             vk.ImageLayout.TRANSFER_SRC_OPTIMAL,
             vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL,
         );
-        
+
         insert_image_layout_transition(
             self.image_copy_command_buffer,
             self.swapchain_images[swapchain_image_index],
             vk.ImageLayout.TRANSFER_DST_OPTIMAL,
             vk.ImageLayout.PRESENT_SRC_KHR,
         );
-        
+
         if vk.end_command_buffer(self.image_copy_command_buffer) != vk.Result.SUCCESS {
             panic("Vulkan: Failed to end image copy command buffer");
         }
@@ -521,6 +521,7 @@ struct VulkanSurface: Surface {
 
         vk.queue_present_khr(self.queue, &present_info);
 
+        # TODO: Use a fence instead of stopping the world.
         vk.device_wait_idle(self.device);
     }
 
@@ -561,9 +562,11 @@ struct VulkanSurface: Surface {
     }
 
     pub func destroy(self) {
+        vk.destroy_semaphore(self.device, self.image_copy_semaphore, null);
         vk.destroy_semaphore(self.device, self.image_acquire_semaphore, null);
 
         vk.destroy_swapchain_khr(self.device, self.swapchain, null);
+        vk.destroy_command_pool(self.device, self.command_pool, null);
         vk.destroy_device(self.device, null);
         vk.destroy_surface_khr(self.instance, self.surface, null);
         vk.destroy_instance(self.instance, null);

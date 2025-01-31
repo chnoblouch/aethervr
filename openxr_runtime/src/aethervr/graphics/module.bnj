@@ -22,11 +22,6 @@ struct ImageData {
     var data: Array[u8];
 }
 
-struct SharedImage {
-    var process_id: u32;
-    var texture_handle: addr;
-}
-
 proto GraphicsBackend {
     pub func new(info: *xr.SessionCreateInfo) -> ?*GraphicsBackend {
         # TODO: Free the memory allocated here.
@@ -69,7 +64,7 @@ proto GraphicsBackend {
     func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result;
     func store_image(self, handle: usize, out_images: *xr.SwapchainImageBaseHeader, out_index: u32);
     
-    func share_image(self, image: *SwapchainImage) -> ?SharedImage {
+    func share_image(self, image: *SwapchainImage) -> ?usize {
         return vulkan.share_image(&self.binding, image);
     }
     
@@ -137,7 +132,7 @@ meta if config.OS == config.WINDOWS {
             d3d11.release_image(&self.binding, image);
         }
 
-        pub func share_image(self, image: *SwapchainImage) -> ?SharedImage {
+        pub func share_image(self, image: *SwapchainImage) -> ?usize {
             return d3d11.share_image(&self.binding, image);
         }
     }

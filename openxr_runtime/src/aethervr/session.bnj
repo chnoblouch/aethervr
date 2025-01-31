@@ -288,15 +288,15 @@ struct Session {
         var swapchain = sub_image.swapchain as *Swapchain;
         var image = swapchain.images[swapchain.last_released_index];
 
-        # var region = ImageRegion {
-        #     x: sub_image.image_rect.offset.x,
-        #     y: sub_image.image_rect.offset.y,
-        #     width: sub_image.image_rect.extent.width,
-        #     height: sub_image.image_rect.extent.height,
-        #     array_index: sub_image.image_array_index,
-        # };
+        var region = ImageRegion {
+            x: sub_image.image_rect.offset.x,
+            y: sub_image.image_rect.offset.y,
+            width: sub_image.image_rect.extent.width,
+            height: sub_image.image_rect.extent.height,
+            array_index: sub_image.image_array_index,
+        };
 
-        self.tracker_connection.present_image(image.id);
+        self.tracker_connection.present_image(image.id, region);
     }
 
     pub func create_reference_space(self, create_info: *xr.ReferenceSpaceCreateInfo) -> (*Space, xr.Result) {

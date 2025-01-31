@@ -2,7 +2,7 @@ use std.{system.panic, memory};
 use windows as winapi;
 
 use aethervr.{
-    display_surface.Surface,
+    display_surface.{Surface, ImageRegisterInfo, ImagePresentInfo},
     platform_windows as platform,
 };
 
@@ -119,13 +119,8 @@ struct D3D11Surface: Surface {
         });
     }
 
-    pub func register_image(
-        self,
-        id: u32,
-        target_process_id: u32,
-        shared_texture_handle: winapi.HANDLE,
-    ) {
-        var local_handle = platform.access_handle(target_process_id, shared_texture_handle);
+    pub func register_image(self, id: u32, info: ImageRegisterInfo) {
+        var local_handle = platform.access_handle(info.process_id, info.shared_handle as addr);
         
         var texture: *winapi.ID3D11Texture2D;
 
@@ -144,7 +139,7 @@ struct D3D11Surface: Surface {
         self.images.append(SharedImage { id, texture, mutex });
     }
 
-    pub func present_image(self, id: u32) {
+    pub func present_image(self, id: u32, info: ImagePresentInfo) {
         var shared_image: *SharedImage = null;
 
         for *image in self.images {

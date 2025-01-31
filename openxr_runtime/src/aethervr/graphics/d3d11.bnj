@@ -9,8 +9,8 @@ meta if config.OS == config.WINDOWS {
     use aethervr.{
         log,
         swapchain.{SwapchainImage, SwapchainImageState},
-        graphics.{ImageRegion, ImageData, SharedImage},
-        utils.{version, handle_buffer_size, process_id},
+        graphics.{ImageRegion, ImageData},
+        utils.{version, handle_buffer_size},
     };
 
     pub func get_requirements(reqs: *xr.GraphicsRequirementsD3D11KHR) -> xr.Result {
@@ -143,6 +143,7 @@ meta if config.OS == config.WINDOWS {
             create_info: *create_info,
             api_handle: texture as usize,
             api_memory: null,
+            api_opaque_values: [0, 0],
             state: SwapchainImageState.AVAILABLE,
             acquired: false,
         };
@@ -226,7 +227,7 @@ meta if config.OS == config.WINDOWS {
     pub func share_image(
         binding: *xr.GraphicsBindingD3D11KHR,
         image: *SwapchainImage,
-    ) -> SharedImage {
+    ) -> ?usize {
         var guid_dxgi_resource_1 = (
             0x30961379 as u32,
             0x4609 as u16,
@@ -246,20 +247,19 @@ meta if config.OS == config.WINDOWS {
 
         if texture.vtable.query_interface(texture, &guid_dxgi_resource_1, &texture_resource as *addr) != 0 {
             log.error("Failed to query resource interface of texture");
+            return none;
         }
 
         var handle: addr = null;
 
         if texture_resource.vtable.create_shared_handle(texture_resource, null, 0x80000000, null, &handle) != 0 {
             log.error("Failed to share resource");
+            return none;
         }
 
         log.info("Texture resource handle is %", handle as usize);
 
-        return SharedImage {
-            process_id: process_id(),
-            texture_handle: handle,
-        };
+        return handle as usize;
     }
 
     pub func copy_image_to_host(

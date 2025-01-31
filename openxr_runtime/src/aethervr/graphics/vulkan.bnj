@@ -1,10 +1,5 @@
 use std.{memory, config};
 
-use aethervr.{
-    graphics.SharedImage,
-    utils.process_id,
-};
-
 meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
     use c.lib.string.strcpy;
 
@@ -214,24 +209,57 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         var mem_reqs: vk.MemoryRequirements;
         vk.get_image_memory_requirements(binding.device, image, &mem_reqs);
 
-        var device_memory = allocate_exported(
-            binding,
-            &mem_reqs,
-            vk.MemoryPropertyFlagBits.DEVICE_LOCAL_BIT as u32,
-            image,
-        );
+        log.info("Allocating exported memory");
+        log.enter_scope();
+        log.info("Size: % bytes", mem_reqs.size);
 
-        if !device_memory.has_value {
+        var mem_type_index = find_memory_type(binding, &mem_reqs, vk.MemoryPropertyFlagBits.DEVICE_LOCAL_BIT as u32);
+
+        if !mem_type_index.has_value {
+            log.error("Failed to find suitable memory type");
             log.exit_scope();
             return xr.Result.ERROR_RUNTIME_FAILURE;
         }
-        vk.bind_image_memory(binding.device, image, device_memory.value, 0);
+
+        log.info("Memory type index: %", mem_type_index.value);
+
+        var dedicated_allocate_info = vk.MemoryDedicatedAllocateInfo {
+            s_type: vk.StructureType.MEMORY_DEDICATED_ALLOCATE_INFO,
+            p_next: null,
+            buffer: null,
+            image,
+        };
+
+        var export_info = vk.ExportMemoryAllocateInfo {
+            s_type: vk.StructureType.EXPORT_MEMORY_ALLOCATE_INFO,
+            p_next: &dedicated_allocate_info,
+            handle_types: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT as u32,
+        };
+
+        var allocate_info = vk.MemoryAllocateInfo {
+            s_type: vk.StructureType.MEMORY_ALLOCATE_INFO,
+            p_next: &export_info,
+            allocation_size: mem_reqs.size,
+            memory_type_index: mem_type_index.value
+        };
+
+        var memory: addr;
+        if vk.allocate_memory(binding.device, &allocate_info, null, &memory) != vk.Result.SUCCESS {
+            log.error("Failed to allocate memory");
+            log.exit_scope();
+            return xr.Result.ERROR_RUNTIME_FAILURE;
+        }
+
+        log.exit_scope();
+
+        vk.bind_image_memory(binding.device, image, memory, 0);
 
         *swapchain_image = SwapchainImage {
             id: 0,
             create_info: *create_info,
             api_handle: image as usize,
-            api_memory: device_memory.value,
+            api_memory: memory,
+            api_opaque_values: [mem_reqs.size, mem_type_index.value as u64],
             state: SwapchainImageState.AVAILABLE,
             acquired: false,
         };
@@ -245,7 +273,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
     pub func share_image(
         binding: *xr.GraphicsBindingVulkanKHR,
         image: *SwapchainImage,
-    ) -> ?SharedImage {
+    ) -> ?usize {
         var vk_get_memory_win32_handle_khr =
             vk.get_instance_proc_addr(binding.instance, "vkGetMemoryWin32HandleKHR")
             as func(addr, *vk.MemoryGetWin32HandleInfoKHR, *addr) -> vk.Result;
@@ -269,10 +297,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             return none;
         }
 
-        return SharedImage {
-            process_id: process_id(),
-            texture_handle: handle,
-        };
+        return handle as usize;
     }
 
     pub func copy_image_to_host(
@@ -411,57 +436,6 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         var alloc_info = vk.MemoryAllocateInfo {
             s_type: vk.StructureType.MEMORY_ALLOCATE_INFO,
             p_next: null,
-            allocation_size: mem_reqs.size,
-            memory_type_index: mem_type_index.value
-        };
-
-        var memory: addr;
-        if vk.allocate_memory(binding.device, &alloc_info, null, &memory) != vk.Result.SUCCESS {
-            log.error("Failed to allocate memory");
-            log.exit_scope();
-            return none;
-        }
-
-        log.exit_scope();
-        return memory;
-    }
-
-    func allocate_exported(
-        binding: *xr.GraphicsBindingVulkanKHR,
-        mem_reqs: *vk.MemoryRequirements,
-        prop_flags: u32,
-        image: addr,
-    ) -> ?addr {
-        log.info("Allocating exported memory");
-        log.enter_scope();
-
-        log.info("Size: % bytes", mem_reqs.size);
-
-        var mem_type_index = find_memory_type(binding, mem_reqs, prop_flags);
-
-        if !mem_type_index.has_value {
-            log.error("Failed to find suitable memory type");
-            log.exit_scope();
-            return none;
-        }
-        log.info("Memory type index: %", mem_type_index.value);
-
-        var dedicated_alloc_info = vk.MemoryDedicatedAllocateInfo {
-            s_type: vk.StructureType.MEMORY_DEDICATED_ALLOCATE_INFO,
-            p_next: null,
-            buffer: null,
-            image,
-        };
-
-        var export_info = vk.ExportMemoryAllocateInfo {
-            s_type: vk.StructureType.EXPORT_MEMORY_ALLOCATE_INFO,
-            p_next: &dedicated_alloc_info,
-            handle_types: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT as u32,
-        };
-
-        var alloc_info = vk.MemoryAllocateInfo {
-            s_type: vk.StructureType.MEMORY_ALLOCATE_INFO,
-            p_next: &export_info,
             allocation_size: mem_reqs.size,
             memory_type_index: mem_type_index.value
         };

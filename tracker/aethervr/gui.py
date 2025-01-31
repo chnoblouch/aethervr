@@ -352,22 +352,22 @@ class FrameView(QLabel):
     def __init__(self):
         super().__init__()
 
-        self.surface = DisplaySurface(1, self.winId())
-        self.image_id = None
+        self.surface = DisplaySurface(0, self.winId())
+        self.image_data = None
 
         self.setFixedWidth(640)
         self.setFixedHeight(640)
     
-    def register_image(self, image_id: int, process_id: int, texture_handle: int):
-        self.surface.register_image(image_id, process_id, texture_handle)
+    def register_image(self, data):
+        self.surface.register_image(data)
 
-    def present_image(self, image_id: int):
-        self.image_id = image_id
+    def present_image(self, data):
+        self.image_data = data
         self.update()
 
     def paintEvent(self, e: QPaintEvent):
-        if self.image_id is not None:
-            self.surface.present_image(self.image_id)
+        if self.image_data is not None:
+            self.surface.present_image(self.image_data)
 
 
 class StatusBar(QLabel):

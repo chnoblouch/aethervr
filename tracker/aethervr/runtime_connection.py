@@ -1,10 +1,35 @@
 from threading import Thread, Lock, Condition
+from dataclasses import dataclass
 import socket
 import struct
 import errno
 import time
 
 from aethervr.input_state import InputState, HeadsetState, ControllerState, ControllerButton
+
+
+@dataclass
+class RegisterImageData:
+    id: int
+    process_id: int
+    shared_handle: int
+    format: int
+    width: int
+    height: int
+    array_size: int
+    mip_count: int
+    opaque_value_0: int
+    opaque_value_1: int
+
+
+@dataclass
+class PresentImageData:
+    id: int
+    x: int
+    y: int
+    width: int
+    height: int
+    array_index: int
 
 
 class RuntimeConnection:
@@ -15,8 +40,8 @@ class RuntimeConnection:
         self.on_connected = lambda: None
         self.on_disconnected = lambda: None
         self.on_runtime_info: lambda application_name, graphics_api: None
-        self.on_register_image = lambda id, process_id, texture_handle: None 
-        self.on_present_image = lambda id: None
+        self.on_register_image = lambda _: None 
+        self.on_present_image = lambda _: None
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.settimeout(RuntimeConnection.TIMEOUT)
@@ -109,12 +134,11 @@ class RuntimeConnection:
         self.on_runtime_info(name, graphics_api)
 
     def receive_register_image(self):
-        image_id, process_id, texture_handle = struct.unpack("IIP", self.stream.recv(16))
-        print(f"Registering image with ID {image_id} (process: {process_id}, handle: {texture_handle})")
-        self.on_register_image(image_id, process_id, texture_handle)
+        message = RegisterImageData(*struct.unpack("IINqIIIIQQ", self.stream.recv(56)))
+        self.on_register_image(message)
 
     def receive_present_image(self):
-        image_id = struct.unpack("I", self.stream.recv(4))[0]
+        image_id = PresentImageData(*struct.unpack("IIIIII", self.stream.recv(24)))
         self.on_present_image(image_id)
 
     def update_headset_state(self, state: HeadsetState):
