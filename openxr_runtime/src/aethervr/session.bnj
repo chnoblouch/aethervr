@@ -10,7 +10,7 @@ use aethervr.{
     log,
     instance.Instance,
     space.{Space, SpaceType},
-    swapchain.Swapchain,
+    swapchain.{Swapchain, SwapchainImage},
     action.{ActionSet, Action},
     graphics.{GraphicsBackend, ImageRegion},
     input.{InputState, HeadsetState, ControllerState},
@@ -286,7 +286,7 @@ struct Session {
         
         var sub_image = &layer.views[0].sub_image;                
         var swapchain = sub_image.swapchain as *Swapchain;
-        var image = swapchain.images[swapchain.last_released_index];
+        var image = &swapchain.images[swapchain.last_released_index];
 
         var region = ImageRegion {
             x: sub_image.image_rect.offset.x,

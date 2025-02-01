@@ -261,7 +261,6 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             api_memory: memory,
             api_opaque_values: [mem_reqs.size, mem_type_index.value as u64],
             state: SwapchainImageState.AVAILABLE,
-            acquired: false,
         };
 
         transition_image(binding, swapchain_image, vk.ImageLayout.UNDEFINED, vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL);

@@ -24,7 +24,6 @@ struct SwapchainImage {
     var api_memory: addr;
     var api_opaque_values: [u64; 2];
     var state: SwapchainImageState;
-    var acquired: bool;
 }
 
 struct Swapchain {
@@ -127,7 +126,6 @@ struct Swapchain {
         for i in 0..self.images.length {
             if self.images[i].state == SwapchainImageState.AVAILABLE {
                 *index = i as u32;
-                self.session.graphics_backend.acquire_image(&self.images[i]);
                 self.images[i].state = SwapchainImageState.ACQUIRED;
                 return xr.Result.SUCCESS;
             }
@@ -140,7 +138,7 @@ struct Swapchain {
         for i in 0..self.images.length {
             if self.images[i].state == SwapchainImageState.ACQUIRED {
                 self.images[i].state = SwapchainImageState.WAITED;
-                return xr.Result.SUCCESS;
+                return self.session.graphics_backend.wait_image(&self.images[i], info.timeout);
             }
         }
 

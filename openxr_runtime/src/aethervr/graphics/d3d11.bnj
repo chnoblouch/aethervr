@@ -1,4 +1,8 @@
-use std.{memory, config};
+use std.{
+    memory,
+    config,
+    math.min,
+};
 
 meta if config.OS == config.WINDOWS {
     use os.winapi;
@@ -145,17 +149,17 @@ meta if config.OS == config.WINDOWS {
             api_memory: null,
             api_opaque_values: [0, 0],
             state: SwapchainImageState.AVAILABLE,
-            acquired: false,
         };
 
         log.exit_scope();
         return xr.Result.SUCCESS;
     }
 
-    pub func acquire_image(
+    pub func wait_image(
         binding: *xr.GraphicsBindingD3D11KHR,
         image: *SwapchainImage,
-    ) {
+        timeout: i64
+    ) -> xr.Result {
         var guid_dxgi_keyed_mutex = (
             0x9D8E1289 as u32,
             0xD7B3 as u16,
@@ -175,25 +179,32 @@ meta if config.OS == config.WINDOWS {
         var keyed_mutex: *d3d11.DXGIKeyedMutex;
         if texture.vtable.query_interface(texture, &guid_dxgi_keyed_mutex, &keyed_mutex as *addr) != 0 {
             log.error("D3D11: Failed to access keyed mutex of texture");
-            return;
+            return xr.Result.ERROR_RUNTIME_FAILURE;
         }
 
-        if keyed_mutex.vtable.acquire_sync(keyed_mutex, 0, 20) != 0 {
+        var acquire_result = keyed_mutex.vtable.acquire_sync(keyed_mutex, 0, 20);
+
+        if acquire_result == 0x102 {
+            var timeout_ms = (timeout / 1000000) as u32;
+            acquire_result = keyed_mutex.vtable.acquire_sync(keyed_mutex, 1, timeout_ms);
+
+            if acquire_result == 0x102 {
+                return xr.Result.TIMEOUT_EXPIRED;
+            }
+        }
+
+        if acquire_result != 0 {
             log.error("D3D11: Failed to acquire keyed mutex of swapchain image");
-            return;
+            return xr.Result.ERROR_RUNTIME_FAILURE;
         }
 
-        image.acquired = true;
+        return xr.Result.SUCCESS;
     }
 
     pub func release_image(
         binding: *xr.GraphicsBindingD3D11KHR,
         image: *SwapchainImage,
     ) {
-        if !image.acquired {
-            return;
-        }
-
         var guid_dxgi_keyed_mutex = (
             0x9D8E1289 as u32,
             0xD7B3 as u16,
@@ -220,8 +231,6 @@ meta if config.OS == config.WINDOWS {
             log.error("D3D11: Failed to release keyed mutex of swapchain image");
             return;
         }
-
-        image.acquired = false;
     }
 
     pub func share_image(

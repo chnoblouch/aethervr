@@ -173,8 +173,9 @@ struct D3D11Surface: Surface {
             back: 1,
         };
 
-        if shared_image.mutex.AcquireSync(1, winapi.INFINITE) != 0 {
+        if shared_image.mutex.AcquireSync(1, 10) != 0 {
             println("Failed to acquire mutex!");
+            return;
         }
 
         self.device_context.CopySubresourceRegion(destination, 0, 0, 0, 0, source, 0, &source_box);

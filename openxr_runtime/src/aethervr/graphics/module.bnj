@@ -63,13 +63,9 @@ proto GraphicsBackend {
     func get_supported_formats(self) -> [i64];
     func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result;
     func store_image(self, handle: usize, out_images: *xr.SwapchainImageBaseHeader, out_index: u32);
-    
-    func share_image(self, image: *SwapchainImage) -> ?usize {
-        return vulkan.share_image(&self.binding, image);
-    }
-    
-    func acquire_image(self, image: *SwapchainImage) {}
-    func release_image(self, image: *SwapchainImage) {}
+    func share_image(self, image: *SwapchainImage) -> ?usize;
+    func wait_image(self, image: *SwapchainImage, timeout: i64) -> xr.Result;
+    func release_image(self, image: *SwapchainImage);
 }
 
 meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
@@ -96,6 +92,16 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             var out_images_vulkan = out_images as *xr.SwapchainImageVulkanKHR;
             out_images_vulkan[out_index].image = handle as addr;
         }
+
+        pub func share_image(self, image: *SwapchainImage) -> ?usize {
+            return vulkan.share_image(&self.binding, image);
+        }
+
+        pub func wait_image(self, image: *SwapchainImage, timeout: i64) -> xr.Result {
+            return xr.Result.SUCCESS;
+        }
+
+        pub func release_image(self, image: *SwapchainImage) {}
     }
 }
 
@@ -124,16 +130,16 @@ meta if config.OS == config.WINDOWS {
             out_images_d3d11[out_index].texture = handle as addr;
         }
 
-        pub func acquire_image(self, image: *SwapchainImage) {
-            d3d11.acquire_image(&self.binding, image);
+        pub func share_image(self, image: *SwapchainImage) -> ?usize {
+            return d3d11.share_image(&self.binding, image);
+        }
+
+        pub func wait_image(self, image: *SwapchainImage, timeout: i64) -> xr.Result {
+            return d3d11.wait_image(&self.binding, image, timeout);
         }
 
         pub func release_image(self, image: *SwapchainImage) {
             d3d11.release_image(&self.binding, image);
-        }
-
-        pub func share_image(self, image: *SwapchainImage) -> ?usize {
-            return d3d11.share_image(&self.binding, image);
         }
     }
 }
