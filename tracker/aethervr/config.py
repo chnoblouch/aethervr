@@ -26,6 +26,7 @@ class ControllerConfig:
 
 @dataclass
 class Config:
+    tracking_running: bool
     tracking_fps_cap: int
     left_controller_config: ControllerConfig
     right_controller_config: ControllerConfig

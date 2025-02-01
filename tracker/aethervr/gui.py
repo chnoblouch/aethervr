@@ -123,6 +123,9 @@ class Window(QMainWindow):
     def update_camera_overlay(self, tracking_state: TrackingState):
         self.camera_view.update_overlay(tracking_state)
 
+    def clear_camera_overlay(self):
+        self.camera_view.clear_overlay()
+
 
 class ConfigPanel(QWidget):
 
@@ -132,42 +135,13 @@ class ConfigPanel(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(OpenXRConfigGroup(system_openxr_config))
-        layout.addWidget(self._build_tracking_group(config))
+        layout.addWidget(TrackingConfigGroup(config))
         layout.addWidget(self._build_controller_group("Left Controller", config.left_controller_config))
         layout.addWidget(self._build_controller_group("Right Controller", config.right_controller_config))
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.setLayout(layout)
 
         self.setMinimumWidth(320)
-
-    def _build_tracking_group(self, config: Config):
-        group = QGroupBox("Tracking")
-
-        fps_input = QLineEdit()
-        fps_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Ignored))
-
-        layout = QFormLayout()
-        layout.addRow(QLabel("Max. Frames per Second:"), fps_input)
-        group.setLayout(layout)
-
-        def update_fps_input():
-            fps_input.setText(str(config.tracking_fps_cap))
-
-        def on_fps_input_changed():
-            try:
-                value = int(fps_input.text())
-                
-                if value > 0:
-                    config.tracking_fps_cap = value
-            except ValueError:
-                pass
-
-            update_fps_input()
-
-        update_fps_input()
-        fps_input.editingFinished.connect(on_fps_input_changed)
-
-        return group
 
     def _build_controller_group(self, label: str, config: ControllerConfig):
         group = QGroupBox(label)
@@ -222,6 +196,56 @@ class OpenXRConfigGroup(QGroupBox):
         self.set_button.setEnabled(not is_aethervr)
 
 
+class TrackingConfigGroup(QGroupBox):
+
+    def __init__(self, config: Config):
+        super().__init__("Tracking")
+        self.config = config
+
+        self.tracking_label = QLabel()
+        self.tracking_button = QPushButton()
+        self.tracking_button.clicked.connect(self.on_tracking_button_clicked)
+
+        self.fps_input = QLineEdit()
+        self.fps_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Ignored))
+        self.fps_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.fps_input.editingFinished.connect(self.on_fps_input_changed)
+
+        layout = QFormLayout()
+        layout.addRow(self.tracking_label, self.tracking_button)
+        layout.addRow("Max. Frames per Second:", self.fps_input)
+        self.setLayout(layout)
+
+        self.update_tracking_status()
+        self.update_fps_input()
+
+    def on_tracking_button_clicked(self):
+        self.config.tracking_running = not self.config.tracking_running
+        self.update_tracking_status()
+
+    def on_fps_input_changed(self):
+        try:
+            value = int(self.fps_input.text())
+            
+            if value > 0:
+                self.config.tracking_fps_cap = value
+        except ValueError:
+            pass
+
+        self.update_fps_input()
+
+    def update_tracking_status(self):
+        if self.config.tracking_running:
+            self.tracking_label.setText('Status: Running')
+            self.tracking_button.setText("Stop")
+        else:
+            self.tracking_label.setText("Status: Stopped")
+            self.tracking_button.setText("Start")
+
+    def update_fps_input(self):
+        self.fps_input.setText(str(self.config.tracking_fps_cap))
+
+
 class ButtonBindingDropdown(QComboBox):
 
     def __init__(self, config: ControllerConfig, gesture: Gesture):
@@ -266,6 +290,10 @@ class CameraView(QLabel):
 
     def update_frame(self, frame):
         self.frame = frame
+        self.update()
+
+    def clear_overlay(self):
+        self.overlay = None
         self.update()
 
     def update_overlay(self, tracking_state: TrackingState):
@@ -454,6 +482,9 @@ class GUI:
 
     def update_camera_overlay(self, tracking_state: TrackingState):
         self.window.update_camera_overlay(tracking_state)
+
+    def clear_camera_overlay(self):
+        self.window.clear_camera_overlay()
 
     def run(self):
         self.app.exec()

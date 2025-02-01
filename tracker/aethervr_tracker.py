@@ -18,6 +18,7 @@ class Application:
 
     def __init__(self):
         self.config = Config(
+            tracking_running=True,
             tracking_fps_cap=20,
             left_controller_config=ControllerConfig(),
             right_controller_config=ControllerConfig(),
@@ -50,6 +51,12 @@ class Application:
             os._exit(1)
 
     def on_frame(self, frame):
+        self.gui.update_camera_frame(frame)
+
+        if not self.config.tracking_running:
+            self.gui.clear_camera_overlay()
+            return
+
         now = time.time()
         min_tracking_delay = 1.0 / self.config.tracking_fps_cap
 
@@ -64,8 +71,6 @@ class Application:
                 self.last_hand_tracking_time = now
                 self.hand_tracking_queue_size += 1
                 self.hand_tracker.detect(frame)
-
-        self.gui.update_camera_frame(frame)
 
     def on_head_tracking_results(self, state: HeadState):
         with self.head_tracking_lock:
