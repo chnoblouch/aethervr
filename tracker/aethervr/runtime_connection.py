@@ -1,4 +1,4 @@
-from threading import Thread, Lock, Condition
+from threading import Thread, Lock, Event
 from dataclasses import dataclass
 import socket
 import struct
@@ -50,10 +50,11 @@ class RuntimeConnection:
 
         self.stream = None
 
-        self.lock = Lock()
         self.state = InputState()
-        self.headset_state_available = False
-        self.controller_state_available = False
+        self.headset_state_lock = Lock()
+        self.headset_state_available = Event()
+        self.controller_state_lock = Lock()
+        self.controller_state_available = Event()
 
         print("Starting OpenXR runtime connection...")
 
@@ -109,22 +110,21 @@ class RuntimeConnection:
                     break
 
     def send_tracking_state(self):
-        with self.lock:
-            if self.headset_state_available and self.controller_state_available:
-                self.stream.send(b"\x03")
-                self.stream.send(self.serialize_headset_state())
-                self.stream.send(self.serialize_controller_state())
-            elif self.headset_state_available:
-                self.stream.send(b"\x01")
-                self.stream.send(self.serialize_headset_state())
-            elif self.controller_state_available:
-                self.stream.send(b"\x02")
-                self.stream.send(self.serialize_controller_state())
-            else:
-                self.stream.send(b"\x00")
-            
-            self.headset_state_available = False
-            self.controller_state_available = False
+        if self.headset_state_available.is_set() and self.controller_state_available.is_set():
+            self.stream.send(b"\x03")
+            self.stream.send(self.serialize_headset_state())
+            self.stream.send(self.serialize_controller_state())
+        elif self.headset_state_available.is_set():
+            self.stream.send(b"\x01")
+            self.stream.send(self.serialize_headset_state())
+        elif self.controller_state_available.is_set():
+            self.stream.send(b"\x02")
+            self.stream.send(self.serialize_controller_state())
+        else:
+            self.stream.send(b"\x00")
+        
+        self.headset_state_available.clear()
+        self.controller_state_available.clear()
 
     def receive_runtime_info(self):
         name_length = struct.unpack("I", self.stream.recv(4))[0]
@@ -142,65 +142,69 @@ class RuntimeConnection:
         self.on_present_image.trigger(image_id)
 
     def update_headset_state(self, state: HeadsetState):
-        with self.lock:
+        with self.headset_state_lock:
             self.state.headset_state = state
-            self.headset_state_available = True
+
+        self.headset_state_available.set()
 
     def update_controller_state(self, left_state: ControllerState, right_state: ControllerState):
-        with self.lock:
+        with self.controller_state_lock:
             self.state.left_controller_state = left_state
             self.state.right_controller_state = right_state
-            self.controller_state_available = True
+        
+        self.controller_state_available.set()
 
     def serialize_headset_state(self):
-        values = [
-            self.state.headset_state.position.x,
-            self.state.headset_state.position.y,
-            self.state.headset_state.position.z,
-            self.state.headset_state.pitch,
-            self.state.headset_state.yaw,
-        ]
+        with self.headset_state_lock:
+            values = [
+                self.state.headset_state.position.x,
+                self.state.headset_state.position.y,
+                self.state.headset_state.position.z,
+                self.state.headset_state.pitch,
+                self.state.headset_state.yaw,
+            ]
 
         format = "fffff"
         return struct.pack(format, *values)
 
     def serialize_controller_state(self):
-        values = [
-            self.state.left_controller_state.position.x,
-            self.state.left_controller_state.position.y,
-            self.state.left_controller_state.position.z,
-            self.state.left_controller_state.orientation.x,
-            self.state.left_controller_state.orientation.y,
-            self.state.left_controller_state.orientation.z,
-            self.state.left_controller_state.orientation.w,
-            self.state.right_controller_state.position.x,
-            self.state.right_controller_state.position.y,
-            self.state.right_controller_state.position.z,
-            self.state.right_controller_state.orientation.x,
-            self.state.right_controller_state.orientation.y,
-            self.state.right_controller_state.orientation.z,
-            self.state.right_controller_state.orientation.w,
-            int(self.state.left_controller_state.buttons[ControllerButton.TRIGGER]),
-            int(self.state.left_controller_state.buttons[ControllerButton.SQUEEZE]),
-            int(self.state.left_controller_state.buttons[ControllerButton.A_BUTTON]),
-            int(self.state.left_controller_state.buttons[ControllerButton.B_BUTTON]),
-            int(self.state.left_controller_state.buttons[ControllerButton.X_BUTTON]),
-            int(self.state.left_controller_state.buttons[ControllerButton.Y_BUTTON]),
-            int(self.state.left_controller_state.buttons[ControllerButton.MENU]),
-            int(self.state.left_controller_state.buttons[ControllerButton.SYSTEM]),
-            int(self.state.right_controller_state.buttons[ControllerButton.TRIGGER]),
-            int(self.state.right_controller_state.buttons[ControllerButton.SQUEEZE]),
-            int(self.state.right_controller_state.buttons[ControllerButton.A_BUTTON]),
-            int(self.state.right_controller_state.buttons[ControllerButton.B_BUTTON]),
-            int(self.state.right_controller_state.buttons[ControllerButton.X_BUTTON]),
-            int(self.state.right_controller_state.buttons[ControllerButton.Y_BUTTON]),
-            int(self.state.right_controller_state.buttons[ControllerButton.MENU]),
-            int(self.state.right_controller_state.buttons[ControllerButton.SYSTEM]),
-            self.state.left_controller_state.thumbstick_x,
-            self.state.left_controller_state.thumbstick_y,
-            self.state.right_controller_state.thumbstick_x,
-            self.state.right_controller_state.thumbstick_y,
-        ]
+        with self.controller_state_lock:
+            values = [
+                self.state.left_controller_state.position.x,
+                self.state.left_controller_state.position.y,
+                self.state.left_controller_state.position.z,
+                self.state.left_controller_state.orientation.x,
+                self.state.left_controller_state.orientation.y,
+                self.state.left_controller_state.orientation.z,
+                self.state.left_controller_state.orientation.w,
+                self.state.right_controller_state.position.x,
+                self.state.right_controller_state.position.y,
+                self.state.right_controller_state.position.z,
+                self.state.right_controller_state.orientation.x,
+                self.state.right_controller_state.orientation.y,
+                self.state.right_controller_state.orientation.z,
+                self.state.right_controller_state.orientation.w,
+                int(self.state.left_controller_state.buttons[ControllerButton.TRIGGER]),
+                int(self.state.left_controller_state.buttons[ControllerButton.SQUEEZE]),
+                int(self.state.left_controller_state.buttons[ControllerButton.A_BUTTON]),
+                int(self.state.left_controller_state.buttons[ControllerButton.B_BUTTON]),
+                int(self.state.left_controller_state.buttons[ControllerButton.X_BUTTON]),
+                int(self.state.left_controller_state.buttons[ControllerButton.Y_BUTTON]),
+                int(self.state.left_controller_state.buttons[ControllerButton.MENU]),
+                int(self.state.left_controller_state.buttons[ControllerButton.SYSTEM]),
+                int(self.state.right_controller_state.buttons[ControllerButton.TRIGGER]),
+                int(self.state.right_controller_state.buttons[ControllerButton.SQUEEZE]),
+                int(self.state.right_controller_state.buttons[ControllerButton.A_BUTTON]),
+                int(self.state.right_controller_state.buttons[ControllerButton.B_BUTTON]),
+                int(self.state.right_controller_state.buttons[ControllerButton.X_BUTTON]),
+                int(self.state.right_controller_state.buttons[ControllerButton.Y_BUTTON]),
+                int(self.state.right_controller_state.buttons[ControllerButton.MENU]),
+                int(self.state.right_controller_state.buttons[ControllerButton.SYSTEM]),
+                self.state.left_controller_state.thumbstick_x,
+                self.state.left_controller_state.thumbstick_y,
+                self.state.right_controller_state.thumbstick_x,
+                self.state.right_controller_state.thumbstick_y,
+            ]
 
         format = "fffffff" + "fffffff" + "BBBBBBBB" + "BBBBBBBB" + "ff" + "ff"
         return struct.pack(format, *values)
