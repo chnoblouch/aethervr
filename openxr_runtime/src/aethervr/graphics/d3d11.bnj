@@ -182,15 +182,26 @@ meta if config.OS == config.WINDOWS {
             return xr.Result.ERROR_RUNTIME_FAILURE;
         }
 
-        var acquire_result = keyed_mutex.vtable.acquire_sync(keyed_mutex, 0, 20);
+        var timeout_ms = (timeout / 1000000) as u32;
+        var key: u64 = 0;
+        var acquire_result: i32;
+
+        for _ in 0..timeout_ms / 10 {
+            acquire_result = keyed_mutex.vtable.acquire_sync(keyed_mutex, key, 10);
+
+            if acquire_result != 0x102 {
+                break;
+            }
+
+            if key == 0 {
+                key = 1;
+            } else {
+                key = 0;
+            }
+        }
 
         if acquire_result == 0x102 {
-            var timeout_ms = (timeout / 1000000) as u32;
-            acquire_result = keyed_mutex.vtable.acquire_sync(keyed_mutex, 1, timeout_ms);
-
-            if acquire_result == 0x102 {
-                return xr.Result.TIMEOUT_EXPIRED;
-            }
+            return xr.Result.TIMEOUT_EXPIRED;
         }
 
         if acquire_result != 0 {
