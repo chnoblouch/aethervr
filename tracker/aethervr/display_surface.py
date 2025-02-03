@@ -1,5 +1,6 @@
 from pathlib import Path
 import ctypes
+import sys
 
 
 class DisplaySurface:
@@ -20,9 +21,7 @@ class DisplaySurface:
         if self.handle is not None:
             DisplaySurface._library.aethervr_display_surface_destroy(self.handle)
 
-        self.handle = DisplaySurface._library.aethervr_display_surface_create(
-            graphics_api, window
-        )
+        self.handle = DisplaySurface._library.aethervr_display_surface_create(graphics_api, window)
 
         self.graphics_api = graphics_api
 
@@ -58,13 +57,12 @@ class DisplaySurface:
 
     @staticmethod
     def _load_library():
-        path = (
-            Path(__file__).parents[2]
-            / "display_surface"
-            / "out"
-            / "x86_64-windows-msvc-debug"
-            / "aethervr_display_surface.dll"
-        )
+        if getattr(sys, "frozen", False):
+            directory = Path(sys.executable).parent
+        else:
+            directory = Path(__file__).parents[2] / "display_surface" / "out" / "x86_64-windows-msvc-debug"
+
+        path = directory / "aethervr_display_surface.dll"
         library = ctypes.CDLL(str(path))
 
         library.aethervr_display_surface_create.argtypes = (
