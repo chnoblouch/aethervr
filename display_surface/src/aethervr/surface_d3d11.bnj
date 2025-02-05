@@ -13,7 +13,7 @@ struct SharedImage {
 }
 
 struct D3D11Surface: Surface {
-    var device1: *winapi.ID3D11Device1;
+    var device_as_device1: *winapi.ID3D11Device1;
     var device_context: *winapi.ID3D11DeviceContext;
     var buffer: *winapi.ID3D11Texture2D;
     var swapchain: *winapi.IDXGISwapChain1;
@@ -32,8 +32,6 @@ struct D3D11Surface: Surface {
             panic("Failed to find a DXGI adapter");
         }
 
-        factory.Release();
-
         var desc: winapi.DXGI_ADAPTER_DESC;
 
         if adapter.GetDesc(&desc) != 0 {
@@ -51,10 +49,10 @@ struct D3D11Surface: Surface {
             adapter,
             winapi.D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_UNKNOWN,
             null,
-            2,
+            winapi.D3D11_CREATE_DEVICE_DEBUG as i64,
             &feature_level,
             1,
-            7,
+            winapi.D3D11_SDK_VERSION,
             &device,
             null,
             &device_context
@@ -76,17 +74,15 @@ struct D3D11Surface: Surface {
         }
 
         var swapchain_desc = winapi.DXGI_SWAP_CHAIN_DESC1 {
-            Width: 1080,
-            Height: 1080,
+            Width: 0,
+            Height: 0,
             Format: winapi.DXGI_FORMAT.DXGI_FORMAT_R8G8B8A8_UNORM,
             Stereo: 0,
             SampleDesc: winapi.DXGI_SAMPLE_DESC {
                 Count: 1,
                 Quality: 0,
             },
-            BufferUsage:
-                # d3d11.DXGI_USAGE_RENDER_TARGET_OUTPUT as u32 |
-                winapi.DXGI_USAGE_UNORDERED_ACCESS as u32,
+            BufferUsage: winapi.DXGI_USAGE_UNORDERED_ACCESS as u32,
             BufferCount: 2,
             SwapEffect: winapi.DXGI_SWAP_EFFECT.DXGI_SWAP_EFFECT_FLIP_DISCARD,
             Scaling: winapi.DXGI_SCALING.DXGI_SCALING_STRETCH,
@@ -110,11 +106,16 @@ struct D3D11Surface: Surface {
 
         println("Got swapchain buffer");
 
+        device_as_iunknown.Release();
+        device.Release();
+        adapter.Release();
+        factory.Release();
+
         return memory.box(D3D11Surface {
-            device1: device_as_device1,
-            device_context: device_context,
-            buffer: buffer,
-            swapchain: swapchain,
+            device_as_device1,
+            device_context,
+            buffer,
+            swapchain,
             images: [],
         });
     }
@@ -124,7 +125,7 @@ struct D3D11Surface: Surface {
         
         var texture: *winapi.ID3D11Texture2D;
 
-        if self.device1.OpenSharedResource1(local_handle, &winapi.ID3D11Texture2D_Guid, &texture as **void) != 0 {
+        if self.device_as_device1.OpenSharedResource1(local_handle, &winapi.ID3D11Texture2D_Guid, &texture as **void) != 0 {
             panic("Failed to open foreign texture");
         }
 
@@ -152,6 +153,11 @@ struct D3D11Surface: Surface {
             return;
         }
 
+        if shared_image.mutex.AcquireSync(1, 10) != 0 {
+            println("Failed to acquire mutex!");
+            return;
+        }
+
         var destination: *winapi.ID3D11Resource;
 
         if self.buffer.QueryInterface(&winapi.ID3D11Resource_Guid, &destination as **void) != 0 {
@@ -165,28 +171,46 @@ struct D3D11Surface: Surface {
         }
 
         var source_box = winapi.D3D11_BOX {
-            left: 0,
-            top: 0,
+            left: info.x,
+            top: info.y,
             front: 0,
-            right: 1080,
-            bottom: 1080,
+            right: info.x + info.width,
+            bottom: info.y + info.height,
             back: 1,
         };
 
-        if shared_image.mutex.AcquireSync(1, 10) != 0 {
-            println("Failed to acquire mutex!");
-            return;
-        }
+        self.device_context.CopySubresourceRegion(
+            destination,
+            0,
+            0,
+            0,
+            0,
+            source,
+            info.array_index,
+            &source_box,
+        );
 
-        self.device_context.CopySubresourceRegion(destination, 0, 0, 0, 0, source, 0, &source_box);
         self.swapchain.Present(0, 0);
 
         if shared_image.mutex.ReleaseSync(0) != 0 {
             println("Failed to release mutex!");
         }
+
+        source.Release();
+        destination.Release();
     }
 
     pub func destroy(self) {
+        for image in self.images {
+            image.mutex.Release();
+            image.texture.Release();
+        }
+
+        self.buffer.Release();
+        self.swapchain.Release();
+        self.device_context.Release();
+        self.device_as_device1.Release();
+
         memory.free(self);
     }
 }

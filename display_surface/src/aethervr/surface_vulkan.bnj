@@ -570,6 +570,8 @@ struct VulkanSurface: Surface {
         vk.destroy_device(self.device, null);
         vk.destroy_surface_khr(self.instance, self.surface, null);
         vk.destroy_instance(self.instance, null);
+
+        memory.free(self);
     }
 }
 
