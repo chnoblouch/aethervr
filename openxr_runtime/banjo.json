@@ -4,7 +4,7 @@
   "build_script": "scripts/build.py",
   "targets": {
     "x86_64-windows-msvc": {
-      "packages": ["xr", "vulkan", "d3d11"],
+      "packages": ["xr", "vulkan", "windows"],
       "libraries": ["d3d11", "dxgi"]
     },
     "x86_64-linux-gnu": {

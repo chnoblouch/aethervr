@@ -4,11 +4,9 @@ use std.{
     math.min,
 };
 
-meta if config.OS == config.WINDOWS {
-    use os.winapi;
-    
+meta if config.OS == config.WINDOWS {    
     use xr;
-    use d3d11;
+    use windows;
 
     use aethervr.{
         log,
@@ -18,53 +16,38 @@ meta if config.OS == config.WINDOWS {
     };
 
     pub func get_requirements(reqs: *xr.GraphicsRequirementsD3D11KHR) -> xr.Result {
-        var factory: *d3d11.DXGIFactory;
+        var factory: *windows.IDXGIFactory;
 
-        # GUID for IDXGIFactory
-        var guid = (
-            0x7B7166EC as u32,
-            0x21C7 as u16,
-            0x44AE as u16,
-            0xB2 as u8,
-            0x1A as u8,
-            0xC9 as u8,
-            0xAE as u8,
-            0x32 as u8,
-            0x1A as u8,
-            0xE3 as u8,
-            0x69 as u8
-        );
-
-        if d3d11.create_dxgifactory(&guid, &factory as *addr) != 0 {
+        if windows.CreateDXGIFactory(&windows.IDXGIFactory_Guid, &factory as **void) != 0 {
             log.error("Failed to create DXGI factory");
         }
 
-        var adapter: *d3d11.DXGIAdapter;
-        if factory.vtable.enum_adapters(factory, 0, &adapter) == 0x887A0002 {
+        var adapter: *windows.IDXGIAdapter;
+
+        if factory.EnumAdapters(0, &adapter) != 0 {
             log.error("Failed to enumerate DXGI adapters");
         }
 
-        log.info("DXGI adapters enumerated");
-        log.info("Picking first DXGI device");
+        log.info("DXGI adapters enumerated, picking first one");
 
-        factory.vtable.release(factory);
+        var desc: windows.DXGI_ADAPTER_DESC;
 
-        var desc: d3d11.DXGIAdapterDesc;
-        if adapter.vtable.get_desc(adapter, &desc) != 0 {
+        if adapter.GetDesc(&desc) != 0 {
             log.error("Failed to get DXGI adapter description");
         }
 
-        log.info("Using adapter with LUID %", desc.adapter_luid);
+        var luid = *(&desc.AdapterLuid as *u64);
+        log.info("Using adapter with LUID %", luid);
 
-        reqs.min_feature_level = 0xB100;  # D3D_FEATURE_LEVEL_11_1
-        reqs.adapter_luid = desc.adapter_luid;
+        reqs.min_feature_level = windows.D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_1 as u64;
+        reqs.adapter_luid = luid;
         return xr.Result.SUCCESS;
     }
 
     pub func get_supported_formats() -> [i64] {
         return [
-            d3d11.DXGIFormat.R8G8B8A8_UNORM_SRGB as i64,
-            d3d11.DXGIFormat.D16_UNORM as i64,
+            windows.DXGI_FORMAT.DXGI_FORMAT_R8G8B8A8_UNORM_SRGB as i64,
+            windows.DXGI_FORMAT.DXGI_FORMAT_D16_UNORM as i64,
         ];
     }
 
@@ -76,7 +59,7 @@ meta if config.OS == config.WINDOWS {
         log.info("Creating D3D11 image");
         log.enter_scope();
 
-        var device = binding.device as *d3d11.Device;
+        var device = binding.device as *windows.ID3D11Device;
 
         log.info("Usage flags:");
         log.enter_scope();
@@ -85,15 +68,15 @@ meta if config.OS == config.WINDOWS {
 
         if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT) != 0 {
             log.info("- Color attachment");
-            bind_flags |= d3d11.BindFlag.RENDER_TARGET as u32;
+            bind_flags |= windows.D3D11_BIND_RENDER_TARGET as u32;
         }
         if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0 {
             log.info("- Depth/stencil attachment");
-            bind_flags |= d3d11.BindFlag.DEPTH_STENCIL as u32;
+            bind_flags |= windows.D3D11_BIND_DEPTH_STENCIL as u32;
         }
         if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT) != 0 {
             log.info("- Unordered access");
-            bind_flags |= d3d11.BindFlag.UNORDERED_ACCESS as u32;
+            bind_flags |= windows.D3D11_BIND_UNORDERED_ACCESS as u32;
         }
         if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_TRANSFER_SRC_BIT) != 0 {
             log.info("- Transfer source (ignored)");
@@ -103,7 +86,7 @@ meta if config.OS == config.WINDOWS {
         }
         if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_SAMPLED_BIT) != 0 {
             log.info("- Sampled");
-            bind_flags |= d3d11.BindFlag.SHADER_RESOURCE as u32;
+            bind_flags |= windows.D3D11_BIND_SHADER_RESOURCE as u32;
         }
         if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT) != 0 {
             log.info("- Mutable (ignored)");
@@ -111,34 +94,35 @@ meta if config.OS == config.WINDOWS {
 
         log.exit_scope();
 
-        var typeless_format: d3d11.DXGIFormat;
+        var typeless_format: windows.DXGI_FORMAT;
 
-        if create_info.format as d3d11.DXGIFormat == d3d11.DXGIFormat.R8G8B8A8_UNORM_SRGB {
-            typeless_format = d3d11.DXGIFormat.R8G8B8A8_TYPELESS;
+        if create_info.format as windows.DXGI_FORMAT == windows.DXGI_FORMAT.DXGI_FORMAT_R8G8B8A8_UNORM_SRGB {
+            typeless_format = windows.DXGI_FORMAT.DXGI_FORMAT_R8G8B8A8_TYPELESS;
         } else {
             log.error("Invalid texture format");
         }
 
-        var desc = d3d11.Texture2dDesc {
-            width: create_info.width,
-            height: create_info.height,
-            mip_levels: create_info.mip_count,
-            array_size: create_info.array_size,
-            format: typeless_format,
-            sample_desc: {
-                count: create_info.sample_count,
-                quality: 0
+        var desc = windows.D3D11_TEXTURE2D_DESC {
+            Width: create_info.width,
+            Height: create_info.height,
+            MipLevels: create_info.mip_count,
+            ArraySize: create_info.array_size,
+            Format: typeless_format,
+            SampleDesc: windows.DXGI_SAMPLE_DESC {
+                Count: create_info.sample_count,
+                Quality: 0,
             },
-            usage: d3d11.Usage.DEFAULT,
-            bind_flags,
-            c_puaccess_flags: 0,
-            misc_flags:
-                d3d11.ResourceMiscFlag.SHARED_KEYEDMUTEX as u32 |
-                d3d11.ResourceMiscFlag.SHARED_NTHANDLE as u32,
+            Usage: windows.D3D11_USAGE.D3D11_USAGE_DEFAULT,
+            BindFlags: bind_flags,
+            CPUAccessFlags: 0,
+            MiscFlags:
+                windows.D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX |
+                windows.D3D11_RESOURCE_MISC_SHARED_NTHANDLE,
         };
 
-        var texture: *d3d11.Texture2D;
-        if device.vtable.create_texture2_d(device, &desc, null, &texture) != 0 {
+        var texture: *windows.ID3D11Texture2D;
+
+        if device.CreateTexture2D(&desc, null, &texture) != 0 {
             log.error("Failed to create texture");
         }
 
@@ -160,24 +144,10 @@ meta if config.OS == config.WINDOWS {
         image: *SwapchainImage,
         timeout: i64
     ) -> xr.Result {
-        var guid_dxgi_keyed_mutex = (
-            0x9D8E1289 as u32,
-            0xD7B3 as u16,
-            0x465F as u16,
-            0x81 as u8,
-            0x26 as u8,
-            0x25 as u8,
-            0x0E as u8,
-            0x34 as u8,
-            0x9A as u8,
-            0xF8 as u8,
-            0x5D as u8,
-        );
+        var texture = image.api_handle as *windows.ID3D11Texture2D;
+        var keyed_mutex: *windows.IDXGIKeyedMutex;
 
-        var texture = image.api_handle as *d3d11.Texture2D;
-
-        var keyed_mutex: *d3d11.DXGIKeyedMutex;
-        if texture.vtable.query_interface(texture, &guid_dxgi_keyed_mutex, &keyed_mutex as *addr) != 0 {
+        if texture.QueryInterface(&windows.IDXGIKeyedMutex_Guid, &keyed_mutex as **void) != 0 {
             log.error("D3D11: Failed to access keyed mutex of texture");
             return xr.Result.ERROR_RUNTIME_FAILURE;
         }
@@ -187,7 +157,7 @@ meta if config.OS == config.WINDOWS {
         var acquire_result: i32;
 
         for _ in 0..timeout_ms / 10 {
-            acquire_result = keyed_mutex.vtable.acquire_sync(keyed_mutex, key, 10);
+            acquire_result = keyed_mutex.AcquireSync(key, 10);
 
             if acquire_result != 0x102 {
                 break;
@@ -216,29 +186,15 @@ meta if config.OS == config.WINDOWS {
         binding: *xr.GraphicsBindingD3D11KHR,
         image: *SwapchainImage,
     ) {
-        var guid_dxgi_keyed_mutex = (
-            0x9D8E1289 as u32,
-            0xD7B3 as u16,
-            0x465F as u16,
-            0x81 as u8,
-            0x26 as u8,
-            0x25 as u8,
-            0x0E as u8,
-            0x34 as u8,
-            0x9A as u8,
-            0xF8 as u8,
-            0x5D as u8,
-        );
+        var texture = image.api_handle as *windows.ID3D11Texture2D;
+        var keyed_mutex: *windows.IDXGIKeyedMutex;
 
-        var texture = image.api_handle as *d3d11.Texture2D;
-
-        var keyed_mutex: *d3d11.DXGIKeyedMutex;
-        if texture.vtable.query_interface(texture, &guid_dxgi_keyed_mutex, &keyed_mutex as *addr) != 0 {
+        if texture.QueryInterface(&windows.IDXGIKeyedMutex_Guid, &keyed_mutex as **void) != 0 {
             log.error("D3D11: Failed to access keyed mutex of texture");
             return;
         }
 
-        if keyed_mutex.vtable.release_sync(keyed_mutex, 1) != 0 {
+        if keyed_mutex.ReleaseSync(1) != 0 {
             log.error("D3D11: Failed to release keyed mutex of swapchain image");
             return;
         }
@@ -248,31 +204,17 @@ meta if config.OS == config.WINDOWS {
         binding: *xr.GraphicsBindingD3D11KHR,
         image: *SwapchainImage,
     ) -> ?usize {
-        var guid_dxgi_resource_1 = (
-            0x30961379 as u32,
-            0x4609 as u16,
-            0x4a41 as u16,
-            0x99 as u8,
-            0x8e as u8,
-            0x54 as u8,
-            0xFE as u8,
-            0x56 as u8,
-            0x7E as u8,
-            0xE0 as u8,
-            0xC1 as u8,
-        );
+        var texture = image.api_handle as *windows.ID3D11Texture2D;
+        var texture_resource: *windows.IDXGIResource1;
 
-        var texture = image.api_handle as *d3d11.Texture2D;
-        var texture_resource: *d3d11.DXGIResource1;
-
-        if texture.vtable.query_interface(texture, &guid_dxgi_resource_1, &texture_resource as *addr) != 0 {
+        if texture.QueryInterface(&windows.IDXGIResource1_Guid, &texture_resource as **void) != 0 {
             log.error("Failed to query resource interface of texture");
             return none;
         }
 
         var handle: addr = null;
 
-        if texture_resource.vtable.create_shared_handle(texture_resource, null, 0x80000000, null, &handle) != 0 {
+        if texture_resource.CreateSharedHandle(null, windows.DXGI_SHARED_RESOURCE_READ, null, &handle) != 0 {
             log.error("Failed to share resource");
             return none;
         }
