@@ -50,6 +50,7 @@ struct ControllerStateMsg {
     var left_y_pressed: u8;
     var left_menu_pressed: u8;
     var left_system_pressed: u8;
+    var left_thumbstick_pressed: u8;
     var right_trigger_pressed: u8;
     var right_squeeze_pressed: u8;
     var right_a_pressed: u8;
@@ -58,6 +59,7 @@ struct ControllerStateMsg {
     var right_y_pressed: u8;
     var right_menu_pressed: u8;
     var right_system_pressed: u8;
+    var right_thumbstick_pressed: u8;
     var left_thumbstick_x: f32;
     var left_thumbstick_y: f32;
     var right_thumbstick_x: f32;
@@ -220,6 +222,7 @@ struct TrackerConnection {
         self.state.left_controller.y_pressed = message.left_y_pressed != 0;
         self.state.left_controller.menu_pressed = message.left_menu_pressed != 0;
         self.state.left_controller.system_pressed = message.left_system_pressed != 0;
+        self.state.left_controller.thumbstick_pressed = message.left_thumbstick_pressed != 0;
 
         self.state.right_controller.trigger_presed = message.right_trigger_pressed != 0;
         self.state.right_controller.squeeze_pressed = message.right_squeeze_pressed != 0;
@@ -229,6 +232,7 @@ struct TrackerConnection {
         self.state.right_controller.y_pressed = message.right_y_pressed != 0;
         self.state.right_controller.menu_pressed = message.right_menu_pressed != 0;
         self.state.right_controller.system_pressed = message.right_system_pressed != 0;
+        self.state.right_controller.thumbstick_pressed = message.right_thumbstick_pressed != 0;
 
         self.state.left_controller.thumbstick_x = message.left_thumbstick_x;
         self.state.left_controller.thumbstick_y = message.left_thumbstick_y;

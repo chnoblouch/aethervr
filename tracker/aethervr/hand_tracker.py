@@ -96,4 +96,4 @@ class HandTracker:
 
     @staticmethod
     def get_landmark_position(landmark):
-        return Position(landmark.x, -landmark.y, landmark.z)
+        return Position(landmark.x, -landmark.y, -landmark.z)

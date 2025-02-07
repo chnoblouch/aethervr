@@ -15,8 +15,8 @@ class HeadState:
 class Gesture(Enum):
     PINCH = 0
     PALM_PINCH = 1
-    FIST = 2
-    USING_THUMBSTICK = 3
+    MIDDLE_PINCH = 2
+    FIST = 3
 
 
 @dataclass
@@ -27,6 +27,7 @@ class HandState:
     timestamp: int = 0
     landmarks: Optional[Any] = None
     gesture: Optional[Gesture] = None
+    previous_gesture: Optional[Gesture] = None
 
 
 @dataclass

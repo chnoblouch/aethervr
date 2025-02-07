@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QTabWidget,
     QLineEdit,
+    QCheckBox,
 )
 
 from PySide6.QtCore import QEvent, Qt, QSize, QEvent, QRect, QTimer
@@ -146,13 +147,22 @@ class ConfigPanel(QWidget):
     def _build_controller_group(self, label: str, config: ControllerConfig):
         group = QGroupBox(label)
 
+        press_thumbstick_checkbox = QCheckBox("Press Thumbstick on Activation")
+        press_thumbstick_checkbox.setChecked(config.press_thumbstick)
+        press_thumbstick_checkbox.checkStateChanged.connect(lambda value: ConfigPanel._on_press_thumbstick_changed(config, value))
+
         layout = QFormLayout()
-        layout.addRow(QLabel("Pinch:"), ButtonBindingDropdown(config, Gesture.PINCH))
-        layout.addRow(QLabel("Palm Pinch:"), ButtonBindingDropdown(config, Gesture.PALM_PINCH))
-        layout.addRow(QLabel("Fist:"), ButtonBindingDropdown(config, Gesture.FIST))
+        layout.addRow("Pinch:", ButtonBindingDropdown(config, Gesture.PINCH))
+        layout.addRow("Palm Pinch:", ButtonBindingDropdown(config, Gesture.PALM_PINCH))
+        layout.addRow("Middle Pinch:", MiddlePinchBindingDropdown(config))
+        layout.addRow("Fist:", ButtonBindingDropdown(config, Gesture.FIST))
+        layout.addRow(press_thumbstick_checkbox)
         group.setLayout(layout)
 
         return group
+    
+    def _on_press_thumbstick_changed(config: ControllerConfig, state: Qt.CheckState):
+        config.press_thumbstick = state == Qt.CheckState.Checked
 
 
 class OpenXRConfigGroup(QGroupBox):
@@ -272,6 +282,26 @@ class ButtonBindingDropdown(QComboBox):
         self.config.gesture_mappings[self.gesture] = button
 
 
+class MiddlePinchBindingDropdown(QComboBox):
+
+    def __init__(self, config: ControllerConfig):
+        super().__init__()
+        self.config = config
+
+        initial_value = config.thumbstick_enabled
+
+        self.addItem("None", False)
+        self.addItem("Thumbstick", True)
+        self.setCurrentIndex(self.findData(initial_value))
+
+        self.currentIndexChanged.connect(self.on_selected)
+
+    def on_selected(self, index: int):
+        value = self.itemData(index)
+        self.config.thumbstick_enabled = value
+
+
+
 class CameraView(QLabel):
 
     def __init__(self):
@@ -332,10 +362,10 @@ class CameraView(QLabel):
                     color = (255, 255, 0, 255)
                 elif hand_state.gesture == Gesture.PALM_PINCH:
                     color = (255, 0, 255, 255)
+                elif hand_state.gesture == Gesture.MIDDLE_PINCH:
+                    color = (0, 255, 255, 255)
                 elif hand_state.gesture == Gesture.FIST:
                     color = (0, 0, 255, 255)
-                elif hand_state.gesture == Gesture.USING_THUMBSTICK:
-                    color = (0, 255, 255, 255)
 
                 x1 = int(width * landmarks[a].x)
                 y1 = int(height * landmarks[a].y)

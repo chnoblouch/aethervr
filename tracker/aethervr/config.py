@@ -22,6 +22,8 @@ class ControllerConfig:
     gesture_mappings: dict[Gesture, Optional[ControllerButton]] = field(
         default_factory=lambda: DEFAULT_GESTURE_MAPPINGS
     )
+    thumbstick_enabled: bool = True
+    press_thumbstick: bool = False
 
 
 @dataclass

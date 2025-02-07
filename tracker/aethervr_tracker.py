@@ -88,8 +88,13 @@ class Application:
         with self.hand_tracking_lock:
             self.hand_tracking_queue_size -= 1
         
+        previous_left_gesture = self.tracking_state.left_hand.gesture
         self.tracking_state.left_hand = left_state
+        self.tracking_state.left_hand.previous_gesture = previous_left_gesture
+
+        previous_right_gesture = self.tracking_state.right_hand.gesture
         self.tracking_state.right_hand = right_state
+        self.tracking_state.right_hand.previous_gesture = previous_right_gesture
 
         left_controller_state = self.input_state.left_controller_state
         right_controller_state = self.input_state.right_controller_state

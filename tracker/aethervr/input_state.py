@@ -21,6 +21,7 @@ class ControllerButton(Enum):
     Y_BUTTON = 5
     MENU = 6
     SYSTEM = 7
+    THUMBSTICK = 8
 
 
 @dataclass
