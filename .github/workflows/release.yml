@@ -30,6 +30,10 @@ jobs:
         working-directory: "${{ github.workspace }}/openxr_runtime"
         run: banjo build
 
+      - name: Build display surface library
+        working-directory: "${{ github.workspace }}/display_surface"
+        run: banjo build
+
       - name: Install pyinstaller
         run: pip install pyinstaller
 
@@ -44,13 +48,14 @@ jobs:
 
       - name: Package tracker
         working-directory: "${{ github.workspace }}/tracker/build"
-        run: pyinstaller --paths ..\venv\Lib\site-packages\ --icon NONE ..\aethervr_tracker.py
+        run: pyinstaller --paths ..\venv\Lib\site-packages\ --windowed --icon NONE ..\aethervr_tracker.py
 
       - name: Package
         run: |
           mkdir aethervr-x86_64-windows
           cp openxr_runtime/out/x86_64-windows-msvc-debug/aethervr.dll aethervr-x86_64-windows/aethervr.dll
           cp openxr_runtime/openxr_runtime.json aethervr-x86_64-windows/openxr_runtime.json
+          cp display_surface/out/x86_64-windows-msvc-debug/aethervr_display_surface.dll aethervr-x86_64-windows/aethervr_display_surface.dll
           cp tracker/build/dist/aethervr_tracker/aethervr_tracker.exe aethervr-x86_64-windows/aethervr_tracker.exe
           cp -r tracker/build/dist/aethervr_tracker/_internal aethervr-x86_64-windows/_internal
           7z a aethervr-x86_64-windows.zip aethervr-x86_64-windows
