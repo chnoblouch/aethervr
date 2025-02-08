@@ -1,4 +1,5 @@
 from pathlib import Path
+from enum import Enum
 import json
 import sys
 import platform
@@ -10,26 +11,32 @@ is_linux = platform.system() == "Linux"
 
 
 class SystemOpenXRConfig:
+    class Status(Enum):
+        OK = 0
+        DIFFERENT_VERSION = 1
+        DIFFERENT_RUNTIME = 2
+    
     _REG_KEY_NAME = "SOFTWARE\\Khronos\\OpenXR\\1"
     _REG_VALUE_NAME = "ActiveRuntime"
 
-    def is_aethervr(self, runtime_name):
-        return runtime_name == "AetherVR"
+    def status(self) -> Status:
+        current_manifest = self._load_current_manifest()
+        runtime_info = current_manifest["runtime"]
+
+        if runtime_info.get("name") != "AetherVR":
+            return SystemOpenXRConfig.Status.DIFFERENT_RUNTIME
+        
+        manifest_dir = self._find_current_manifest().parent
+        current_runtime_path = Path(manifest_dir, runtime_info["library_path"]).absolute()
+        aethervr_runtime_path = self._aethervr_runtime_path().absolute()
+
+        if current_runtime_path == aethervr_runtime_path:
+            return SystemOpenXRConfig.Status.OK
+        else:
+            return SystemOpenXRConfig.Status.DIFFERENT_VERSION
 
     def active_runtime_name(self):
-        if is_windows:
-            manifest_path = self._find_current_manifest_windows()
-        elif is_linux:
-            manifest_path = self._find_current_manifest_linux()
-        else:
-            manifest_path = None
-        
-        if not manifest_path:
-            return None
-
-        with open(manifest_path) as f:
-            current_manifest = json.load(f)
-
+        current_manifest = self._load_current_manifest()
         runtime_info = current_manifest["runtime"]
         name = runtime_info.get("name")
         library_path = Path(runtime_info["library_path"])
@@ -42,6 +49,23 @@ class SystemOpenXRConfig:
             return str(library_path.stem[3:])
         else:
             return str(library_path)
+
+    def _load_current_manifest(self):
+        manifest_path = self._find_current_manifest()
+        
+        if not manifest_path:
+            return None
+
+        with open(manifest_path) as f:
+            return json.load(f)
+
+    def _find_current_manifest(self) -> Path:
+        if is_windows:
+            return self._find_current_manifest_windows()
+        elif is_linux:
+            return self._find_current_manifest_linux()
+        else:
+            return None
 
     def _find_current_manifest_windows(self):
         import winreg
@@ -101,7 +125,7 @@ class SystemOpenXRConfig:
             "file_format_version": "1.0.0",
             "runtime": {
                 "name": "AetherVR",
-                "library_path": str(self._aethervr_runtime_dir() / "libaethervr.so"),
+                "library_path": str(self._aethervr_runtime_path()),
             },
         }
 
@@ -116,7 +140,15 @@ class SystemOpenXRConfig:
 
         return True
 
-    def _aethervr_runtime_dir(self):
+    def _aethervr_runtime_path(self) -> Path:
+        if is_windows:
+            name = "aethervr.dll"
+        elif is_linux:
+            name = "libaethervr.so"
+        
+        return self._aethervr_runtime_dir() / name
+
+    def _aethervr_runtime_dir(self) -> Path:
         if getattr(sys, "frozen", False):
             package_root = Path(sys.executable).parent
             return package_root

@@ -175,8 +175,16 @@ class OpenXRConfigGroup(QGroupBox):
         self.set_button = QPushButton("Set AetherVR as OpenXR Runtime")
         self.set_button.clicked.connect(self._activate_aethervr)
 
+        self.incompatible_label = QLabel(
+            "Warning: The current AetherVR runtime has a different version than this tracker and might "
+            "not be compatible! Click 'Set' to replace the current AetherVR runtime with the right version."
+        )
+        self.incompatible_label.setWordWrap(True)
+        self.incompatible_label.setStyleSheet("QLabel { color: #dec60f; }")
+
         layout = QFormLayout()
         layout.addRow(QLabel("Current OpenXR Runtime:"), self.current_label)
+        layout.addRow(self.incompatible_label)
         layout.addRow(self.set_button)
         self.setLayout(layout)
 
@@ -194,15 +202,16 @@ class OpenXRConfigGroup(QGroupBox):
                 self,
                 "Error",
                 "Failed to set AetherVR as the system OpenXR runtime. "
-                + "Please make sure you're running AetherVR as an administrator.",
+                "Please make sure you're running AetherVR as an administrator.",
             )
 
     def _refresh(self):
         active_runtime = self.system_openxr_config.active_runtime_name()
-        is_aethervr = self.system_openxr_config.is_aethervr(active_runtime)
-
         self.current_label.setText("None" if active_runtime is None else active_runtime)
-        self.set_button.setEnabled(not is_aethervr)
+
+        status = self.system_openxr_config.status()
+        self.incompatible_label.setVisible(status == SystemOpenXRConfig.Status.DIFFERENT_VERSION)
+        self.set_button.setEnabled(status != SystemOpenXRConfig.Status.OK)
 
 
 class TrackingConfigGroup(QGroupBox):
