@@ -19,8 +19,10 @@ from PySide6.QtWidgets import (
     QCheckBox,
 )
 
-from PySide6.QtCore import QEvent, Qt, QSize, QEvent, QRect, QTimer
-from PySide6.QtGui import QPaintEvent, QColor, QPainter, QBrush, QImage
+from PySide6 import QtCore
+from PySide6.QtCore import Qt, QSize, QRect, QTimer
+from PySide6.QtGui import QPaintEvent, QPainter, QImage
+
 from mediapipe import solutions
 import numpy as np
 import cv2
@@ -28,7 +30,7 @@ import cv2
 from aethervr.config import *
 from aethervr.tracking_state import TrackingState
 from aethervr.input_state import ControllerButton
-from aethervr.runtime_connection import RuntimeConnection
+from aethervr.runtime_connection import RuntimeConnection, RegisterImageData, PresentImageData
 from aethervr.system_openxr_config import SystemOpenXRConfig
 from aethervr.display_surface import DisplaySurface
 
@@ -78,9 +80,6 @@ class Window(QMainWindow):
 
         self.camera_view = CameraView()
         self.frame_view = FrameView(self.connection)
-
-        self.connection.on_register_image.subscribe(self.frame_view.register_image)
-        self.connection.on_present_image.subscribe(self.frame_view.present_image)
 
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.VLine)
@@ -147,7 +146,7 @@ class ConfigPanel(QWidget):
     def _build_controller_group(self, label: str, config: ControllerConfig):
         group = QGroupBox(label)
 
-        press_thumbstick_checkbox = QCheckBox("Press Thumbstick on Activation")
+        press_thumbstick_checkbox = QCheckBox("Press Thumbstick During Use")
         press_thumbstick_checkbox.setChecked(config.press_thumbstick)
         press_thumbstick_checkbox.checkStateChanged.connect(lambda value: ConfigPanel._on_press_thumbstick_changed(config, value))
 
@@ -406,6 +405,8 @@ class CameraView(QLabel):
 
 
 class FrameView(QLabel):
+    
+    _present_image_signal = QtCore.Signal(PresentImageData)
 
     def __init__(self, connection: RuntimeConnection):
         super().__init__()
@@ -417,15 +418,20 @@ class FrameView(QLabel):
         self.setFixedWidth(640)
         self.setFixedHeight(640)
 
-        connection.on_runtime_info.subscribe(self.on_runtime_info)
+        self._present_image_signal.connect(self._present_image_slot)
+
+        connection.on_runtime_info.subscribe(self._on_runtime_info)
+        connection.on_register_image.subscribe(self._register_image)
+        connection.on_present_image.subscribe(self._present_image_signal.emit)
     
-    def on_runtime_info(self, _: str, graphics_api: int):
+    def _on_runtime_info(self, _: str, graphics_api: int):
         self.surface.create(graphics_api, self.window_id)
 
-    def register_image(self, data):
+    def _register_image(self, data: RegisterImageData):
         self.surface.register_image(data)
 
-    def present_image(self, data):
+    @QtCore.Slot(PresentImageData)
+    def _present_image_slot(self, data: PresentImageData):
         self.image_data = data
         self.update()
 
@@ -438,8 +444,12 @@ class StatusBar(QLabel):
 
     OPENCOMPOSITE_PREFIX = "OpenComposite_"
 
+    _build_signal = QtCore.Signal()
+
     def __init__(self, connection: RuntimeConnection):
         super().__init__()
+
+        self._build_signal.connect(self.build)
 
         self.connection = connection
         self.connection.on_connected.subscribe(lambda: self.set_state(True))
@@ -458,13 +468,15 @@ class StatusBar(QLabel):
             self.application_name = None
             self.graphics_api = None
 
-        self.build()
+        self._build_signal.emit()
 
     def update_runtime_info(self, application_name: str, graphics_api: int):
         self.application_name = application_name
         self.graphics_api = graphics_api
-        self.build()
 
+        self._build_signal.emit()
+
+    @QtCore.Slot()
     def build(self):
         if self.connected:
             text = "Connected"

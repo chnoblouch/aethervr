@@ -30,8 +30,7 @@ class CameraCapture:
             ret, frame = capture.read()
             if not ret:
                 print("Failed to capture camera image")
-                self.running = False
-                break
+                continue
 
             self.frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             self.frame = cv2.flip(self.frame, 1)

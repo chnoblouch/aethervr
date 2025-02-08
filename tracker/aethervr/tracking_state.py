@@ -7,6 +7,7 @@ from aethervr.pose import Position, Orientation
 
 @dataclass
 class HeadState:
+    visible: bool = False
     position: Position = field(default_factory=lambda: Position(0.0, 0.0, 0.0))
     pitch: float = 0.0
     yaw: float = 0.0

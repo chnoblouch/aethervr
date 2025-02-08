@@ -75,6 +75,9 @@ class RuntimeConnection:
                 except socket.timeout:
                     continue
 
+            if not self.running:
+                break
+
             print("OpenXR runtime connected")
             self.on_connected.trigger()
 
@@ -138,8 +141,8 @@ class RuntimeConnection:
         self.on_register_image.trigger(message)
 
     def receive_present_image(self):
-        image_id = PresentImageData(*struct.unpack("IIIIII", self.stream.recv(24)))
-        self.on_present_image.trigger(image_id)
+        message = PresentImageData(*struct.unpack("IIIIII", self.stream.recv(24)))
+        self.on_present_image.trigger(message)
 
     def update_headset_state(self, state: HeadsetState):
         with self.headset_state_lock:
