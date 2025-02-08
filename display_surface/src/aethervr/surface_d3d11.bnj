@@ -49,7 +49,7 @@ struct D3D11Surface: Surface {
             adapter,
             winapi.D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_UNKNOWN,
             null,
-            winapi.D3D11_CREATE_DEVICE_DEBUG,
+            0,
             &feature_level,
             1,
             winapi.D3D11_SDK_VERSION,

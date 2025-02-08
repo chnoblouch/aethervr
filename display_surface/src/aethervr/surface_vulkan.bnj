@@ -42,7 +42,7 @@ struct VulkanSurface: Surface {
         };
 
         var instance_layers: Array[*u8] = [
-            "VK_LAYER_KHRONOS_validation"
+            # "VK_LAYER_KHRONOS_validation"
         ];
 
         var instance_extensions: Array[*u8] = [
