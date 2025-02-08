@@ -37,29 +37,31 @@ class HeadTracker:
         self.timestamp += 1
 
     def _process_results(self, detection_results, image, timestamp):
-        if len(detection_results.facial_transformation_matrixes) == 0:
-            return
+        state = HeadState(visible=False)
 
-        matrix = detection_results.facial_transformation_matrixes[0]
+        if len(detection_results.facial_transformation_matrixes) > 0:
+            state.visible = True
 
-        # position = Position(matrix[0][3] / 100.0, matrix[1][3] / 100.0, -matrix[2][3] / 100.0)
-        position = Position(0.0, 0.0, 0.0)
+            matrix = detection_results.facial_transformation_matrixes[0]
+            
+            # state.position = Position(matrix[0][3] / 100.0, matrix[1][3] / 100.0, -matrix[2][3] / 100.0)
+            state.position = Position(0.0, 0.0, 0.0)
 
-        x_axis = matrix[0][0:3]
-        x_axis = x_axis / np.linalg.norm(x_axis)
-        y_axis = matrix[1][0:3]
-        y_axis = y_axis / np.linalg.norm(y_axis)
-        z_axis = matrix[2][0:3]
-        z_axis = z_axis / np.linalg.norm(z_axis)
+            x_axis = matrix[0][0:3]
+            x_axis = x_axis / np.linalg.norm(x_axis)
+            y_axis = matrix[1][0:3]
+            y_axis = y_axis / np.linalg.norm(y_axis)
+            z_axis = matrix[2][0:3]
+            z_axis = z_axis / np.linalg.norm(z_axis)
 
-        x = x_axis[0]
-        y = z_axis[1]
-        z = x_axis[2]
+            x = x_axis[0]
+            y = z_axis[1]
+            z = x_axis[2]
 
-        pitch = -float(np.rad2deg(np.arcsin(y)))
-        yaw = -float(np.rad2deg(np.arctan2(z, x)))
+            state.pitch = -float(np.rad2deg(np.arcsin(y)))
+            state.yaw = -float(np.rad2deg(np.arctan2(z, x)))
 
-        self.detection_callback(HeadState(position, pitch, yaw))
+        self.detection_callback(state)
 
     def close(self):
         self.detector.close()

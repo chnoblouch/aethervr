@@ -78,9 +78,13 @@ class Application:
 
         self.tracking_state.head = state
 
-        self.input_state.headset_state.position = state.position
-        self.input_state.headset_state.pitch = state.pitch
-        self.input_state.headset_state.yaw = state.yaw
+        if state.visible:
+            self.input_state.headset_state.position = state.position
+            self.input_state.headset_state.pitch = state.pitch
+            self.input_state.headset_state.yaw = state.yaw
+        else:
+            self.input_state.headset_state.pitch = 0.0
+            self.input_state.headset_state.yaw = 0.0
 
         self.connection.update_headset_state(self.input_state.headset_state)
 
