@@ -1,216 +1,230 @@
-use std.{system.panic, memory};
-use windows as winapi;
+use std.{system.panic, memory, config};
 
-use aethervr.{
-    display_surface.{Surface, ImageRegisterInfo, ImagePresentInfo},
-    platform_windows as platform,
-};
+meta if config.OS == config.WINDOWS {
+    use windows as winapi;
 
-struct SharedImage {
-    var id: u32;
-    var texture: *winapi.ID3D11Texture2D;
-    var mutex: *winapi.IDXGIKeyedMutex;
-}
+    use aethervr.{
+        display_surface.{Surface, ImageRegisterInfo, ImagePresentInfo},
+        platform,
+    };
 
-struct D3D11Surface: Surface {
-    var device_as_device1: *winapi.ID3D11Device1;
-    var device_context: *winapi.ID3D11DeviceContext;
-    var buffer: *winapi.ID3D11Texture2D;
-    var swapchain: *winapi.IDXGISwapChain1;
-    var images: Array[SharedImage];
-
-    pub func create(hwnd: winapi.HANDLE) -> *D3D11Surface {
-        var factory: *winapi.IDXGIFactory2;
-
-        if winapi.CreateDXGIFactory1(&winapi.IDXGIFactory2_Guid, &factory as **void) != 0 {
-            panic("Failed to create DXGI factory");
-        }
-
-        var adapter: *winapi.IDXGIAdapter;
-
-        if factory.EnumAdapters(0, &adapter) != 0 {
-            panic("Failed to find a DXGI adapter");
-        }
-
-        var desc: winapi.DXGI_ADAPTER_DESC;
-
-        if adapter.GetDesc(&desc) != 0 {
-            panic("Failed to get DXGI adapter description");
-        }
-
-        print("Using adapter with LUID ");
-        println(*(&desc.AdapterLuid as *u64));
-
-        var feature_level = winapi.D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_1;
-        var device: *winapi.ID3D11Device;
-        var device_context: *winapi.ID3D11DeviceContext;
-
-        if winapi.D3D11CreateDevice(
-            adapter,
-            winapi.D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_UNKNOWN,
-            null,
-            0,
-            &feature_level,
-            1,
-            winapi.D3D11_SDK_VERSION,
-            &device,
-            null,
-            &device_context
-        ) != 0 {
-            panic("Failed to create D3D11 device");
-        }
-
-        println("Device created");
-
-        var device_as_device1: *winapi.ID3D11Device1;
-        var device_as_iunknown: *winapi.IUnknown;
-
-        if device.QueryInterface(&winapi.ID3D11Device1_Guid, &device_as_device1 as **void) != 0 {
-            panic("Failed to access ID3D11Device1 interface of device");
-        }
-
-        if device.QueryInterface(&winapi.IUnknown_Guid, &device_as_iunknown as **void) != 0 {
-            panic("Failed to access IUnknown interface of device");
-        }
-
-        var swapchain_desc = winapi.DXGI_SWAP_CHAIN_DESC1 {
-            Width: 0,
-            Height: 0,
-            Format: winapi.DXGI_FORMAT.DXGI_FORMAT_R8G8B8A8_UNORM,
-            Stereo: 0,
-            SampleDesc: winapi.DXGI_SAMPLE_DESC {
-                Count: 1,
-                Quality: 0,
-            },
-            BufferUsage: winapi.DXGI_USAGE_UNORDERED_ACCESS,
-            BufferCount: 2,
-            SwapEffect: winapi.DXGI_SWAP_EFFECT.DXGI_SWAP_EFFECT_FLIP_DISCARD,
-            Scaling: winapi.DXGI_SCALING.DXGI_SCALING_STRETCH,
-            AlphaMode: winapi.DXGI_ALPHA_MODE.DXGI_ALPHA_MODE_UNSPECIFIED,
-            Flags: 0,
-        };
-
-        var swapchain: *winapi.IDXGISwapChain1;
-
-        if factory.CreateSwapChainForHwnd(device_as_iunknown, hwnd, &swapchain_desc, null, null, &swapchain) != 0 {
-            panic("Failed to create swapchain");
-        }
-
-        println("Swapchain created");
-
-        var buffer: *winapi.ID3D11Texture2D;
-
-        if swapchain.GetBuffer(0, &winapi.ID3D11Texture2D_Guid, &buffer as **void) != 0 {
-            panic("Failed to get swapchain buffer");
-        }
-
-        println("Got swapchain buffer");
-
-        device_as_iunknown.Release();
-        device.Release();
-        adapter.Release();
-        factory.Release();
-
-        return memory.box(D3D11Surface {
-            device_as_device1,
-            device_context,
-            buffer,
-            swapchain,
-            images: [],
-        });
-    }
-
-    pub func register_image(self, id: u32, info: ImageRegisterInfo) {
-        var local_handle = platform.access_handle(info.process_id, info.shared_handle as addr);
-        
+    struct SharedImage {
+        var id: u32;
         var texture: *winapi.ID3D11Texture2D;
-
-        if self.device_as_device1.OpenSharedResource1(local_handle, &winapi.ID3D11Texture2D_Guid, &texture as **void) != 0 {
-            panic("Failed to open foreign texture");
-        }
-
-        println("Opened foreign texture");
-
         var mutex: *winapi.IDXGIKeyedMutex;
-
-        if texture.QueryInterface(&winapi.IDXGIKeyedMutex_Guid, &mutex as **void) != 0 {
-            panic("Failed to access IDXGIKeyedMutex interface of mutex");
-        }
-
-        self.images.append(SharedImage { id, texture, mutex });
     }
 
-    pub func present_image(self, id: u32, info: ImagePresentInfo) {
-        var shared_image: *SharedImage = null;
+    struct D3D11Surface: Surface {
+        var device_as_device1: *winapi.ID3D11Device1;
+        var device_context: *winapi.ID3D11DeviceContext;
+        var buffer: *winapi.ID3D11Texture2D;
+        var swapchain: *winapi.IDXGISwapChain1;
+        var images: Array[SharedImage];
 
-        for *image in self.images {
-            if image.id == id {
-                shared_image = image;
+        pub func create(window: usize) -> *D3D11Surface {
+            var factory: *winapi.IDXGIFactory2;
+
+            if winapi.CreateDXGIFactory1(&winapi.IDXGIFactory2_Guid, &factory as **void) != 0 {
+                panic("Failed to create DXGI factory");
             }
+
+            var adapter: *winapi.IDXGIAdapter;
+
+            if factory.EnumAdapters(0, &adapter) != 0 {
+                panic("Failed to find a DXGI adapter");
+            }
+
+            var desc: winapi.DXGI_ADAPTER_DESC;
+
+            if adapter.GetDesc(&desc) != 0 {
+                panic("Failed to get DXGI adapter description");
+            }
+
+            print("Using adapter with LUID ");
+            println(*(&desc.AdapterLuid as *u64));
+
+            var feature_level = winapi.D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_1;
+            var device: *winapi.ID3D11Device;
+            var device_context: *winapi.ID3D11DeviceContext;
+
+            if winapi.D3D11CreateDevice(
+                adapter,
+                winapi.D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_UNKNOWN,
+                null,
+                0,
+                &feature_level,
+                1,
+                winapi.D3D11_SDK_VERSION,
+                &device,
+                null,
+                &device_context
+            ) != 0 {
+                panic("Failed to create D3D11 device");
+            }
+
+            println("Device created");
+
+            var device_as_device1: *winapi.ID3D11Device1;
+            var device_as_iunknown: *winapi.IUnknown;
+
+            if device.QueryInterface(&winapi.ID3D11Device1_Guid, &device_as_device1 as **void) != 0 {
+                panic("Failed to access ID3D11Device1 interface of device");
+            }
+
+            if device.QueryInterface(&winapi.IUnknown_Guid, &device_as_iunknown as **void) != 0 {
+                panic("Failed to access IUnknown interface of device");
+            }
+
+            var swapchain_desc = winapi.DXGI_SWAP_CHAIN_DESC1 {
+                Width: 0,
+                Height: 0,
+                Format: winapi.DXGI_FORMAT.DXGI_FORMAT_R8G8B8A8_UNORM,
+                Stereo: 0,
+                SampleDesc: winapi.DXGI_SAMPLE_DESC {
+                    Count: 1,
+                    Quality: 0,
+                },
+                BufferUsage: winapi.DXGI_USAGE_UNORDERED_ACCESS,
+                BufferCount: 2,
+                SwapEffect: winapi.DXGI_SWAP_EFFECT.DXGI_SWAP_EFFECT_FLIP_DISCARD,
+                Scaling: winapi.DXGI_SCALING.DXGI_SCALING_STRETCH,
+                AlphaMode: winapi.DXGI_ALPHA_MODE.DXGI_ALPHA_MODE_UNSPECIFIED,
+                Flags: 0,
+            };
+
+            var swapchain: *winapi.IDXGISwapChain1;
+
+            if factory.CreateSwapChainForHwnd(
+                device_as_iunknown,
+                window as winapi.HANDLE,
+                &swapchain_desc,
+                null,
+                null,
+                &swapchain,
+            ) != 0 {
+                panic("Failed to create swapchain");
+            }
+
+            println("Swapchain created");
+
+            var buffer: *winapi.ID3D11Texture2D;
+
+            if swapchain.GetBuffer(0, &winapi.ID3D11Texture2D_Guid, &buffer as **void) != 0 {
+                panic("Failed to get swapchain buffer");
+            }
+
+            println("Got swapchain buffer");
+
+            device_as_iunknown.Release();
+            device.Release();
+            adapter.Release();
+            factory.Release();
+
+            return memory.box(D3D11Surface {
+                device_as_device1,
+                device_context,
+                buffer,
+                swapchain,
+                images: [],
+            });
         }
 
-        if shared_image == null {
-            return;
+        pub func register_image(self, id: u32, info: ImageRegisterInfo) {
+            var local_handle = platform.access_handle(info.process_id, info.shared_handle);
+            
+            var texture: *winapi.ID3D11Texture2D;
+
+            if self.device_as_device1.OpenSharedResource1(
+                local_handle as winapi.HANDLE,
+                &winapi.ID3D11Texture2D_Guid,
+                &texture as **void,
+            ) != 0 {
+                panic("Failed to open foreign texture");
+            }
+
+            println("Opened foreign texture");
+
+            var mutex: *winapi.IDXGIKeyedMutex;
+
+            if texture.QueryInterface(&winapi.IDXGIKeyedMutex_Guid, &mutex as **void) != 0 {
+                panic("Failed to access IDXGIKeyedMutex interface of mutex");
+            }
+
+            self.images.append(SharedImage { id, texture, mutex });
         }
 
-        if shared_image.mutex.AcquireSync(1, 10) != 0 {
-            println("Failed to acquire mutex!");
-            return;
+        pub func present_image(self, id: u32, info: ImagePresentInfo) {
+            var shared_image: *SharedImage = null;
+
+            for *image in self.images {
+                if image.id == id {
+                    shared_image = image;
+                }
+            }
+
+            if shared_image == null {
+                return;
+            }
+
+            if shared_image.mutex.AcquireSync(1, 10) != 0 {
+                println("Failed to acquire mutex!");
+                return;
+            }
+
+            var destination: *winapi.ID3D11Resource;
+
+            if self.buffer.QueryInterface(&winapi.ID3D11Resource_Guid, &destination as **void) != 0 {
+                panic("Failed to query ID3D11Resource interface of copy destination");
+            }
+
+            var source: *winapi.ID3D11Resource;
+
+            if shared_image.texture.QueryInterface(&winapi.ID3D11Resource_Guid, &source as **void) != 0 {
+                panic("Failed to query ID3D11Resource interface of copy source");
+            }
+
+            var source_box = winapi.D3D11_BOX {
+                left: info.x,
+                top: info.y,
+                front: 0,
+                right: info.x + info.width,
+                bottom: info.y + info.height,
+                back: 1,
+            };
+
+            self.device_context.CopySubresourceRegion(
+                destination,
+                0,
+                0,
+                0,
+                0,
+                source,
+                info.array_index,
+                &source_box,
+            );
+
+            self.swapchain.Present(0, 0);
+
+            if shared_image.mutex.ReleaseSync(0) != 0 {
+                println("Failed to release mutex!");
+            }
+
+            source.Release();
+            destination.Release();
         }
 
-        var destination: *winapi.ID3D11Resource;
+        pub func destroy(self) {
+            for image in self.images {
+                image.mutex.Release();
+                image.texture.Release();
+            }
 
-        if self.buffer.QueryInterface(&winapi.ID3D11Resource_Guid, &destination as **void) != 0 {
-            panic("Failed to query ID3D11Resource interface of copy destination");
+            self.buffer.Release();
+            self.swapchain.Release();
+            self.device_context.Release();
+            self.device_as_device1.Release();
+
+            memory.free(self);
         }
-
-        var source: *winapi.ID3D11Resource;
-
-        if shared_image.texture.QueryInterface(&winapi.ID3D11Resource_Guid, &source as **void) != 0 {
-            panic("Failed to query ID3D11Resource interface of copy source");
-        }
-
-        var source_box = winapi.D3D11_BOX {
-            left: info.x,
-            top: info.y,
-            front: 0,
-            right: info.x + info.width,
-            bottom: info.y + info.height,
-            back: 1,
-        };
-
-        self.device_context.CopySubresourceRegion(
-            destination,
-            0,
-            0,
-            0,
-            0,
-            source,
-            info.array_index,
-            &source_box,
-        );
-
-        self.swapchain.Present(0, 0);
-
-        if shared_image.mutex.ReleaseSync(0) != 0 {
-            println("Failed to release mutex!");
-        }
-
-        source.Release();
-        destination.Release();
-    }
-
-    pub func destroy(self) {
-        for image in self.images {
-            image.mutex.Release();
-            image.texture.Release();
-        }
-
-        self.buffer.Release();
-        self.swapchain.Release();
-        self.device_context.Release();
-        self.device_as_device1.Release();
-
-        memory.free(self);
     }
 }

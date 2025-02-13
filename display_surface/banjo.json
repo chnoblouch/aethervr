@@ -1,6 +1,13 @@
 {
   "name": "aethervr_display_surface",
   "type": "shared_library",
-  "packages": ["windows", "vulkan"],
-  "libraries": ["d3d11", "dxgi"]
+  "targets": {
+    "x86_64-windows-msvc": {
+      "packages": ["vulkan", "windows"],
+      "libraries": ["d3d11", "dxgi"]
+    },
+    "x86_64-linux-gnu": {
+      "packages": ["vulkan"]
+    }
+  }
 }

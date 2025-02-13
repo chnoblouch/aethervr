@@ -1,10 +1,12 @@
-use std.{system.panic, memory};
-use windows as winapi;
+use std.{system.panic, memory, config};
 
-use aethervr.{
-    surface_vulkan.VulkanSurface,
-    surface_d3d11.D3D11Surface,
-};
+meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
+    use aethervr.surface_vulkan.VulkanSurface;
+}
+
+meta if config.OS == config.WINDOWS {
+    use aethervr.surface_d3d11.D3D11Surface;
+}
 
 struct ImageRegisterInfo {
     var process_id: u32;
@@ -32,17 +34,27 @@ proto Surface {
 }
 
 @[dllexport]
-func aethervr_display_surface_create(graphics_api: u32, hwnd: winapi.HANDLE) -> **Surface {        
+func aethervr_display_surface_create(
+    graphics_api: u32,
+    display: usize,
+    window: usize,
+) -> **Surface {        
     println("Creating display surface");
     
     var surface: *Surface;
 
-    if graphics_api == 0 {
-        surface = VulkanSurface.create(hwnd);
-        println("Vulkan surface created");
-    } else if graphics_api == 1 {
-        surface = D3D11Surface.create(hwnd);
-        println("D3D11 surface created");
+    meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
+        if graphics_api == 0 {
+            surface = VulkanSurface.create(display, window);
+            println("Vulkan surface created");
+        }
+    }
+    
+    meta if config.OS == config.WINDOWS {
+        if graphics_api == 1 {
+            surface = D3D11Surface.create(window);
+            println("D3D11 surface created");
+        }
     }
 
     return memory.box(surface);
@@ -63,6 +75,8 @@ func aethervr_display_surface_register_image(
     opaque_value_1: u64,
 ) {
     println("Registering surface image");
+    print("  ID: ");
+    println(id);
     print("  Process ID: ");
     println(process_id);
     print("  Shared handle: ");

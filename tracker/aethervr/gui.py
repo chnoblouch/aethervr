@@ -33,6 +33,7 @@ from aethervr.input_state import ControllerButton
 from aethervr.runtime_connection import RuntimeConnection, RegisterImageData, PresentImageData
 from aethervr.system_openxr_config import SystemOpenXRConfig
 from aethervr.display_surface import DisplaySurface
+from aethervr import platform
 
 
 STYLESHEET = """
@@ -309,7 +310,6 @@ class MiddlePinchBindingDropdown(QComboBox):
         self.config.thumbstick_enabled = value
 
 
-
 class CameraView(QLabel):
 
     def __init__(self):
@@ -434,7 +434,14 @@ class FrameView(QLabel):
         connection.on_present_image.subscribe(self._present_image_signal.emit)
     
     def _on_runtime_info(self, _: str, graphics_api: int):
-        self.surface.create(graphics_api, self.window_id)
+        native_interface = QApplication.instance().nativeInterface()
+
+        if platform.is_linux:
+            display = native_interface.connection()
+        else:
+            display = 0
+
+        self.surface.create(graphics_api, display, self.window_id)
 
     def _register_image(self, data: RegisterImageData):
         self.surface.register_image(data)

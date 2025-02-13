@@ -12,6 +12,12 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         graphics.{ImageRegion, ImageData},
         utils.{version, handle_buffer_size},
     };
+    
+    meta if config.OS == config.WINDOWS {
+        const EXTERNAL_MEMORY_HANDLE_TYPE: vk.ExternalMemoryHandleTypeFlagBits = vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT;
+    } else if config.OS == config.LINUX {
+        const EXTERNAL_MEMORY_HANDLE_TYPE: vk.ExternalMemoryHandleTypeFlagBits = vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_FD_BIT;
+    }
 
     pub func get_requirements(reqs: *xr.GraphicsRequirementsVulkanKHR) -> xr.Result {
         reqs.min_api_version_supported = version(1, 0, 0);
@@ -68,11 +74,11 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         }
 
         # TODO: Don't create duplicate extensions.
-        vk_extensions.append("VK_KHR_external_memory");
-        vk_extensions.append("VK_KHR_external_memory_win32");
+        vk_extensions.append("VK_KHR_get_physical_device_properties2");
+        vk_extensions.append("VK_KHR_external_memory_capabilities");
 
         log.enter_scope();
-        log.info("Vulkan extensions:");
+        log.info("Vulkan instance extensions:");
         log.enter_scope();
 
         for vk_extension in vk_extensions {
@@ -99,9 +105,42 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         vk_device: *addr,
         vk_result: *vk.Result
     ) -> xr.Result {
+        var vk_create_info = *(info.vulkan_create_info as *vk.DeviceCreateInfo);
+
+        var vk_extensions: Array[*u8] = [];
+
+        for i in 0..vk_create_info.enabled_extension_count {
+            vk_extensions.append(vk_create_info.pp_enabled_extension_names[i]);
+        }
+
+        # TODO: Don't create duplicate extensions.
+        vk_extensions.append("VK_KHR_external_memory");
+        vk_extensions.append("VK_KHR_get_memory_requirements2");
+        vk_extensions.append("VK_KHR_dedicated_allocation");
+        
+        meta if config.OS == config.WINDOWS {
+            vk_extensions.append("VK_KHR_external_memory_win32");
+        } else if config.OS == config.LINUX {
+            vk_extensions.append("VK_KHR_external_memory_fd");
+        }
+
+        log.enter_scope();
+        log.info("Vulkan device extensions:");
+        log.enter_scope();
+
+        for vk_extension in vk_extensions {
+            log.info("- %", vk_extension);
+        }
+
+        log.exit_scope();
+        log.exit_scope();
+
+        vk_create_info.enabled_extension_count = vk_extensions.length as u32;
+        vk_create_info.pp_enabled_extension_names = vk_extensions.data;
+    
         *vk_result = vk.create_device(
             info.vulkan_physical_device,
-            info.vulkan_create_info as *vk.DeviceCreateInfo,
+            &vk_create_info,
             info.vulkan_allocator as *vk.AllocationCallbacks,
             vk_device
         );
@@ -174,7 +213,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         var external_image_create_info = vk.ExternalMemoryImageCreateInfo {
             s_type: vk.StructureType.EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
             p_next: null,
-            handle_types: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT as u32,
+            handle_types: EXTERNAL_MEMORY_HANDLE_TYPE as u32,
         };
 
         var image_create_info = vk.ImageCreateInfo {
@@ -233,7 +272,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         var export_info = vk.ExportMemoryAllocateInfo {
             s_type: vk.StructureType.EXPORT_MEMORY_ALLOCATE_INFO,
             p_next: &dedicated_allocate_info,
-            handle_types: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT as u32,
+            handle_types: EXTERNAL_MEMORY_HANDLE_TYPE as u32,
         };
 
         var allocate_info = vk.MemoryAllocateInfo {
@@ -273,30 +312,59 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         binding: *xr.GraphicsBindingVulkanKHR,
         image: *SwapchainImage,
     ) -> ?usize {
-        var vk_get_memory_win32_handle_khr =
-            vk.get_instance_proc_addr(binding.instance, "vkGetMemoryWin32HandleKHR")
-            as func(addr, *vk.MemoryGetWin32HandleInfoKHR, *addr) -> vk.Result;
+        log.info("Sharing Vulkan image");
 
-        if vk_get_memory_win32_handle_khr == null {
-            log.error("Vulkan: Failed to obtain `vkGetMemoryWin32HandleKHR` function pointer");
-            return none;
+        meta if config.OS == config.WINDOWS {
+            var vk_get_memory_win32_handle_khr =
+                vk.get_instance_proc_addr(binding.instance, "vkGetMemoryWin32HandleKHR")
+                as func(addr, *vk.MemoryGetWin32HandleInfoKHR, *addr) -> vk.Result;
+
+            if vk_get_memory_win32_handle_khr == null {
+                log.error("Vulkan: Failed to obtain `vkGetMemoryWin32HandleKHR` function pointer");
+                return none;
+            }
+
+            var get_info = vk.MemoryGetWin32HandleInfoKHR {
+                s_type: vk.StructureType.MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+                p_next: null,
+                handle_type: EXTERNAL_MEMORY_HANDLE_TYPE,
+                memory: image.api_memory,
+            };
+
+            var handle: addr = null;
+
+            if vk_get_memory_win32_handle_khr(binding.device, &get_info, &handle) != vk.Result.SUCCESS {
+                log.error("Vulkan: Failed to get memory handle");
+                return none;
+            }
+
+            return handle as usize;
+        } else if config.OS == config.LINUX {
+            var vk_get_memory_fd_khr =
+                vk.get_instance_proc_addr(binding.instance, "vkGetMemoryFdKHR")
+                as func(addr, *vk.MemoryGetFdInfoKHR, *i32) -> vk.Result;
+
+            if vk_get_memory_fd_khr == null {
+                log.error("Vulkan: Failed to obtain `vkGetMemoryFdKHR` function pointer");
+                return none;
+            }
+
+            var get_info = vk.MemoryGetFdInfoKHR {
+                s_type: vk.StructureType.MEMORY_GET_FD_INFO_KHR,
+                p_next: null,
+                handle_type: EXTERNAL_MEMORY_HANDLE_TYPE,
+                memory: image.api_memory,
+            };
+
+            var handle: i32 = -1;
+
+            if vk_get_memory_fd_khr(binding.device, &get_info, &handle) != vk.Result.SUCCESS {
+                log.error("Vulkan: Failed to get memory file descriptor");
+                return none;
+            }
+
+            return handle as usize;
         }
-
-        var get_info = vk.MemoryGetWin32HandleInfoKHR {
-            s_type: vk.StructureType.MEMORY_GET_WIN32_HANDLE_INFO_KHR,
-            p_next: null,
-            handle_type: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT,
-            memory: image.api_memory,
-        };
-
-        var handle: addr = null;
-
-        if vk_get_memory_win32_handle_khr(binding.device, &get_info, &handle) != vk.Result.SUCCESS {
-            log.error("Vulkan: Failed to get win32 memory handle");
-            return none;
-        }
-
-        return handle as usize;
     }
     
     func find_memory_type(

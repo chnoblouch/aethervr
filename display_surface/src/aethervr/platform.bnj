@@ -1,0 +1,56 @@
+use std.{config, system.panic};
+
+meta if config.OS == config.WINDOWS {
+    use windows as winapi;
+
+    pub func access_handle(process_id: u32, handle: usize) -> usize {
+        var process = winapi.OpenProcess(0x40, 0, process_id);
+
+        if process == null {
+            panic("Failed to open target process");
+        }
+
+        println("Opened target process");
+
+        var local_handle: winapi.HANDLE = null;
+
+        if winapi.DuplicateHandle(
+            process,
+            handle as winapi.HANDLE,
+            winapi.GetCurrentProcess(),
+            &local_handle,
+            0,
+            0,
+            0x2
+        ) == 0 {
+            panic("Failed to duplicate handle");
+        }
+
+        println("Handle duplicated");
+
+        if winapi.CloseHandle(process) == 0 {
+            panic("Failed to close process handle");
+        }
+
+        println("Process handle closed");
+        
+        return local_handle as usize;
+    }
+} else if config.OS == config.LINUX {
+    native func pidfd_open(pid: i32, flags: u32) -> i32;
+    native func pidfd_getfd(pidfd: i32, targetfd: i32, flags: u32) -> i32;
+
+    pub func access_handle(process_id: u32, handle: usize) -> usize {
+        var pidfd = pidfd_open(process_id as i32, 0);
+        if pidfd == -1 {
+            panic("Failed to open file descriptor for target PID");
+        }
+
+        var local_fd = pidfd_getfd(pidfd, handle as i32, 0);
+        if local_fd == -1 {
+            panic("Failed to get file descriptor from target process");
+        }
+
+        return local_fd as usize;
+    }
+}

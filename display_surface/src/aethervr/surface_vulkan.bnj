@@ -1,12 +1,15 @@
-use std.{system.panic, memory};
+use std.{system.panic, memory, config};
 
 use vulkan as vk;
-use windows as winapi;
 
 use aethervr.{
     display_surface.{Surface, ImageRegisterInfo, ImagePresentInfo},
-    platform_windows as platform,
+    platform,
 };
+
+meta if config.OS == config.WINDOWS {
+    use windows as winapi;
+}
 
 struct SharedImage {
     var id: u32;
@@ -30,7 +33,7 @@ struct VulkanSurface: Surface {
 
     var images: Array[SharedImage];
 
-    pub func create(hwnd: winapi.HANDLE) -> *VulkanSurface {
+    pub func create(display: usize, window: usize) -> *VulkanSurface {
         var application_info = vk.ApplicationInfo {
             s_type: vk.StructureType.APPLICATION_INFO,
             p_next: null,
@@ -42,13 +45,20 @@ struct VulkanSurface: Surface {
         };
 
         var instance_layers: Array[*u8] = [
-            # "VK_LAYER_KHRONOS_validation"
+            "VK_LAYER_KHRONOS_validation"
         ];
 
-        var instance_extensions: Array[*u8] = [
-            "VK_KHR_surface",
-            "VK_KHR_win32_surface",
-        ];
+        meta if config.OS == config.WINDOWS {
+            var instance_extensions: Array[*u8] = [
+                "VK_KHR_surface",
+                "VK_KHR_win32_surface",
+            ];
+        } else if config.OS == config.LINUX {
+            var instance_extensions: Array[*u8] = [
+                "VK_KHR_surface",
+                "VK_KHR_xcb_surface",
+            ];
+        }
 
         var create_info = vk.InstanceCreateInfo {
             s_type: vk.StructureType.INSTANCE_CREATE_INFO,
@@ -67,18 +77,34 @@ struct VulkanSurface: Surface {
             panic("Vulkan: Failed to create instance");
         }
 
-        var surface_create_info = vk.Win32SurfaceCreateInfoKHR {
-            s_type: vk.StructureType.WIN32_SURFACE_CREATE_INFO_KHR,
-            p_next: null,
-            flags: 0,
-            hinstance: winapi.GetModuleHandleA(null),
-            hwnd: hwnd,
-        };
+        meta if config.OS == config.WINDOWS {
+            var surface_create_info = vk.Win32SurfaceCreateInfoKHR {
+                s_type: vk.StructureType.WIN32_SURFACE_CREATE_INFO_KHR,
+                p_next: null,
+                flags: 0,
+                hinstance: winapi.GetModuleHandleA(null),
+                hwnd: window as winapi.HANDLE,
+            };
 
-        var surface: addr;
+            var surface: addr;
 
-        if vk.create_win32_surface_khr(instance, &surface_create_info, null, &surface) != vk.Result.SUCCESS {
-            panic("Vulkan: Failed to create surface");
+            if vk.create_win32_surface_khr(instance, &surface_create_info, null, &surface) != vk.Result.SUCCESS {
+                panic("Vulkan: Failed to create surface");
+            }
+        } else if config.OS == config.LINUX {
+            var surface_create_info = vk.XcbSurfaceCreateInfoKHR {
+                s_type: vk.StructureType.XCB_SURFACE_CREATE_INFO_KHR,
+                p_next: null,
+                flags: 0,
+                connection: display as addr,
+                window: window as u32,
+            };
+
+            var surface: addr;
+
+            if vk.create_xcb_surface_khr(instance, &surface_create_info, null, &surface) != vk.Result.SUCCESS {
+                panic("Vulkan: Failed to create surface");
+            }
         }
 
         var physical_device_count: u32 = 0;
@@ -202,7 +228,7 @@ struct VulkanSurface: Surface {
         var surface_format: ?vk.SurfaceFormatKHR = none;
 
         for candidate in surface_formats {
-            if candidate.format == vk.Format.R8G8B8A8_SRGB {
+            if candidate.format == vk.Format.B8G8R8A8_SRGB {
                 surface_format = candidate;
                 break;
             }
@@ -255,8 +281,8 @@ struct VulkanSurface: Surface {
 
         var swapchain_image_count: u32 = 0;
         vk.get_swapchain_images_khr(device, swapchain, &swapchain_image_count, null);
-
-        var swapchain_images: Array[addr];
+        
+        var swapchain_images: Array[addr] = [];
         swapchain_images.resize(swapchain_image_count as usize);
         vk.get_swapchain_images_khr(device, swapchain, &swapchain_image_count, swapchain_images.data);
 
@@ -296,13 +322,33 @@ struct VulkanSurface: Surface {
     }
 
     pub func register_image(self, id: u32, info: ImageRegisterInfo) {
-        var local_handle = platform.access_handle(info.process_id, info.shared_handle as addr);
+        var local_handle = platform.access_handle(info.process_id, info.shared_handle);
 
-        var external_memory_image_create_info = vk.ExternalMemoryImageCreateInfo {
-            s_type: vk.StructureType.EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
-            p_next: null,
-            handle_types: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT as u32,
-        };
+        meta if config.OS == config.WINDOWS {
+            var external_memory_image_create_info = vk.ExternalMemoryImageCreateInfo {
+                s_type: vk.StructureType.EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+                p_next: null,
+                handle_types: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT as u32,
+            };
+        } else if config.OS == config.LINUX {
+            var external_memory_image_create_info = vk.ExternalMemoryImageCreateInfo {
+                s_type: vk.StructureType.EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+                p_next: null,
+                handle_types: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_FD_BIT as u32,
+            };
+        }
+
+        var usage: u32;
+
+        # HACK: Usage flags should be sent by the runtime.
+
+        if info.format as vk.Format == vk.Format.D16_UNORM {
+            usage = vk.ImageUsageFlagBits.DEPTH_STENCIL_ATTACHMENT_BIT as u32 |
+                vk.ImageUsageFlagBits.TRANSFER_SRC_BIT as u32;
+        } else {
+            usage = vk.ImageUsageFlagBits.COLOR_ATTACHMENT_BIT as u32 |
+                vk.ImageUsageFlagBits.TRANSFER_SRC_BIT as u32;
+        }
 
         var image_create_info = vk.ImageCreateInfo {
             s_type: vk.StructureType.IMAGE_CREATE_INFO,
@@ -319,9 +365,7 @@ struct VulkanSurface: Surface {
             array_layers: info.array_size,
             samples: vk.SampleCountFlagBits._1_BIT,
             tiling: vk.ImageTiling.OPTIMAL,
-            usage:
-                vk.ImageUsageFlagBits.COLOR_ATTACHMENT_BIT as u32 |
-                vk.ImageUsageFlagBits.TRANSFER_SRC_BIT as u32,
+            usage: usage,
             sharing_mode: vk.SharingMode.EXCLUSIVE,
             queue_family_index_count: 1,
             p_queue_family_indices: &self.graphics_family_index,
@@ -341,18 +385,30 @@ struct VulkanSurface: Surface {
             image: image,
         };
 
-        var import_info = vk.ImportMemoryWin32HandleInfoKHR {
-            s_type: vk.StructureType.IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
-            p_next: &dedicated_allocate_info,
-            handle_type: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT,
-            handle: local_handle,
-            name: null,
-        };
+        meta if config.OS == config.WINDOWS {
+            var import_info = vk.ImportMemoryWin32HandleInfoKHR {
+                s_type: vk.StructureType.IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+                p_next: &dedicated_allocate_info,
+                handle_type: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_WIN32_BIT,
+                handle: local_handle as winapi.HANDLE,
+                name: null,
+            };
+        } else if config.OS == config.LINUX {
+            var import_info = vk.ImportMemoryFdInfoKHR {
+                s_type: vk.StructureType.IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+                p_next: &dedicated_allocate_info,
+                handle_type: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_FD_BIT,
+                fd: local_handle as i32,
+            };
+        }
+
+        var memory_requirements: vk.MemoryRequirements;
+        vk.get_image_memory_requirements(self.device, image, &memory_requirements);
 
         var allocate_info = vk.MemoryAllocateInfo {
             s_type: vk.StructureType.MEMORY_ALLOCATE_INFO,
             p_next: &import_info,
-            allocation_size: info.opaque_values[0],
+            allocation_size: memory_requirements.size,
             memory_type_index: info.opaque_values[1] as u32,
         };
 
@@ -384,14 +440,16 @@ struct VulkanSurface: Surface {
 
         var swapchain_image_index: u32;
 
-        vk.acquire_next_image_khr(
+        if vk.acquire_next_image_khr(
             self.device,
             self.swapchain,
             0xFFFFFFFFFFFFFFFFF,
             self.image_acquire_semaphore,
             null,
             &swapchain_image_index,
-        );
+        ) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to acquire swapchain image");
+        }
 
         if vk.reset_command_buffer(self.image_copy_command_buffer, 0) != vk.Result.SUCCESS {
             panic("Vulkan: Failed to reset image copy command buffer");

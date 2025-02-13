@@ -2,6 +2,8 @@ from pathlib import Path
 import ctypes
 import sys
 
+from aethervr import platform
+
 
 class DisplaySurface:
     _library = None
@@ -14,14 +16,18 @@ class DisplaySurface:
         self.handle = None
         self.graphics_api = None
 
-    def create(self, graphics_api, window):
+    def create(self, graphics_api, display, window):
         if graphics_api == self.graphics_api:
             return
-
+        
         if self.handle is not None:
             DisplaySurface._library.aethervr_display_surface_destroy(self.handle)
 
-        self.handle = DisplaySurface._library.aethervr_display_surface_create(graphics_api, window)
+        self.handle = DisplaySurface._library.aethervr_display_surface_create(
+            graphics_api,
+            display,
+            window,
+        )
 
         self.graphics_api = graphics_api
 
@@ -60,13 +66,22 @@ class DisplaySurface:
         if getattr(sys, "frozen", False):
             directory = Path(sys.executable).parent
         else:
-            directory = Path(__file__).parents[2] / "display_surface" / "out" / "x86_64-windows-msvc-debug"
+            build_dir_name = f"{platform.banjo_target_name()}-debug"
+            project_root = Path(__file__).parents[2]
+            directory = project_root / "display_surface" / "out" / build_dir_name
 
-        path = directory / "aethervr_display_surface.dll"
+        if platform.is_windows:
+            path = directory / "aethervr_display_surface.dll"
+        elif platform.is_linux:
+            path = directory / "libaethervr_display_surface.so"
+        else:
+            path = None
+
         library = ctypes.CDLL(str(path))
 
         library.aethervr_display_surface_create.argtypes = (
             ctypes.c_uint32,
+            ctypes.c_void_p,
             ctypes.c_void_p,
         )
         library.aethervr_display_surface_create.restype = ctypes.c_void_p

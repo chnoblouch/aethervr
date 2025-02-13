@@ -2,12 +2,9 @@ from pathlib import Path
 from enum import Enum
 import json
 import sys
-import platform
 import os
 
-
-is_windows = platform.system() == "Windows"
-is_linux = platform.system() == "Linux"
+from aethervr import platform
 
 
 class SystemOpenXRConfig:
@@ -60,9 +57,9 @@ class SystemOpenXRConfig:
             return json.load(f)
 
     def _find_current_manifest(self) -> Path:
-        if is_windows:
+        if platform.is_windows:
             return self._find_current_manifest_windows()
-        elif is_linux:
+        elif platform.is_linux:
             return self._find_current_manifest_linux()
         else:
             return None
@@ -99,9 +96,9 @@ class SystemOpenXRConfig:
         return None
 
     def activate_aethervr(self):
-        if is_windows:
+        if platform.is_windows:
             return self._activate_aethervr_windows()
-        elif is_linux:
+        elif platform.is_linux:
             return self._activate_aethervr_linux()
 
     def _activate_aethervr_windows(self):
@@ -141,9 +138,9 @@ class SystemOpenXRConfig:
         return True
 
     def _aethervr_runtime_path(self) -> Path:
-        if is_windows:
+        if platform.is_windows:
             name = "aethervr.dll"
-        elif is_linux:
+        elif platform.is_linux:
             name = "libaethervr.so"
         
         return self._aethervr_runtime_dir() / name
@@ -153,13 +150,7 @@ class SystemOpenXRConfig:
             package_root = Path(sys.executable).parent
             return package_root
         else:
-            if is_windows:
-                build_dir_name = "x86_64-windows-msvc-debug"
-            elif is_linux:
-                build_dir_name = "x86_64-linux-gnu-debug"
-            else:
-                build_dir_name = None
-
+            build_dir_name = f"{platform.banjo_target_name()}-debug"
             project_root = Path(__file__).parents[2]
             build_dir = project_root / "openxr_runtime" / "out" / build_dir_name
             return project_root / build_dir
