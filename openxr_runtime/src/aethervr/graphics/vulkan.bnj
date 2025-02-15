@@ -177,11 +177,11 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             log.info("- Unordered access");
             usage |= vk.ImageUsageFlagBits.STORAGE_BIT as u32;
         }
-        if true { # (create_info.usage_flags & xr.XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT) != 0 {
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_TRANSFER_SRC_BIT) != 0 {
             log.info("- Transfer source");
             usage |= vk.ImageUsageFlagBits.TRANSFER_SRC_BIT as u32;
         }
-        if true { # (create_info.usage_flags & xr.XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT) != 0 {
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_TRANSFER_DST_BIT) != 0 {
             log.info("- Transfer destination");
             usage |= vk.ImageUsageFlagBits.TRANSFER_DST_BIT as u32;
         }
@@ -189,7 +189,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             log.info("- Sampled");
             usage |= vk.ImageUsageFlagBits.SAMPLED_BIT as u32;
         }
-        if true {
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT) != 0 {
             log.info("- Mutable");
             flags |= vk.ImageCreateFlagBits.MUTABLE_FORMAT_BIT as u32;
         }
@@ -198,12 +198,17 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
 
         var image_type = vk.ImageType._2D;
         var format = create_info.format as vk.Format;
-        # var format = vk.Format.R8G8B8A8_SRGB;
         var tiling = vk.ImageTiling.OPTIMAL;
 
         var format_props: vk.ImageFormatProperties;
         if vk.get_physical_device_image_format_properties(
-            binding.physical_device, format, image_type, tiling, usage, flags, &format_props
+            binding.physical_device,
+            format,
+            image_type,
+            tiling,
+            usage,
+            flags,
+            &format_props,
         ) != vk.Result.SUCCESS {
             # log.error(str("Unsupported image format: ") + String.from(create_info.format));
             log.exit_scope();
@@ -225,7 +230,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             extent: {
                 width: create_info.width,
                 height: create_info.height,
-                depth: 1
+                depth: 1,
             },
             mip_levels: create_info.mip_count,
             array_layers: create_info.array_size,
@@ -233,8 +238,8 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             tiling,
             usage,
             sharing_mode: vk.SharingMode.EXCLUSIVE,
-            queue_family_index_count: undefined,
-            p_queue_family_indices: undefined,
+            queue_family_index_count: 0,
+            p_queue_family_indices: null,
             initial_layout: vk.ImageLayout.UNDEFINED,
         };
 
@@ -302,7 +307,11 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             state: SwapchainImageState.AVAILABLE,
         };
 
-        transition_image(binding, swapchain_image, vk.ImageLayout.UNDEFINED, vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL);
+        if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT) != 0 {
+            transition_image(binding, swapchain_image, vk.ImageLayout.UNDEFINED, vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL);
+        } else if (create_info.usage_flags & xr.SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0 {
+            transition_image(binding, swapchain_image, vk.ImageLayout.UNDEFINED, vk.ImageLayout.DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        }
 
         log.exit_scope();
         return xr.Result.SUCCESS;

@@ -14,6 +14,7 @@ meta if config.OS == config.WINDOWS {
 struct SharedImage {
     var id: u32;
     var image: addr;
+    var layout: vk.ImageLayout;
 }
 
 struct VulkanSurface: Surface {
@@ -45,7 +46,7 @@ struct VulkanSurface: Surface {
         };
 
         var instance_layers: Array[*u8] = [
-            "VK_LAYER_KHRONOS_validation"
+            "VK_LAYER_KHRONOS_validation",
         ];
 
         meta if config.OS == config.WINDOWS {
@@ -56,7 +57,7 @@ struct VulkanSurface: Surface {
         } else if config.OS == config.LINUX {
             var instance_extensions: Array[*u8] = [
                 "VK_KHR_surface",
-                "VK_KHR_xcb_surface",
+                "VK_KHR_xlib_surface",
             ];
         }
 
@@ -92,17 +93,17 @@ struct VulkanSurface: Surface {
                 panic("Vulkan: Failed to create surface");
             }
         } else if config.OS == config.LINUX {
-            var surface_create_info = vk.XcbSurfaceCreateInfoKHR {
-                s_type: vk.StructureType.XCB_SURFACE_CREATE_INFO_KHR,
+            var surface_create_info = vk.XlibSurfaceCreateInfoKHR {
+                s_type: vk.StructureType.XLIB_SURFACE_CREATE_INFO_KHR,
                 p_next: null,
                 flags: 0,
-                connection: display as addr,
                 window: window as u32,
+                dpy: display as addr,
             };
 
             var surface: addr;
 
-            if vk.create_xcb_surface_khr(instance, &surface_create_info, null, &surface) != vk.Result.SUCCESS {
+            if vk.create_xlib_surface_khr(instance, &surface_create_info, null, &surface) != vk.Result.SUCCESS {
                 panic("Vulkan: Failed to create surface");
             }
         }
@@ -144,6 +145,7 @@ struct VulkanSurface: Surface {
         vk.get_physical_device_surface_support_khr(physical_device, graphics_family_index.value, surface, &has_present_support);
 
         # TODO: Create separate graphics and present queues and transfer ownership of swapchain images between them.
+        # TODO: Transfer queue family
 
         if has_present_support == 0 {
             panic("Vulkan: Queue family has no surface support");
@@ -395,7 +397,7 @@ struct VulkanSurface: Surface {
             };
         } else if config.OS == config.LINUX {
             var import_info = vk.ImportMemoryFdInfoKHR {
-                s_type: vk.StructureType.IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+                s_type: vk.StructureType.IMPORT_MEMORY_FD_INFO_KHR,
                 p_next: &dedicated_allocate_info,
                 handle_type: vk.ExternalMemoryHandleTypeFlagBits.OPAQUE_FD_BIT,
                 fd: local_handle as i32,
@@ -422,7 +424,11 @@ struct VulkanSurface: Surface {
             panic("Vulkan: Failed to bind imported memory to image");
         }
 
-        self.images.append(SharedImage { id, image });
+        self.images.append(SharedImage {
+            id,
+            image,
+            layout: vk.ImageLayout.UNDEFINED,
+        });
     }
 
     pub func present_image(self, id: u32, info: ImagePresentInfo) {
@@ -469,15 +475,23 @@ struct VulkanSurface: Surface {
         insert_image_layout_transition(
             self.image_copy_command_buffer,
             shared_image.image,
-            vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL,
-            vk.ImageLayout.TRANSFER_SRC_OPTIMAL
+            0,
+            vk.AccessFlagBits.TRANSFER_READ_BIT as u32,
+            shared_image.layout,
+            vk.ImageLayout.TRANSFER_SRC_OPTIMAL,
+            vk.PipelineStageFlagBits.TOP_OF_PIPE_BIT as u32,
+            vk.PipelineStageFlagBits.TRANSFER_BIT as u32,
         );
 
         insert_image_layout_transition(
             self.image_copy_command_buffer,
             self.swapchain_images[swapchain_image_index],
+            0,
+            vk.AccessFlagBits.TRANSFER_WRITE_BIT as u32,
             vk.ImageLayout.UNDEFINED,
             vk.ImageLayout.TRANSFER_DST_OPTIMAL,
+            vk.PipelineStageFlagBits.TOP_OF_PIPE_BIT as u32,
+            vk.PipelineStageFlagBits.TRANSFER_BIT as u32,
         );
 
         var blit_region = vk.ImageBlit {
@@ -533,15 +547,25 @@ struct VulkanSurface: Surface {
         insert_image_layout_transition(
             self.image_copy_command_buffer,
             shared_image.image,
+            vk.AccessFlagBits.TRANSFER_READ_BIT as u32,
+            0,
             vk.ImageLayout.TRANSFER_SRC_OPTIMAL,
             vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL,
+            vk.PipelineStageFlagBits.TRANSFER_BIT as u32,
+            vk.PipelineStageFlagBits.BOTTOM_OF_PIPE_BIT as u32,
         );
+
+        shared_image.layout = vk.ImageLayout.COLOR_ATTACHMENT_OPTIMAL;
 
         insert_image_layout_transition(
             self.image_copy_command_buffer,
             self.swapchain_images[swapchain_image_index],
+            vk.AccessFlagBits.TRANSFER_WRITE_BIT as u32,
+            0,
             vk.ImageLayout.TRANSFER_DST_OPTIMAL,
             vk.ImageLayout.PRESENT_SRC_KHR,
+            vk.PipelineStageFlagBits.TRANSFER_BIT as u32,
+            vk.PipelineStageFlagBits.BOTTOM_OF_PIPE_BIT as u32,
         );
 
         if vk.end_command_buffer(self.image_copy_command_buffer) != vk.Result.SUCCESS {
@@ -577,7 +601,9 @@ struct VulkanSurface: Surface {
             p_results: null,
         };
 
-        vk.queue_present_khr(self.queue, &present_info);
+        if vk.queue_present_khr(self.queue, &present_info) != vk.Result.SUCCESS {
+            panic("Vulkan: Failed to present image");
+        }
 
         # TODO: Use a fence instead of stopping the world.
         vk.device_wait_idle(self.device);
@@ -586,19 +612,23 @@ struct VulkanSurface: Surface {
     func insert_image_layout_transition(
         command_buffer: addr,
         image: addr,
+        src_access_mask: u32,
+        dst_access_mask: u32,
         old_layout: vk.ImageLayout,
-        new_layout: vk.ImageLayout
+        new_layout: vk.ImageLayout,
+        src_stage_mask: u32,
+        dst_stage_mask: u32,
     ) {
         var barrier = vk.ImageMemoryBarrier {
             s_type: vk.StructureType.IMAGE_MEMORY_BARRIER,
             p_next: null,
-            src_access_mask: 0,
-            dst_access_mask: vk.AccessFlagBits.TRANSFER_WRITE_BIT as u32,
+            src_access_mask,
+            dst_access_mask,
             old_layout,
             new_layout,
             src_queue_family_index: 0xFFFFFFFF,
             dst_queue_family_index: 0xFFFFFFFF,
-            image: image,
+            image,
             subresource_range: {
                 aspect_mask: vk.ImageAspectFlagBits.COLOR_BIT as u32,
                 base_mip_level: 0,
@@ -610,8 +640,8 @@ struct VulkanSurface: Surface {
 
         vk.cmd_pipeline_barrier(
             command_buffer,
-            vk.PipelineStageFlagBits.TOP_OF_PIPE_BIT as u32,
-            vk.PipelineStageFlagBits.TRANSFER_BIT as u32,
+            src_stage_mask,
+            dst_stage_mask,
             0,
             0, null,
             0, null,

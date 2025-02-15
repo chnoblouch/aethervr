@@ -101,7 +101,10 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             return xr.Result.SUCCESS;
         }
 
-        pub func release_image(self, image: *SwapchainImage) {}
+        pub func release_image(self, image: *SwapchainImage) {
+            # HACK
+            vulkan.vk.device_wait_idle(self.binding.device);
+        }
     }
 }
 

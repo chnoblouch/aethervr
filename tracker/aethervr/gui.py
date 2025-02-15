@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from PySide6 import QtCore
-from PySide6.QtCore import Qt, QSize, QRect, QTimer
+from PySide6.QtCore import Qt, QSize, QRect, QTimer, QEvent
 from PySide6.QtGui import QPaintEvent, QPainter, QImage
 
 from mediapipe import solutions
@@ -433,11 +433,17 @@ class FrameView(QLabel):
         connection.on_register_image.subscribe(self._register_image)
         connection.on_present_image.subscribe(self._present_image_signal.emit)
     
+    def event(self, event: QEvent) -> bool:
+        if event.type() == QEvent.WinIdChange:
+            self.window_id = self.winId()
+        
+        return super().event(event)
+
     def _on_runtime_info(self, _: str, graphics_api: int):
         native_interface = QApplication.instance().nativeInterface()
 
         if platform.is_linux:
-            display = native_interface.connection()
+            display = native_interface.display()
         else:
             display = 0
 
@@ -448,12 +454,7 @@ class FrameView(QLabel):
 
     @QtCore.Slot(PresentImageData)
     def _present_image_slot(self, data: PresentImageData):
-        self.image_data = data
-        self.update()
-
-    def paintEvent(self, e: QPaintEvent):
-        if self.image_data is not None:
-            self.surface.present_image(self.image_data)
+        self.surface.present_image(data)
 
 
 class StatusBar(QLabel):

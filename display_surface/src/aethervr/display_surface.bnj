@@ -33,7 +33,7 @@ proto Surface {
     func destroy(self);
 }
 
-@[dllexport]
+@dllexport
 func aethervr_display_surface_create(
     graphics_api: u32,
     display: usize,
@@ -60,7 +60,7 @@ func aethervr_display_surface_create(
     return memory.box(surface);
 }
 
-@[dllexport]
+@dllexport
 func aethervr_display_surface_register_image(
     surface: **Surface,
     id: u32,
@@ -106,7 +106,7 @@ func aethervr_display_surface_register_image(
     surface.register_image(id, info);
 }
 
-@[dllexport]
+@dllexport
 func aethervr_display_surface_present_image(
     surface: **Surface,
     id: u32,
@@ -127,7 +127,7 @@ func aethervr_display_surface_present_image(
     surface.present_image(id, info);
 }
 
-@[dllexport]
+@dllexport
 func aethervr_display_surface_destroy(surface: **Surface) {
     println("Destroying display surface");
 
