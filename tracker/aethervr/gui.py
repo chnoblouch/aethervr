@@ -33,6 +33,7 @@ from aethervr.input_state import ControllerButton
 from aethervr.runtime_connection import RuntimeConnection, RegisterImageData, PresentImageData
 from aethervr.system_openxr_config import SystemOpenXRConfig
 from aethervr.display_surface import DisplaySurface
+from aethervr.camera_capture import CameraCapture
 from aethervr import platform
 
 
@@ -54,11 +55,19 @@ STYLESHEET = """
 
 class Window(QMainWindow):
 
-    def __init__(self, config: Config, connection: RuntimeConnection, system_openxr_config: SystemOpenXRConfig):
+    def __init__(
+        self,
+        config: Config,
+        system_openxr_config: SystemOpenXRConfig,
+        connection: RuntimeConnection,
+        camera_capture: CameraCapture,
+    ):
         super().__init__()
+
         self.config = config
-        self.connection = connection
         self.system_openxr_config = system_openxr_config
+        self.connection = connection
+        self.camera_capture = camera_capture
 
         self.camera_view = None
         self.frame_view = None
@@ -94,7 +103,7 @@ class Window(QMainWindow):
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(ConfigPanel(self.config, self.system_openxr_config))
+        layout.addWidget(ConfigPanel(self.config, self.system_openxr_config, self.camera_capture))
         layout.addWidget(separator)
         layout.addWidget(tab_widget)
         widget.setLayout(layout)
@@ -130,13 +139,18 @@ class Window(QMainWindow):
 
 class ConfigPanel(QWidget):
 
-    def __init__(self, config: Config, system_openxr_config: SystemOpenXRConfig):
+    def __init__(
+        self,
+        config: Config,
+        system_openxr_config: SystemOpenXRConfig,
+        camera_capture: CameraCapture,
+    ):
         super().__init__()
         self.config = config
 
         layout = QVBoxLayout()
         layout.addWidget(OpenXRConfigGroup(system_openxr_config))
-        layout.addWidget(TrackingConfigGroup(config))
+        layout.addWidget(TrackingConfigGroup(config, camera_capture))
         layout.addWidget(self._build_controller_group("Left Controller", config.left_controller_config))
         layout.addWidget(self._build_controller_group("Right Controller", config.right_controller_config))
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -217,30 +231,84 @@ class OpenXRConfigGroup(QGroupBox):
 
 class TrackingConfigGroup(QGroupBox):
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, camera_capture: CameraCapture):
         super().__init__("Tracking")
+
         self.config = config
+        self.camera_capture = camera_capture
 
         self.tracking_label = QLabel()
         self.tracking_button = QPushButton()
         self.tracking_button.clicked.connect(self.on_tracking_button_clicked)
 
+        self.camera_index_input = QComboBox()
+        self.camera_index_input.addItem("Camera 0")
+        self.camera_index_input.addItem("Camera 1")
+        self.camera_index_input.addItem("Camera 2")
+        self.camera_index_input.addItem("Camera 3")
+        self.camera_index_input.addItem("Camera 4")
+        self.camera_index_input.currentIndexChanged.connect(self.on_capture_config_changed)
+
+        self.frame_width_input = QLineEdit("640")
+        self.frame_width_input.setFixedWidth(80)
+        self.frame_width_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
+        self.frame_width_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.frame_width_input.editingFinished.connect(self.on_capture_config_changed)
+
+        self.frame_height_input = QLineEdit("640")
+        self.frame_height_input.setFixedWidth(80)
+        self.frame_height_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
+        self.frame_height_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.frame_height_input.editingFinished.connect(self.on_capture_config_changed)
+
+        camera_resolution_x_label = QLabel("x")
+        camera_resolution_x_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        camera_resolution_x_label.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
+
+        camera_resolution_row = QHBoxLayout()
+        camera_resolution_row.addWidget(self.frame_width_input)
+        camera_resolution_row.addWidget(camera_resolution_x_label)
+        camera_resolution_row.addWidget(self.frame_height_input)
+
         self.fps_input = QLineEdit()
-        self.fps_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Ignored))
+        self.fps_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
         self.fps_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.fps_input.editingFinished.connect(self.on_fps_input_changed)
 
         layout = QFormLayout()
         layout.addRow(self.tracking_label, self.tracking_button)
+        layout.addRow("Camera Index:", self.camera_index_input)
+        layout.addRow("Camera Resolution:", camera_resolution_row)
         layout.addRow("Max. Frames per Second:", self.fps_input)
         self.setLayout(layout)
 
         self.update_tracking_status()
+        self.update_capture_config_inputs()
         self.update_fps_input()
 
     def on_tracking_button_clicked(self):
         self.config.tracking_running = not self.config.tracking_running
         self.update_tracking_status()
+
+    def on_capture_config_changed(self):
+        self.config.capture_config.camera_index = self.camera_index_input.currentIndex()
+        
+        try:
+            value = int(self.frame_width_input.text())
+            value = max(value, 320)
+            self.config.capture_config.frame_width = value
+        except ValueError:
+            pass
+
+        try:
+            value = int(self.frame_height_input.text())
+            value = max(value, 320)
+            self.config.capture_config.frame_height = value
+        except ValueError:
+            pass
+        
+        self.camera_capture.restart()
+        self.update_capture_config_inputs()
 
     def on_fps_input_changed(self):
         try:
@@ -260,6 +328,11 @@ class TrackingConfigGroup(QGroupBox):
         else:
             self.tracking_label.setText("Status: Stopped")
             self.tracking_button.setText("Start")
+
+    def update_capture_config_inputs(self):
+        self.camera_index_input.setCurrentIndex(self.config.capture_config.camera_index)
+        self.frame_width_input.setText(str(self.config.capture_config.frame_width))
+        self.frame_height_input.setText(str(self.config.capture_config.frame_height))
 
     def update_fps_input(self):
         self.fps_input.setText(str(self.config.tracking_fps_cap))
@@ -313,20 +386,20 @@ class MiddlePinchBindingDropdown(QComboBox):
 class CameraView(QLabel):
 
     def __init__(self):
-        super().__init__()
+        super().__init__("Starting camera capture...")
 
         self.frame = None
         self.overlay = None
 
-        size_policy = QSizePolicy(
-            QSizePolicy.Policy.Preferred,
-            QSizePolicy.Policy.Preferred,
-        )
-
+        size_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         size_policy.setHorizontalStretch(2)
         self.setSizePolicy(size_policy)
 
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
     def update_frame(self, frame):
+        self.setText("")
+
         self.frame = frame
         self.update()
 
@@ -338,9 +411,10 @@ class CameraView(QLabel):
         height, width, _ = self.frame.shape
         self.overlay = np.zeros((height, width, 4), np.uint8)
 
-        x = int(0.5 * width)
-        y = int(0.2 * height)
-        cv2.circle(self.overlay, (x, y), 8, (255, 255, 255, 255), -1)
+        if tracking_state.head.visible:
+            x = int(0.5 * width)
+            y = int(0.2 * height)
+            cv2.circle(self.overlay, (x, y), 8, (255, 255, 255, 255), -1)
 
         if tracking_state.left_hand.visible:
             x1 = int(LEFT_HAND_TRACKING_ORIGIN[0] * width)
@@ -529,11 +603,17 @@ class StatusBar(QLabel):
 
 class GUI:
 
-    def __init__(self, config: Config, connection: RuntimeConnection, system_openxr_config: SystemOpenXRConfig):
+    def __init__(
+        self,
+        config: Config,
+        system_openxr_config: SystemOpenXRConfig,
+        connection: RuntimeConnection,
+        camera_capture: CameraCapture,
+    ):
         self.app = QApplication(sys.argv)
         self.app.setStyleSheet(STYLESHEET)
 
-        self.window = Window(config, connection, system_openxr_config)
+        self.window = Window(config, system_openxr_config, connection, camera_capture)
         self.window.show()
 
     def update_camera_frame(self, frame):

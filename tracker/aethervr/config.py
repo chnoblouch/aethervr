@@ -18,6 +18,13 @@ DEFAULT_GESTURE_MAPPINGS = {
 
 
 @dataclass
+class CaptureConfig:
+    camera_index: int
+    frame_width: int
+    frame_height: int
+
+
+@dataclass
 class ControllerConfig:
     gesture_mappings: dict[Gesture, Optional[ControllerButton]] = field(
         default_factory=lambda: DEFAULT_GESTURE_MAPPINGS
@@ -29,6 +36,7 @@ class ControllerConfig:
 @dataclass
 class Config:
     tracking_running: bool
+    capture_config: CaptureConfig
     tracking_fps_cap: int
     left_controller_config: ControllerConfig
     right_controller_config: ControllerConfig

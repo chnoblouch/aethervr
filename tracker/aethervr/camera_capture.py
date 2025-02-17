@@ -1,25 +1,43 @@
 import cv2
 from threading import Thread, Event
+from copy import copy
+
+from aethervr.config import CaptureConfig
 
 
 class CameraCapture:
 
-    def __init__(self, on_frame):
-        print("Opening capture device...")
-
+    def __init__(self, config: CaptureConfig, on_frame):
         self.frame = None
+        self.source_config = config
         self.on_frame = on_frame
 
+        self.active_config: CaptureConfig = None
         self.running = Event()
+        self.thread = None
+
+        self.start()
+
+    def restart(self):
+        if self.source_config == self.active_config:
+            return
+
+        self.close()
+        self.start()
+    
+    def start(self):
+        self.active_config = copy(self.source_config)
         self.running.set()
 
         self.thread = Thread(target=self.capture_images)
         self.thread.start()
 
     def capture_images(self):
-        capture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-        capture.set(cv2.CAP_PROP_FRAME_WIDTH, 860)
-        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        print("Opening capture device...")
+
+        capture = cv2.VideoCapture(self.active_config.camera_index, cv2.CAP_DSHOW)
+        capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.active_config.frame_width)
+        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.active_config.frame_height)
 
         if not capture.isOpened():
             raise Exception("Failed to open capture device")

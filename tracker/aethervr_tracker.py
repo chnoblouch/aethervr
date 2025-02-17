@@ -10,7 +10,7 @@ from aethervr.hand_tracker import HandTracker
 from aethervr.tracking_state import TrackingState, HeadState, HandState
 from aethervr.input_state import InputState
 from aethervr.gesture_detector import GestureDetector
-from aethervr.config import Config, ControllerConfig
+from aethervr.config import Config, CaptureConfig, ControllerConfig
 from aethervr.system_openxr_config import SystemOpenXRConfig
 
 
@@ -19,6 +19,11 @@ class Application:
     def __init__(self):
         self.config = Config(
             tracking_running=True,
+            capture_config=CaptureConfig(
+                camera_index=0,
+                frame_width=860,
+                frame_height=720,
+            ),
             tracking_fps_cap=20,
             left_controller_config=ControllerConfig(),
             right_controller_config=ControllerConfig(),
@@ -27,7 +32,7 @@ class Application:
         self.tracking_state = TrackingState()
         self.input_state = InputState()
 
-        self.camera_capture = CameraCapture(self.on_frame)
+        self.camera_capture = CameraCapture(self.config.capture_config, self.on_frame)
         self.connection = RuntimeConnection(38057)
 
         self.head_tracker = HeadTracker(self.on_head_tracking_results)
@@ -44,7 +49,7 @@ class Application:
         self.system_openxr_config = SystemOpenXRConfig()
 
         try:
-            self.gui = GUI(self.config, self.connection, self.system_openxr_config)
+            self.gui = GUI(self.config, self.system_openxr_config, self.connection, self.camera_capture)
             self.gui.run()
         except Exception as e:
             print(e)
