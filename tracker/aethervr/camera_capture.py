@@ -35,7 +35,7 @@ class CameraCapture:
     def capture_images(self):
         print("Opening capture device...")
 
-        capture = cv2.VideoCapture(self.active_config.camera_index, cv2.CAP_DSHOW)
+        capture = cv2.VideoCapture(self.active_config.camera_index)
         capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.active_config.frame_width)
         capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.active_config.frame_height)
 
