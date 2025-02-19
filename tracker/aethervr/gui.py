@@ -1,4 +1,5 @@
 import sys
+from enum import Enum
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import (
     QSlider,
     QDialog,
     QGridLayout,
+    QStackedWidget,
 )
 
 from PySide6 import QtCore
@@ -581,31 +583,46 @@ class CameraView(QLabel):
         return super().paintEvent(e)
 
 
-class FrameView(QLabel):
+class FrameView(QStackedWidget):
     
+    class Status(Enum):
+        DISCONNECTED = 0
+        AWAITING_FRAME = 1
+        PRESENTING = 2
+
+    _set_status_signal = QtCore.Signal(Status)
+    _connected_signal = QtCore.Signal()
+    _disconnected_signal = QtCore.Signal()
     _present_image_signal = QtCore.Signal(PresentImageData)
 
     def __init__(self, connection: RuntimeConnection):
         super().__init__()
 
-        self.window_id = self.winId()
+        self.status = FrameView.Status.DISCONNECTED
+        self.surface_window = DisplaySurfaceWindow()
         self.surface = DisplaySurface()
-        self.image_data = None
 
+        self.info_widget = QLabel()
+        self.info_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.info_widget.setStyleSheet("QLabel { color: white; background-color: black; }")
+
+        self.addWidget(self.surface_window)
+        self.addWidget(self.info_widget)
         self.setFixedWidth(640)
         self.setFixedHeight(640)
 
+        self._set_status_signal.connect(self._set_status_slot)
+        self._connected_signal.connect(self._connected_slot)
+        self._disconnected_signal.connect(self._disconnected_slot)
         self._present_image_signal.connect(self._present_image_slot)
 
+        connection.on_connected.subscribe(self._connected_signal.emit)
+        connection.on_disconnected.subscribe(self._disconnected_signal.emit)
         connection.on_runtime_info.subscribe(self._on_runtime_info)
         connection.on_register_image.subscribe(self._register_image)
         connection.on_present_image.subscribe(self._present_image_signal.emit)
-    
-    def event(self, event: QEvent) -> bool:
-        if event.type() == QEvent.WinIdChange:
-            self.window_id = self.winId()
-        
-        return super().event(event)
+
+        self._set_status_signal.emit(FrameView.Status.DISCONNECTED)
 
     def _on_runtime_info(self, _: str, graphics_api: int):
         native_interface = QApplication.instance().nativeInterface()
@@ -615,14 +632,48 @@ class FrameView(QLabel):
         else:
             display = 0
 
-        self.surface.create(graphics_api, display, self.window_id)
+        self.surface.create(graphics_api, display, self.surface_window.window_id)
 
     def _register_image(self, data: RegisterImageData):
         self.surface.register_image(data)
 
+    @QtCore.Slot(Status)
+    def _set_status_slot(self, status: Status):
+        if status == FrameView.Status.DISCONNECTED:
+            self.info_widget.setText("No application connected.")
+            self.setCurrentIndex(1)
+        elif status == FrameView.Status.AWAITING_FRAME:
+            self.info_widget.setText("Waiting for application to submit frames...")
+            self.setCurrentIndex(1)
+        elif status == FrameView.Status.PRESENTING:
+            self.setCurrentIndex(0)
+
+    @QtCore.Slot(PresentImageData)
+    def _connected_slot(self):
+        self._set_status_signal.emit(FrameView.Status.AWAITING_FRAME)
+
+    @QtCore.Slot(PresentImageData)
+    def _disconnected_slot(self):
+        self._set_status_signal.emit(FrameView.Status.DISCONNECTED)
+
     @QtCore.Slot(PresentImageData)
     def _present_image_slot(self, data: PresentImageData):
+        self._set_status_signal.emit(FrameView.Status.PRESENTING)
         self.surface.present_image(data)
+
+
+class DisplaySurfaceWindow(QWidget):
+
+    def __init__(self):
+        super().__init__()
+
+        self.window_id = self.winId()
+    
+    def event(self, event: QEvent) -> bool:
+        if event.type() == QEvent.WinIdChange:
+            self.window_id = self.winId()
+        
+        return super().event(event)
 
 
 class StatusBar(QLabel):
