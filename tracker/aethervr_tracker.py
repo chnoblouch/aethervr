@@ -29,6 +29,8 @@ class Application:
             tracking_fps_cap=20,
             left_controller_config=ControllerConfig(),
             right_controller_config=ControllerConfig(),
+            headset_pitch_deadzone=8,
+            headset_yaw_deadzone=8,
             controller_pitch=0,
             controller_yaw=0,
             controller_roll=0,
@@ -90,13 +92,21 @@ class Application:
 
         if state.visible:
             self.input_state.headset_state.position = state.position
-            self.input_state.headset_state.pitch = state.pitch
-            self.input_state.headset_state.yaw = state.yaw
+            self.input_state.headset_state.pitch = self.adjust_head_angle(state.pitch, self.config.headset_pitch_deadzone)
+            self.input_state.headset_state.yaw = self.adjust_head_angle(state.yaw, self.config.headset_yaw_deadzone)
         else:
             self.input_state.headset_state.pitch = 0.0
             self.input_state.headset_state.yaw = 0.0
 
         self.connection.update_headset_state(self.input_state.headset_state)
+
+    def adjust_head_angle(self, angle: float, deadzone: float):
+        abs_angle_adjusted = abs(angle) - deadzone
+
+        if abs_angle_adjusted > 0.0:
+            return math.copysign(abs_angle_adjusted, angle)
+        else:
+            return 0.0
 
     def on_hand_tracking_results(self, left_state: HandState, right_state: HandState):
         with self.hand_tracking_lock:

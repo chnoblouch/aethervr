@@ -354,19 +354,64 @@ class GeneralInputMappingGroup(QGroupBox):
         set_controller_rotation_button = QPushButton("Set Controller Rotation")
         set_controller_rotation_button.clicked.connect(self._show_controller_rotation_dialog)
 
+        headset_pitch_deadzone_row = DeadzoneInput(config.headset_pitch_deadzone, self._update_headset_pitch_deadzone)
+        headset_yaw_deadzone_row = DeadzoneInput(config.headset_yaw_deadzone, self._update_headset_yaw_deadzone)
+
         layout = QFormLayout()
+        layout.addRow("Headset Pitch Deadzone:", headset_pitch_deadzone_row)
+        layout.addRow("Headset Yaw Deadzone:", headset_yaw_deadzone_row)
         layout.addRow(set_controller_rotation_button)
         self.setLayout(layout)
 
+    def _update_headset_pitch_deadzone(self, value: int):
+        self.config.headset_pitch_deadzone = value
+    
+    def _update_headset_yaw_deadzone(self, value: int):
+        self.config.headset_yaw_deadzone = value
+
     def _show_controller_rotation_dialog(self):
-        dialog = ControllerRotationDialog(self.config)
+        dialog = ControllerRotationDialog(self, self.config)
         dialog.show()
+
+
+class DeadzoneInput(QWidget):
+
+    def __init__(self, initial_value: float, on_value_changed):
+        super().__init__()
+
+        self.value = initial_value
+        self.on_value_changed = on_value_changed
+
+        self.input = QLineEdit(str(initial_value))
+        self.input.setFixedWidth(60)
+        self.input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
+        self.input.setAlignment(Qt.AlignmentFlag.AlignCenter) 
+        self.input.editingFinished.connect(self._on_editing_finished)
+
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.input)
+        layout.addWidget(QLabel("degrees"))
+
+        self.setContentsMargins(0, 0, 0, 0)
+        self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum))
+        self.setLayout(layout)
+
+    def _on_editing_finished(self):
+        try:
+            self.value = int(self.input.text())
+            self.value = max(min(self.value, 45), -45)
+            self.on_value_changed(self.value)
+        except ValueError:
+            pass
+        
+        self.input.setText(str(self.value))
 
 
 class ControllerRotationDialog(QDialog):
 
-    def __init__(self, config: Config):
-        super().__init__()
+    def __init__(self, parent: QWidget, config: Config):
+        super().__init__(parent)
 
         self.config = config
 

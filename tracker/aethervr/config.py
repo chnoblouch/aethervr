@@ -38,6 +38,8 @@ class Config:
     tracking_running: bool
     capture_config: CaptureConfig
     tracking_fps_cap: int
+    headset_pitch_deadzone: float
+    headset_yaw_deadzone: float
     controller_pitch: float
     controller_yaw: float
     controller_roll: float
