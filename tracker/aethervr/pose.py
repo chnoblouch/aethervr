@@ -49,6 +49,26 @@ class Orientation:
     def to_np_array(self):
         return quaternion.quaternion(self.w, self.x, self.y, self.z)
 
+    def from_np_array(q):
+        return Orientation(q.x, q.y, q.z, q.w)
+
+    def from_euler_angles(pitch, yaw, roll):
+        # Thanks to: https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+
+        cos_r = math.cos(0.5 * roll)
+        sin_r = math.sin(0.5 * roll)
+        cos_p = math.cos(0.5 * pitch)
+        sin_p = math.sin(0.5 * pitch)
+        cos_y = math.cos(0.5 * yaw)
+        sin_y = math.sin(0.5 * yaw)
+
+        return Orientation(
+            sin_r * cos_p * cos_y - cos_r * sin_p * sin_y,
+            cos_r * sin_p * cos_y + sin_r * cos_p * sin_y,
+            cos_r * cos_p * sin_y - sin_r * sin_p * cos_y,
+            cos_r * cos_p * cos_y + sin_r * sin_p * sin_y,
+        )
+
     def from_triangle(p1, p2, p3, flip):
         v1 = normalize(p2.to_np_array() - p1.to_np_array())
         v2 = normalize(p3.to_np_array() - p1.to_np_array())
@@ -64,10 +84,13 @@ class Orientation:
         matrix = np.array([x_axis, y_axis, z_axis])
         q = quaternion.from_rotation_matrix(matrix)
 
-        return Orientation(q.x, q.y, q.z, q.w)
+        return Orientation.from_np_array(q)
 
     def copy(self):
         return Orientation(self.x, self.y, self.z, self.w)
+    
+    def __mul__(self, rhs: "Orientation"):
+        return Orientation.from_np_array(self.to_np_array() * rhs.to_np_array())
 
 
 def normalize(vector):

@@ -1,6 +1,7 @@
 from threading import Lock
 import time
 import os
+import math
 
 from aethervr.gui import GUI
 from aethervr.camera_capture import CameraCapture
@@ -12,6 +13,7 @@ from aethervr.input_state import InputState
 from aethervr.gesture_detector import GestureDetector
 from aethervr.config import Config, CaptureConfig, ControllerConfig
 from aethervr.system_openxr_config import SystemOpenXRConfig
+from aethervr.pose import Orientation
 
 
 class Application:
@@ -27,6 +29,9 @@ class Application:
             tracking_fps_cap=20,
             left_controller_config=ControllerConfig(),
             right_controller_config=ControllerConfig(),
+            controller_pitch=0,
+            controller_yaw=0,
+            controller_roll=0,
         )
 
         self.tracking_state = TrackingState()
@@ -108,14 +113,18 @@ class Application:
         left_controller_state = self.input_state.left_controller_state
         right_controller_state = self.input_state.right_controller_state
 
+        pitch = math.radians(self.config.controller_pitch)
+        yaw = math.radians(self.config.controller_yaw)
+        roll = math.radians(self.config.controller_roll)
+
         if left_state.visible:
             left_controller_state.position = left_state.position
-            left_controller_state.orientation = left_state.orientation
+            left_controller_state.orientation = left_state.orientation * Orientation.from_euler_angles(pitch, yaw, roll)
             left_controller_state.timestamp = left_state.timestamp
 
         if right_state.visible:
             right_controller_state.position = right_state.position
-            right_controller_state.orientation = right_state.orientation
+            right_controller_state.orientation = right_state.orientation * Orientation.from_euler_angles(-pitch, -yaw, roll)
             right_controller_state.timestamp = right_state.timestamp
 
         self.gesture_detector.detect()

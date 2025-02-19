@@ -17,6 +17,9 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QLineEdit,
     QCheckBox,
+    QSlider,
+    QDialog,
+    QGridLayout,
 )
 
 from PySide6 import QtCore
@@ -151,6 +154,7 @@ class ConfigPanel(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(OpenXRConfigGroup(system_openxr_config))
         layout.addWidget(TrackingConfigGroup(config, camera_capture))
+        layout.addWidget(GeneralInputMappingGroup(config))
         layout.addWidget(self._build_controller_group("Left Controller", config.left_controller_config))
         layout.addWidget(self._build_controller_group("Right Controller", config.right_controller_config))
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -336,6 +340,96 @@ class TrackingConfigGroup(QGroupBox):
 
     def update_fps_input(self):
         self.fps_input.setText(str(self.config.tracking_fps_cap))
+
+
+class GeneralInputMappingGroup(QGroupBox):
+
+    def __init__(self, config: Config):
+        super().__init__("General Input Mapping")
+
+        self.config = config
+
+        set_controller_rotation_button = QPushButton("Set Controller Rotation")
+        set_controller_rotation_button.clicked.connect(self._show_controller_rotation_dialog)
+
+        layout = QFormLayout()
+        layout.addRow(set_controller_rotation_button)
+        self.setLayout(layout)
+
+    def _show_controller_rotation_dialog(self):
+        dialog = ControllerRotationDialog(self.config)
+        dialog.show()
+
+
+class ControllerRotationDialog(QDialog):
+
+    def __init__(self, config: Config):
+        super().__init__()
+
+        self.config = config
+
+        self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.setWindowTitle("Controller Rotation")
+        self.setMinimumWidth(360)        
+
+        layout = QGridLayout()
+        layout.addWidget(QLabel("Pitch:"), 0, 0)
+        layout.addWidget(AngleSlider(config.controller_pitch, self._update_pitch), 0, 1)
+        layout.addWidget(QLabel("Yaw:"), 1, 0)
+        layout.addWidget(AngleSlider(config.controller_yaw, self._update_yaw), 1, 1)
+        layout.addWidget(QLabel("Roll:"), 2, 0)
+        layout.addWidget(AngleSlider(config.controller_roll, self._update_roll), 2, 1)
+        layout.setColumnStretch(0, 0)
+        layout.setColumnStretch(1, 1)
+        self.setLayout(layout)
+
+    def _update_pitch(self, pitch: float):
+        self.config.controller_pitch = pitch
+
+    def _update_yaw(self, yaw: float):
+        self.config.controller_yaw = yaw
+
+    def _update_roll(self, roll: float):
+        self.config.controller_roll = roll
+
+
+class AngleSlider(QWidget):
+
+    def __init__(self, initial_angle: float, on_angle_changed):
+        super().__init__()
+
+        self.angle = int(initial_angle)
+        self.on_angle_changed = on_angle_changed
+
+        slider = QSlider(Qt.Orientation.Horizontal)
+        slider.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
+        slider.setMinimum(-12)
+        slider.setMaximum(12)
+        slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        slider.setTickInterval(3)
+        slider.valueChanged.connect(self._on_value_changed)
+
+        self.label = QLabel()
+        self.label.setFixedWidth(30)
+        self.label.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        layout = QHBoxLayout()
+        layout.addWidget(slider)
+        layout.addWidget(self.label)
+
+        self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
+        self.setLayout(layout)
+
+        self._update_label()
+
+    def _on_value_changed(self, value: int):
+        self.angle = 15 * value
+        self.on_angle_changed(float(self.angle))
+        self._update_label()
+
+    def _update_label(self):
+        self.label.setText(f"{self.angle}°")
 
 
 class ButtonBindingDropdown(QComboBox):

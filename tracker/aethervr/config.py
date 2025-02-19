@@ -38,5 +38,8 @@ class Config:
     tracking_running: bool
     capture_config: CaptureConfig
     tracking_fps_cap: int
+    controller_pitch: float
+    controller_yaw: float
+    controller_roll: float
     left_controller_config: ControllerConfig
     right_controller_config: ControllerConfig
