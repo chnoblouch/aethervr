@@ -14,6 +14,7 @@ from aethervr.gesture_detector import GestureDetector
 from aethervr.config import Config, CaptureConfig, ControllerConfig
 from aethervr.system_openxr_config import SystemOpenXRConfig
 from aethervr.pose import Orientation
+from aethervr import mediapipe_models
 
 
 class Application:
@@ -41,10 +42,13 @@ class Application:
 
         self.camera_capture = CameraCapture(self.config.capture_config, self.on_frame)
         self.connection = RuntimeConnection(38057)
+        self.system_openxr_config = SystemOpenXRConfig()
 
-        self.head_tracker = HeadTracker(self.on_head_tracking_results)
-        self.hand_tracker = HandTracker(self.head_tracker, self.on_hand_tracking_results)
-        self.gesture_detector = GestureDetector(self.config, self.tracking_state, self.input_state)
+        self.head_tracker = None
+        self.hand_tracker = None
+        self.gesture_detector = None
+
+        self.gui = GUI(self.config, self.system_openxr_config, self.connection, self.camera_capture)
 
         self.last_head_tracking_time = time.time()
         self.last_hand_tracking_time = time.time()
@@ -53,15 +57,20 @@ class Application:
         self.head_tracking_lock = Lock()
         self.hand_tracking_lock = Lock()
 
-        self.system_openxr_config = SystemOpenXRConfig()
+        if mediapipe_models.are_all_models_cached():
+           self.start()
+        else:
+            downloaded = self.gui.show_download_dialog(mediapipe_models.download)
+            if downloaded:
+                self.start() 
 
-        try:
-            self.gui = GUI(self.config, self.system_openxr_config, self.connection, self.camera_capture)
-            self.gui.run()
-        except Exception as e:
-            print(e)
-            os._exit(1)
-
+    def start(self):
+        self.head_tracker = HeadTracker(self.on_head_tracking_results)
+        self.hand_tracker = HandTracker(self.head_tracker, self.on_hand_tracking_results)
+        self.gesture_detector = GestureDetector(self.config, self.tracking_state, self.input_state)
+        self.camera_capture.start()
+        self.gui.run()
+    
     def on_frame(self, frame):
         self.gui.update_camera_frame(frame)
 
@@ -145,12 +154,19 @@ class Application:
     def close(self):
         self.connection.close()
         self.camera_capture.close()
-        self.head_tracker.close()
-        self.hand_tracker.close()
+        
+        if self.head_tracker is not None:
+            self.head_tracker.close()
+
+        if self.hand_tracker is not None:
+            self.hand_tracker.close()
 
 
 if __name__ == "__main__":
     try:
         app = Application()
+    except Exception as e:
+        print(e)
+        os._exit(1)
     finally:
         app.close()

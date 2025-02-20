@@ -16,21 +16,19 @@ class CameraCapture:
         self.running = Event()
         self.thread = None
 
-        self.start()
-
-    def restart(self):
-        if self.source_config == self.active_config:
-            return
-
-        self.close()
-        self.start()
-    
     def start(self):
         self.active_config = copy(self.source_config)
         self.running.set()
 
         self.thread = Thread(target=self.capture_images)
         self.thread.start()
+
+    def restart(self):
+        if self.source_config == self.active_config:
+            return
+
+        self.close()
+        self.start_thread()
 
     def capture_images(self):
         print("Opening capture device...")
@@ -58,6 +56,9 @@ class CameraCapture:
         print("Camera capture closed")
 
     def close(self):
+        if not self.running.is_set():
+            return
+
         print("Closing camera capture...")
         self.running.clear()
         self.thread.join()

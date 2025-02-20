@@ -3,20 +3,17 @@ from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python.vision import FaceLandmarker, FaceLandmarkerOptions, RunningMode
 import numpy as np
 
-from aethervr.pose import Position
 from aethervr import mediapipe_models
+from aethervr.pose import Position
 from aethervr.tracking_state import HeadState
 
 
 class HeadTracker:
 
-    MODEL_FILE_NAME = "face_landmarker.task"
-    MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
-
     def __init__(self, detection_callback):
         self.detection_callback = detection_callback
 
-        model_path = mediapipe_models.download(HeadTracker.MODEL_FILE_NAME, HeadTracker.MODEL_URL)
+        model_path = mediapipe_models.FACE_LANDMARKER_PATH
 
         options = FaceLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(model_path)),

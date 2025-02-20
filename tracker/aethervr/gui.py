@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QGridLayout,
     QStackedWidget,
+    QProgressBar,
 )
 
 from PySide6 import QtCore
@@ -131,6 +132,24 @@ class Window(QMainWindow):
         widget.setLayout(layout)
         
         return widget
+
+    def show_download_dialog(self, on_download) -> bool:
+        response = QMessageBox.question(
+            self,
+            "MediaPipe Models",
+            "The AetherVR tracker requires two MediaPipe machine learning models to run. "
+            "These files are downloaded from Google's servers and placed in the `models` directory.\n\n"
+            "Would you like to continue and start the download?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Close,
+        )
+
+        if response == QMessageBox.StandardButton.Yes:
+            dialog = DownloadDialog(self)
+            on_download(dialog.close_thread_safe)
+            dialog.exec()
+            return True
+        else:
+            return False
 
     def update_camera_frame(self, frame):
         self.camera_view.update_frame(frame)
@@ -791,6 +810,37 @@ class StatusBar(QLabel):
         self.setStyleSheet("QLabel { background-color: " + color + "; }")
 
 
+class DownloadDialog(QDialog):
+
+    _close_signal = QtCore.Signal()
+
+    def __init__(self, parent: QWidget):
+        super().__init__(parent)
+
+        self.setWindowTitle("MediaPipe Model Download")
+        self.setFixedWidth(480)
+
+        progress_bar = QProgressBar()
+        progress_bar.setMinimum(0)
+        progress_bar.setMaximum(0)
+        progress_bar.setValue(0)
+        progress_bar.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred))
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Downloading MediaPipe models..."))
+        layout.addWidget(progress_bar)
+        self.setLayout(layout)
+
+        self._close_signal.connect(self._close_slot)
+
+    def close_thread_safe(self):
+        self._close_signal.emit()
+
+    @QtCore.Slot()
+    def _close_slot(self):
+        self.close()
+
+
 class GUI:
 
     def __init__(
@@ -806,6 +856,9 @@ class GUI:
         self.window = Window(config, system_openxr_config, connection, camera_capture)
         self.window.show()
 
+    def show_download_dialog(self, on_download) -> bool:
+        return self.window.show_download_dialog(on_download)
+
     def update_camera_frame(self, frame):
         self.window.update_camera_frame(frame)
 
@@ -817,3 +870,6 @@ class GUI:
 
     def run(self):
         self.app.exec()
+    
+    def close(self):
+        self.window.close()

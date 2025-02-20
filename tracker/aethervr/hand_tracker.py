@@ -16,14 +16,12 @@ from aethervr import mediapipe_models
 
 
 class HandTracker:
-    MODEL_FILE_NAME = "hand_landmarker.task"
-    MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"
 
     def __init__(self, head_tracker, detection_callback) -> None:
         self.head_tracker = head_tracker
         self.detection_callback = detection_callback
 
-        model_path = mediapipe_models.download(HandTracker.MODEL_FILE_NAME, HandTracker.MODEL_URL)
+        model_path = mediapipe_models.HAND_LANDMARKER_PATH
 
         options = HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(model_path)),
