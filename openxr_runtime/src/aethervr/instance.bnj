@@ -28,6 +28,7 @@ struct Instance {
     var interaction_profiles: Array[InteractionProfile];
     var graphics_reqs_queried: bool;
     var interaction_profile: u64;
+    var vulkan_instance: addr;
 
     pub func create(create_info: xr.InstanceCreateInfo) -> (*Instance, xr.Result) {
         log.info("Creating instance");
@@ -49,7 +50,8 @@ struct Instance {
             path_mapping: PathMapping.new(),
             interaction_profiles: InteractionProfile.all(),
             graphics_reqs_queried: false,
-            interaction_profile: 0
+            interaction_profile: 0,
+            vulkan_instance: null,
         });
 
         return (instance, xr.Result.SUCCESS);
@@ -229,7 +231,15 @@ struct Instance {
             vk_result: *vk.Result,
         ) -> xr.Result {
             log.info("Creating Vulkan instance");
-            return graphics.vulkan.create_instance(info, vk_instance, vk_result);
+            
+            var result = graphics.vulkan.create_instance(info, vk_instance, vk_result);
+            
+            # TODO: Currently, we assume that an application only ever uses one Vulkan instance at a time. This is
+            # probably fine though since I can't think of a reason for an application to create multiple Vulkan
+            # instances.
+            self.vulkan_instance = *vk_instance;
+
+            return result;
         }
 
         pub func create_vulkan_device(
@@ -239,7 +249,7 @@ struct Instance {
             vk_result: *vk.Result,
         ) -> xr.Result {
             log.info("Creating Vulkan device");
-            return graphics.vulkan.create_device(info, vk_device, vk_result);
+            return graphics.vulkan.create_device(info, self.vulkan_instance, vk_device, vk_result);
         }
     }
 

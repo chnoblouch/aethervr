@@ -91,7 +91,18 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         vk_create_info.enabled_extension_count = vk_extensions.length as u32;
         vk_create_info.pp_enabled_extension_names = vk_extensions.data;
 
-        *vk_result = vk.create_instance(
+        var vk_create_instance_name: *u8 = "vkCreateInstance";
+
+        var vk_create_instance =
+            info.pfn_get_instance_proc_addr(vk_instance, vk_create_instance_name)
+            as func(*vk.InstanceCreateInfo, *vk.AllocationCallbacks, *addr) -> vk.Result;
+
+        if vk_create_instance == null {
+            log.error("Vulkan: Failed to obtain `vkCreateInstance` function pointer");
+            return xr.Result.ERROR_RUNTIME_FAILURE;
+        }
+
+        *vk_result = vk_create_instance(
             &vk_create_info,
             info.vulkan_allocator as *vk.AllocationCallbacks,
             vk_instance,
@@ -102,6 +113,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
 
     pub func create_device(
         info: *xr.VulkanDeviceCreateInfoKHR,
+        vk_instance: addr,
         vk_device: *addr,
         vk_result: *vk.Result
     ) -> xr.Result {
@@ -138,11 +150,22 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         vk_create_info.enabled_extension_count = vk_extensions.length as u32;
         vk_create_info.pp_enabled_extension_names = vk_extensions.data;
     
-        *vk_result = vk.create_device(
+        var vk_create_device_name: *u8 = "vkCreateDevice";
+
+        var vk_create_device =
+            info.pfn_get_instance_proc_addr(vk_instance, vk_create_device_name)
+            as func(addr, *vk.DeviceCreateInfo, *vk.AllocationCallbacks, *addr) -> vk.Result;
+
+        if vk_create_device == null {
+            log.error("Vulkan: Failed to obtain `vkCreateDevice` function pointer");
+            return xr.Result.ERROR_RUNTIME_FAILURE;
+        }
+
+        *vk_result = vk_create_device(
             info.vulkan_physical_device,
             &vk_create_info,
             info.vulkan_allocator as *vk.AllocationCallbacks,
-            vk_device
+            vk_device,
         );
 
         return xr.Result.SUCCESS;
