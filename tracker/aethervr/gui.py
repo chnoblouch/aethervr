@@ -1,4 +1,5 @@
 import sys
+from copy import deepcopy
 from enum import Enum
 
 from PySide6.QtWidgets import (
@@ -23,6 +24,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QStackedWidget,
     QProgressBar,
+    QDialogButtonBox,
 )
 
 from PySide6 import QtCore
@@ -264,7 +266,76 @@ class TrackingConfigGroup(QGroupBox):
 
         self.tracking_label = QLabel()
         self.tracking_button = QPushButton()
-        self.tracking_button.clicked.connect(self.on_tracking_button_clicked)
+        self.tracking_button.clicked.connect(self._on_tracking_button_clicked)
+
+        self.fps_input = QLineEdit()
+        self.fps_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
+        self.fps_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.fps_input.editingFinished.connect(self._on_fps_input_changed)
+
+        self.capture_label = QLabel()
+
+        self.capture_config_button = QPushButton("Configure")
+        self.capture_config_button.clicked.connect(self._open_capture_config_dialog)
+
+        layout = QFormLayout()
+        layout.addRow(self.tracking_label, self.tracking_button)
+        layout.addRow(self.capture_label, self.capture_config_button)
+        layout.addRow("Max. Frames per Second:", self.fps_input)
+        self.setLayout(layout)
+
+        self._update_tracking_status()
+        self._update_capture_status()
+        self._update_fps_input()
+
+    def _on_tracking_button_clicked(self):
+        self.config.tracking_running = not self.config.tracking_running
+        self._update_tracking_status()
+
+    def _open_capture_config_dialog(self):
+        dialog = CaptureConfigDialog(self, self.config, self.camera_capture)
+        dialog.show()
+        dialog.exec_()
+        self._update_capture_status()
+
+    def _on_fps_input_changed(self):
+        try:
+            value = int(self.fps_input.text())
+            
+            if value > 0:
+                self.config.tracking_fps_cap = value
+        except ValueError:
+            pass
+
+        self._update_fps_input()
+
+    def _update_tracking_status(self):
+        if self.config.tracking_running:
+            self.tracking_label.setText("Status: Running")
+            self.tracking_button.setText("Stop")
+        else:
+            self.tracking_label.setText("Status: Stopped")
+            self.tracking_button.setText("Start")
+
+    def _update_capture_status(self):
+        config = self.config.capture_config
+        self.capture_label.setText(f"Source: Camera {config.camera_index} ({config.frame_width}x{config.frame_height})")
+
+    def _update_fps_input(self):
+        self.fps_input.setText(str(self.config.tracking_fps_cap))
+
+
+class CaptureConfigDialog(QDialog):
+
+    def __init__(self, parent: QWidget, config: Config, camera_capture: CameraCapture):
+        super().__init__(parent)
+
+        self.target_capture_config = config.capture_config
+        self.camera_capture = camera_capture
+        self.capture_config = deepcopy(config.capture_config)
+
+        self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.setWindowTitle("Camera Capture Configuration")
 
         self.camera_index_input = QComboBox()
         self.camera_index_input.addItem("Camera 0")
@@ -274,13 +345,13 @@ class TrackingConfigGroup(QGroupBox):
         self.camera_index_input.addItem("Camera 4")
         self.camera_index_input.currentIndexChanged.connect(self.on_capture_config_changed)
 
-        self.frame_width_input = QLineEdit("640")
+        self.frame_width_input = QLineEdit()
         self.frame_width_input.setFixedWidth(80)
         self.frame_width_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
         self.frame_width_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.frame_width_input.editingFinished.connect(self.on_capture_config_changed)
 
-        self.frame_height_input = QLineEdit("640")
+        self.frame_height_input = QLineEdit()
         self.frame_height_input.setFixedWidth(80)
         self.frame_height_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
         self.frame_height_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -295,72 +366,51 @@ class TrackingConfigGroup(QGroupBox):
         camera_resolution_row.addWidget(camera_resolution_x_label)
         camera_resolution_row.addWidget(self.frame_height_input)
 
-        self.fps_input = QLineEdit()
-        self.fps_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
-        self.fps_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.fps_input.editingFinished.connect(self.on_fps_input_changed)
+        self.button_box = QDialogButtonBox()
+        self.apply_button = self.button_box.addButton(QDialogButtonBox.StandardButton.Ok)
+        self.cancel_button = self.button_box.addButton(QDialogButtonBox.StandardButton.Cancel)
+        self.button_box.clicked.connect(self.on_button_clicked)
 
         layout = QFormLayout()
-        layout.addRow(self.tracking_label, self.tracking_button)
         layout.addRow("Camera Index:", self.camera_index_input)
-        layout.addRow("Camera Resolution:", camera_resolution_row)
-        layout.addRow("Max. Frames per Second:", self.fps_input)
+        layout.addRow("Image Resolution:", camera_resolution_row)
+        layout.addRow(self.button_box)
         self.setLayout(layout)
 
-        self.update_tracking_status()
         self.update_capture_config_inputs()
-        self.update_fps_input()
 
-    def on_tracking_button_clicked(self):
-        self.config.tracking_running = not self.config.tracking_running
-        self.update_tracking_status()
+    def on_button_clicked(self, button):
+        if button == self.apply_button:
+            self.target_capture_config.camera_index = self.capture_config.camera_index
+            self.target_capture_config.frame_width = self.capture_config.frame_width
+            self.target_capture_config.frame_height = self.capture_config.frame_height
+            self.camera_capture.restart()
+        
+        self.close()
 
     def on_capture_config_changed(self):
-        self.config.capture_config.camera_index = self.camera_index_input.currentIndex()
+        self.capture_config.camera_index = self.camera_index_input.currentIndex()
         
         try:
             value = int(self.frame_width_input.text())
             value = max(value, 320)
-            self.config.capture_config.frame_width = value
+            self.capture_config.frame_width = value
         except ValueError:
             pass
 
         try:
             value = int(self.frame_height_input.text())
             value = max(value, 320)
-            self.config.capture_config.frame_height = value
+            self.capture_config.frame_height = value
         except ValueError:
             pass
         
-        self.camera_capture.restart()
         self.update_capture_config_inputs()
 
-    def on_fps_input_changed(self):
-        try:
-            value = int(self.fps_input.text())
-            
-            if value > 0:
-                self.config.tracking_fps_cap = value
-        except ValueError:
-            pass
-
-        self.update_fps_input()
-
-    def update_tracking_status(self):
-        if self.config.tracking_running:
-            self.tracking_label.setText('Status: Running')
-            self.tracking_button.setText("Stop")
-        else:
-            self.tracking_label.setText("Status: Stopped")
-            self.tracking_button.setText("Start")
-
     def update_capture_config_inputs(self):
-        self.camera_index_input.setCurrentIndex(self.config.capture_config.camera_index)
-        self.frame_width_input.setText(str(self.config.capture_config.frame_width))
-        self.frame_height_input.setText(str(self.config.capture_config.frame_height))
-
-    def update_fps_input(self):
-        self.fps_input.setText(str(self.config.tracking_fps_cap))
+        self.camera_index_input.setCurrentIndex(self.capture_config.camera_index)
+        self.frame_width_input.setText(str(self.capture_config.frame_width))
+        self.frame_height_input.setText(str(self.capture_config.frame_height))
 
 
 class GeneralInputMappingGroup(QGroupBox):

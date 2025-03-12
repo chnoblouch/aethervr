@@ -28,7 +28,7 @@ class CameraCapture:
             return
 
         self.close()
-        self.start_thread()
+        self.start()
 
     def capture_images(self):
         print("Opening capture device...")
