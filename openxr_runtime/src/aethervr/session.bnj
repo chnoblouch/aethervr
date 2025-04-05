@@ -257,6 +257,9 @@ struct Session {
             return xr.Result.FRAME_DISCARDED;
         } else if self.frame_state == FrameState.ENDED {
             return xr.Result.ERROR_CALL_ORDER_INVALID;
+        } else {
+            # Probably unreachable.
+            return xr.Result.ERROR_RUNTIME_FAILURE;
         }
     }
 

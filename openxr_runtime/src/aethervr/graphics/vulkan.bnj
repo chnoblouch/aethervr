@@ -91,10 +91,8 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         vk_create_info.enabled_extension_count = vk_extensions.length as u32;
         vk_create_info.pp_enabled_extension_names = vk_extensions.data;
 
-        var vk_create_instance_name: *u8 = "vkCreateInstance";
-
         var vk_create_instance =
-            info.pfn_get_instance_proc_addr(vk_instance, vk_create_instance_name)
+            info.pfn_get_instance_proc_addr(vk_instance, "vkCreateInstance")
             as func(*vk.InstanceCreateInfo, *vk.AllocationCallbacks, *addr) -> vk.Result;
 
         if vk_create_instance == null {
@@ -150,10 +148,8 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         vk_create_info.enabled_extension_count = vk_extensions.length as u32;
         vk_create_info.pp_enabled_extension_names = vk_extensions.data;
     
-        var vk_create_device_name: *u8 = "vkCreateDevice";
-
         var vk_create_device =
-            info.pfn_get_instance_proc_addr(vk_instance, vk_create_device_name)
+            info.pfn_get_instance_proc_addr(vk_instance, "vkCreateDevice")
             as func(addr, *vk.DeviceCreateInfo, *vk.AllocationCallbacks, *addr) -> vk.Result;
 
         if vk_create_device == null {
@@ -563,6 +559,8 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
 
             vk.free_command_buffers(self.binding.device, self.command_pool, 1, &self.command_buffer);
             vk.destroy_command_pool(self.binding.device, self.command_pool, null);
+            
+            return true;
         }
     }
 }

@@ -143,6 +143,9 @@ struct Space {
                 return Pose.identity();
             } else if self.reference_space_type == xr.ReferenceSpaceType.STAGE {
                 return Pose.identity();
+            } else {
+                # Probably unreachable.
+                return Pose.identity();
             }
         } else if self.type_ == SpaceType.ACTION_SPACE {
             var space_pose = self.session.input_mapper.get_space_pose(self.action, self.subaction_path, time);
