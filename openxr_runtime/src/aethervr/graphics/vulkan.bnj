@@ -81,8 +81,8 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         log.info("Vulkan instance extensions:");
         log.enter_scope();
 
-        for vk_extension in vk_extensions {
-            log.info("- %", vk_extension);
+        for *vk_extension in vk_extensions {
+            log.info("- %", *vk_extension);
         }
 
         log.exit_scope();
@@ -138,8 +138,8 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         log.info("Vulkan device extensions:");
         log.enter_scope();
 
-        for vk_extension in vk_extensions {
-            log.info("- %", vk_extension);
+        for *vk_extension in vk_extensions {
+            log.info("- %", *vk_extension);
         }
 
         log.exit_scope();

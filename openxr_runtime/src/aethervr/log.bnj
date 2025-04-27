@@ -1,22 +1,19 @@
 use std.{
     memory,
-    file.{File, FileMode},
+    file.File,
     path.Path,
-    io.{Writer, CFileWriter},
     convert.to_string,
 };
 
 struct Logger {
     var file: File;
-    var writer: Writer[CFileWriter];
     var depth: u32;
 }
 
 var instance: Logger;
 
 func create_instance(path: Path) {
-    instance.file = File.open(path, FileMode.WRITE).unwrap();
-    instance.writer = instance.file.writer();
+    instance.file = File.open(path, File.Mode.WRITE).unwrap();
     instance.depth = 0;
 }
 
@@ -40,36 +37,34 @@ pub func info[Args: ...](format: String, args: Args) {
         i += 1;
     }
 
-    instance.writer.write("[info ] ");
+    instance.file.write_cstring("[info ] ");
 
     for i in 0..instance.depth {
-        instance.writer.write(' ');
-        instance.writer.write(' ');
+        instance.file.write_cstring("  ");
     }
 
-    instance.writer.write(string);
-    instance.writer.write('\n');
-    instance.writer.flush();
+    instance.file.write_string(string.slice());
+    instance.file.write_cstring("\n");
+    instance.file.flush();
 }
 
 pub func warn(message: String) {
-    instance.writer.write("[warn ] ");
+    instance.file.write_cstring("[warn ] ");
 
     for i in 0..instance.depth {
-        instance.writer.write(' ');
-        instance.writer.write(' ');
+        instance.file.write_cstring("  ");
     }
 
-    instance.writer.write(message);
-    instance.writer.write('\n');
-    instance.writer.flush();
+    instance.file.write_string(message.slice());
+    instance.file.write_cstring("\n");
+    instance.file.flush();
 }
 
 pub func error(message: String) {
-    instance.writer.write("[ERROR] ");
-    instance.writer.write(message);
-    instance.writer.write('\n');
-    instance.writer.flush();
+    instance.file.write_cstring("[ERROR] ");
+    instance.file.write_string(message.slice());
+    instance.file.write_cstring("\n");
+    instance.file.flush();
 }
 
 pub func enter_scope() {

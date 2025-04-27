@@ -214,7 +214,7 @@ meta if config.OS == config.WINDOWS {
         }
 
         pub func destroy(self) {
-            for image in self.images {
+            for *image in self.images {
                 image.mutex.Release();
                 image.texture.Release();
             }
