@@ -171,5 +171,15 @@ meta if config.OS == config.MACOS {
             var out_images_metal = out_images as *xr.SwapchainImageMetalKHR;
             out_images_metal[out_index].texture = handle as addr;
         }
+
+        pub func share_image(self, image: *SwapchainImage) -> ?usize {
+            return none;
+        }
+
+        pub func wait_image(self, image: *SwapchainImage, timeout: i64) -> xr.Result {
+            return xr.Result.SUCCESS;
+        }
+
+        pub func release_image(self, image: *SwapchainImage) {}
     }
 }

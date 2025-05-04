@@ -5,7 +5,7 @@
 #  define D3D11_NO_HELPERS
 #  define CINTERFACE
 #  include <d3d11_1.h>
-#elif __linux__
+#elif __linux__ || __APPLE__
 typedef signed char int8_t;
 typedef unsigned char uint8_t;
 typedef short int16_t;

@@ -44,6 +44,8 @@ meta if config.OS == config.MACOS {
         log.enter_scope();
         log.info("Name: %", name);
         log.exit_scope();
+
+        return xr.Result.SUCCESS;
     }
 
     pub func get_supported_formats() -> [i64] {
@@ -121,8 +123,8 @@ meta if config.OS == config.MACOS {
             create_info: *create_info,
             api_handle: texture as usize,
             api_memory: null,
+            api_opaque_values: [0, 0],
             state: SwapchainImageState.AVAILABLE,
-            acquired: false,
         };
 
         log.exit_scope();
