@@ -22,7 +22,9 @@ class Position:
 
     def lerp(self, other, t):
         return Position(
-            self.x + t * (other.x - self.x), self.y + t * (other.y - self.y), self.z + t * (other.z - self.z)
+            self.x + t * (other.x - self.x),
+            self.y + t * (other.y - self.y),
+            self.z + t * (other.z - self.z),
         )
 
     def copy(self):
@@ -86,9 +88,20 @@ class Orientation:
 
         return Orientation.from_np_array(q)
 
+    def inverse(self) -> "Orientation":
+        return Orientation(-self.x, -self.y, -self.z, self.w)
+
+    def angle_to(self, other: "Orientation") -> float:
+        # Thanks to: https://stackoverflow.com/a/23263233
+
+        d = self.inverse() * other
+        y = math.sqrt(float(d.x ** 2 + d.y ** 2 + d.z ** 2))
+        x = float(d.w)
+        return abs(2.0 * math.atan2(y, x))
+
     def copy(self):
         return Orientation(self.x, self.y, self.z, self.w)
-    
+
     def __mul__(self, rhs: "Orientation"):
         return Orientation.from_np_array(self.to_np_array() * rhs.to_np_array())
 
