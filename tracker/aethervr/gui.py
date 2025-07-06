@@ -557,6 +557,7 @@ class ButtonBindingDropdown(QComboBox):
 
         initial_value = config.gesture_mappings[gesture]
 
+        self.addItem("None", None)
         self.addItem("Trigger", ControllerButton.TRIGGER)
         self.addItem("Squeeze", ControllerButton.SQUEEZE)
         self.addItem("A", ControllerButton.A_BUTTON)
