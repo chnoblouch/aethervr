@@ -162,6 +162,9 @@ class Window(QMainWindow):
     def clear_camera_overlay(self):
         self.camera_view.clear_overlay()
 
+    def display_camera_error(self):
+        self.camera_view.display_camera_error()
+
 
 class ConfigPanel(QWidget):
 
@@ -618,6 +621,12 @@ class CameraView(QLabel):
         self.overlay = None
         self.update()
 
+    def display_camera_error(self):
+        self.setText("Failed to start camera capture.")
+        self.frame = None
+        self.overlay = None
+        self.update()
+
     def update_overlay(self, tracking_state: TrackingState):
         height, width, _ = self.frame.shape
         self.overlay = np.zeros((height, width, 4), np.uint8)
@@ -918,6 +927,9 @@ class GUI:
 
     def clear_camera_overlay(self):
         self.window.clear_camera_overlay()
+
+    def display_camera_error(self):
+        self.window.display_camera_error()
 
     def run(self):
         self.app.exec()

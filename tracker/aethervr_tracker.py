@@ -40,7 +40,7 @@ class Application:
         self.tracking_state = TrackingState()
         self.input_state = InputState()
 
-        self.camera_capture = CameraCapture(self.config.capture_config, self.on_frame)
+        self.camera_capture = CameraCapture(self.config.capture_config, self.on_frame, self.on_camera_error)
         self.connection = RuntimeConnection(38057)
         self.system_openxr_config = SystemOpenXRConfig()
 
@@ -92,6 +92,9 @@ class Application:
                 self.last_hand_tracking_time = now
                 self.hand_tracking_queue_size += 1
                 self.hand_tracker.detect(frame)
+
+    def on_camera_error(self):
+        self.gui.display_camera_error()
 
     def on_head_tracking_results(self, state: HeadState):
         with self.head_tracking_lock:

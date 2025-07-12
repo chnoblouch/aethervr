@@ -7,10 +7,11 @@ from aethervr.config import CaptureConfig
 
 class CameraCapture:
 
-    def __init__(self, config: CaptureConfig, on_frame):
+    def __init__(self, config: CaptureConfig, on_frame, on_error):
         self.frame = None
         self.source_config = config
         self.on_frame = on_frame
+        self.on_error = on_error
 
         self.active_config: CaptureConfig = None
         self.running = Event()
@@ -38,7 +39,8 @@ class CameraCapture:
         capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.active_config.frame_height)
 
         if not capture.isOpened():
-            raise Exception("Failed to open capture device")
+            self.on_error()
+            return
 
         print("Capture device opened")
 
