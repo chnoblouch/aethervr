@@ -105,12 +105,12 @@ struct Component {
         if self.sub_path.ends_with("/x") || self.sub_path.ends_with("/y") {
             var parent = self.sub_path.substring(0, self.sub_path.rfind('/').unwrap());
 
-            if sub_path == parent {
+            if sub_path == parent.slice() {
                 return true;
             }
         }
 
-        if sub_path != self.sub_path.copy() {
+        if sub_path != self.sub_path.slice() {
             return false;
         }
 
@@ -339,9 +339,9 @@ pub func set_action_bindings(
 
         var component: *Component = null;
 
-        for *candidate in profile.components {
+        for ref mut candidate in profile.components {
             if candidate.matches(string, action.type_) {
-                component = candidate;
+                component = &candidate;
                 break;
             }
         }
@@ -424,9 +424,9 @@ pub func set_action_bindings(
 }
 
 func find_profile(instance: *Instance, path: StringSlice) -> *InteractionProfile {
-    for *profile in instance.interaction_profiles {
+    for ref mut profile in instance.interaction_profiles {
         if profile.path == path {
-            return profile;
+            return &profile;
         }
     }
 

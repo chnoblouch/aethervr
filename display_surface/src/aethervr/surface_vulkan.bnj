@@ -323,7 +323,7 @@ struct VulkanSurface: Surface {
         });
     }
 
-    pub func register_image(self, id: u32, info: ImageRegisterInfo) {
+    pub func register_image(mut self, id: u32, info: ImageRegisterInfo) {
         var local_handle = platform.access_handle(info.process_id, info.shared_handle);
 
         meta if config.OS == config.WINDOWS {
@@ -431,12 +431,12 @@ struct VulkanSurface: Surface {
         });
     }
 
-    pub func present_image(self, id: u32, info: ImagePresentInfo) {
+    pub func present_image(mut self, id: u32, info: ImagePresentInfo) {
         var shared_image: *SharedImage = null;
 
-        for *image in self.images {
+        for ref mut image in self.images {
             if image.id == id {
-                shared_image = image;
+                shared_image = &image;
             }
         }
 
@@ -485,7 +485,7 @@ struct VulkanSurface: Surface {
 
         insert_image_layout_transition(
             self.image_copy_command_buffer,
-            self.swapchain_images[swapchain_image_index],
+            self.swapchain_images[swapchain_image_index as usize],
             0,
             vk.AccessFlagBits.TRANSFER_WRITE_BIT as u32,
             vk.ImageLayout.UNDEFINED,
@@ -537,7 +537,7 @@ struct VulkanSurface: Surface {
             self.image_copy_command_buffer,
             shared_image.image,
             vk.ImageLayout.TRANSFER_SRC_OPTIMAL,
-            self.swapchain_images[swapchain_image_index],
+            self.swapchain_images[swapchain_image_index as usize],
             vk.ImageLayout.TRANSFER_DST_OPTIMAL,
             1,
             &blit_region,
@@ -559,7 +559,7 @@ struct VulkanSurface: Surface {
 
         insert_image_layout_transition(
             self.image_copy_command_buffer,
-            self.swapchain_images[swapchain_image_index],
+            self.swapchain_images[swapchain_image_index as usize],
             vk.AccessFlagBits.TRANSFER_WRITE_BIT as u32,
             0,
             vk.ImageLayout.TRANSFER_DST_OPTIMAL,
@@ -649,7 +649,7 @@ struct VulkanSurface: Surface {
         );
     }
 
-    pub func destroy(self) {
+    pub func destroy(mut self) {
         vk.destroy_semaphore(self.device, self.image_copy_semaphore, null);
         vk.destroy_semaphore(self.device, self.image_acquire_semaphore, null);
 
@@ -659,7 +659,7 @@ struct VulkanSurface: Surface {
         vk.destroy_surface_khr(self.instance, self.surface, null);
         vk.destroy_instance(self.instance, null);
 
-        memory.free(self);
+        memory.free(&self);
     }
 }
 

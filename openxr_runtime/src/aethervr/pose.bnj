@@ -121,7 +121,7 @@ struct Quat {
         # Thanks to: https://gamedev.stackexchange.com/questions/28395/rotating-vector3-by-a-quaternion
 
         var u = new(vector.x, vector.y, vector.z, 0.0);
-        var q = (*self * u) * self.inverse();
+        var q = (self * u) * self.inverse();
         return Vec3.new(q.x, q.y, q.z);
     }
 

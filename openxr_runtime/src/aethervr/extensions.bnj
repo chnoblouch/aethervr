@@ -31,12 +31,12 @@ pub func get_extension_properties() -> [xr.ExtensionProperties] {
     }
 
     var properties: [xr.ExtensionProperties] = [];
-    for *extension in extensions {
-        properties.append(create_ext_properties(*extension));
+    for ref extension in extensions {
+        properties.append(create_ext_properties(extension));
     }
 
     log.info("Enumerating instance extension properties");
-    for *extension in extensions {
+    for ref extension in extensions {
         log.info("  - %", extension.0);
     }
 

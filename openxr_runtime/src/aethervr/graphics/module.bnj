@@ -84,7 +84,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             return vulkan.get_supported_formats();
         }
 
-        pub func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result {
+        pub func create_image(mut self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result {
             return vulkan.create_swapchain_image(info, &self.binding, image);
         }
 
@@ -93,7 +93,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             out_images_vulkan[out_index].image = handle as addr;
         }
 
-        pub func share_image(self, image: *SwapchainImage) -> ?usize {
+        pub func share_image(mut self, image: *SwapchainImage) -> ?usize {
             return vulkan.share_image(&self.binding, image);
         }
 
@@ -124,7 +124,7 @@ meta if config.OS == config.WINDOWS {
             return d3d11.get_supported_formats();
         }
 
-        pub func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result {
+        pub func create_image(mut self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result {
             return d3d11.create_swapchain_image(info, &self.binding, image);
         }
 
@@ -133,15 +133,15 @@ meta if config.OS == config.WINDOWS {
             out_images_d3d11[out_index].texture = handle as addr;
         }
 
-        pub func share_image(self, image: *SwapchainImage) -> ?usize {
+        pub func share_image(mut self, image: *SwapchainImage) -> ?usize {
             return d3d11.share_image(&self.binding, image);
         }
 
-        pub func wait_image(self, image: *SwapchainImage, timeout: i64) -> xr.Result {
+        pub func wait_image(mut self, image: *SwapchainImage, timeout: i64) -> xr.Result {
             return d3d11.wait_image(&self.binding, image, timeout);
         }
 
-        pub func release_image(self, image: *SwapchainImage) {
+        pub func release_image(mut self, image: *SwapchainImage) {
             d3d11.release_image(&self.binding, image);
         }
     }

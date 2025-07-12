@@ -91,9 +91,9 @@ struct Swapchain {
             last_released_index: 0,
         });
 
-        for *image in swapchain.images {
-            try shared_handle in session.graphics_backend.share_image(image) {
-                session.tracker_connection.register_image(image, shared_handle);
+        for ref mut image in swapchain.images {
+            try shared_handle in session.graphics_backend.share_image(&image) {
+                session.tracker_connection.register_image(&image, shared_handle);
             }
         }
 
@@ -102,7 +102,7 @@ struct Swapchain {
     }
 
     pub func enumerate_images(
-        self,
+        mut self,
         image_capacity_input: u32,
         image_count_output: *u32,
         images: *xr.SwapchainImageBaseHeader
@@ -115,14 +115,14 @@ struct Swapchain {
         }
 
         for i in 0..self.images.length {
-            var handle = self.images[i as u32].api_handle;
+            var handle = self.images[i].api_handle;
             self.session.graphics_backend.store_image(handle, images, i as u32);
         }
 
         return xr.Result.SUCCESS;
     }
 
-    pub func acquire_image(self, info: *xr.SwapchainImageAcquireInfo, index: *u32) -> xr.Result {
+    pub func acquire_image(mut self, info: *xr.SwapchainImageAcquireInfo, index: *u32) -> xr.Result {
         for i in 0..self.images.length {
             if self.images[i].state == SwapchainImageState.AVAILABLE {
                 *index = i as u32;
@@ -134,7 +134,7 @@ struct Swapchain {
         return xr.Result.ERROR_CALL_ORDER_INVALID;
     }
 
-    pub func wait_image(self, info: *xr.SwapchainImageWaitInfo) -> xr.Result {
+    pub func wait_image(mut self, info: *xr.SwapchainImageWaitInfo) -> xr.Result {
         for i in 0..self.images.length {
             if self.images[i].state == SwapchainImageState.ACQUIRED {
                 self.images[i].state = SwapchainImageState.WAITED;
@@ -145,7 +145,7 @@ struct Swapchain {
         return xr.Result.ERROR_CALL_ORDER_INVALID;
     }
 
-    pub func release_image(self, info: *xr.SwapchainImageReleaseInfo) -> xr.Result {        
+    pub func release_image(mut self, info: *xr.SwapchainImageReleaseInfo) -> xr.Result {        
         for i in 0..self.images.length {
             if self.images[i].state == SwapchainImageState.WAITED {
                 self.session.graphics_backend.release_image(&self.images[i]);

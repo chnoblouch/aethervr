@@ -21,14 +21,14 @@ struct EventQueue {
         };
     }
 
-    pub func push(self, event_data: xr.EventDataBuffer) {
+    pub func push(mut self, event_data: xr.EventDataBuffer) {
         self.push_index = next_index(self.push_index);
         self.buffer[self.push_index] = event_data;
 
         log.info("Event pushed with type %", event_data.type_ as i64);
     }
 
-    pub func poll(self, event_data: *xr.EventDataBuffer) -> xr.Result {
+    pub func poll(mut self, event_data: *xr.EventDataBuffer) -> xr.Result {
         if self.push_index == self.poll_index {
             return xr.Result.EVENT_UNAVAILABLE;
         }

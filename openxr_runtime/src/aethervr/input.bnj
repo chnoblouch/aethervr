@@ -31,7 +31,7 @@ struct PoseBuffer {
         return PoseBuffer { snapshots };
     }
 
-    pub func insert(self, snapshot: PoseSnapshot) {
+    pub func insert(mut self, snapshot: PoseSnapshot) {
         for i in 0..NUM_SNAPSHOTS - 1 {
             self.snapshots[i] = self.snapshots[i + 1];
         }
@@ -84,7 +84,7 @@ struct HeadsetState {
         };
     }
 
-    pub func update_pose(self) {
+    pub func update_pose(mut self) {
         var now = time.now();
         var delta_ns = now - self.last_time;
         var delta = delta_ns as f32 / 1000000000 as f32;

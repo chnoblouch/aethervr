@@ -46,12 +46,12 @@ struct ActionSet {
         return self.sessions.contains(session);
     }
 
-    pub func attach_to(self, session: *Session) {
+    pub func attach_to(mut self, session: *Session) {
         self.sessions.insert(session);
     }
 
-    pub func create_action(self, create_info: *xr.ActionCreateInfo) -> (*Action, xr.Result) {
-        return Action.create(self, create_info);
+    pub func create_action(mut self, create_info: *xr.ActionCreateInfo) -> (*Action, xr.Result) {
+        return Action.create(&self, create_info);
     }
 }
 

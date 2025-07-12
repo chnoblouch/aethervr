@@ -15,7 +15,7 @@ struct PathMapping {
         };
     }
 
-    pub func get_path(self, string: StringSlice) -> ?u64 {
+    pub func get_path(mut self, string: StringSlice) -> ?u64 {
         if !validate_string(string) {
             return none;
         }
@@ -116,5 +116,5 @@ struct PathMapping {
     var id = mapping.get_path("/user/hand/left").unwrap();
     var string = String.from(mapping.get_string(id).unwrap());
 
-    assert_eq(string, "/user/hand/right");
+    assert_eq(string.slice(), "/user/hand/right".slice());
 }

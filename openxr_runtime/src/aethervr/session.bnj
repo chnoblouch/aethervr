@@ -97,7 +97,7 @@ struct Session {
         return (session, xr.Result.SUCCESS);
     }
 
-    pub func begin(self, begin_info: *xr.SessionBeginInfo) -> xr.Result {
+    pub func begin(mut self, begin_info: *xr.SessionBeginInfo) -> xr.Result {
         if self.running {
             return xr.Result.ERROR_SESSION_RUNNING;
         }
@@ -120,7 +120,7 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func end(self) -> xr.Result {
+    pub func end(mut self) -> xr.Result {
         if !self.running {
             return xr.Result.ERROR_SESSION_NOT_RUNNING;
         }
@@ -141,7 +141,7 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func request_exit_session(self) -> xr.Result {
+    pub func request_exit_session(mut self) -> xr.Result {
         if !self.running {
             return xr.Result.ERROR_SESSION_NOT_RUNNING;
         }
@@ -207,7 +207,7 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func wait_frame(self, info: *xr.FrameWaitInfo, state: *xr.FrameState) -> xr.Result {
+    pub func wait_frame(mut self, info: *xr.FrameWaitInfo, state: *xr.FrameState) -> xr.Result {
         if self.synchronize_on_wait_frame {
             self.transition_to(xr.SessionState.SYNCHRONIZED);
             self.transition_to(xr.SessionState.VISIBLE);
@@ -244,7 +244,7 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func begin_frame(self, info: *xr.FrameBeginInfo) -> xr.Result {
+    pub func begin_frame(mut self, info: *xr.FrameBeginInfo) -> xr.Result {
         if !self.running {
             return xr.Result.ERROR_SESSION_NOT_RUNNING;
         }
@@ -263,7 +263,7 @@ struct Session {
         }
     }
 
-    pub func end_frame(self, info: *xr.FrameEndInfo) -> xr.Result {
+    pub func end_frame(mut self, info: *xr.FrameEndInfo) -> xr.Result {
         if !self.running {
             return xr.Result.ERROR_SESSION_NOT_RUNNING;
         }
@@ -302,12 +302,12 @@ struct Session {
         self.tracker_connection.present_image(image.id, region);
     }
 
-    pub func create_reference_space(self, create_info: *xr.ReferenceSpaceCreateInfo) -> (*Space, xr.Result) {
-        return Space.create_reference_space(self, create_info);
+    pub func create_reference_space(mut self, create_info: *xr.ReferenceSpaceCreateInfo) -> (*Space, xr.Result) {
+        return Space.create_reference_space(&self, create_info);
     }
 
-    pub func create_action_space(self, create_info: *xr.ActionSpaceCreateInfo) -> (*Space, xr.Result) {
-        return Space.create_action_space(self, create_info);
+    pub func create_action_space(mut self, create_info: *xr.ActionSpaceCreateInfo) -> (*Space, xr.Result) {
+        return Space.create_action_space(&self, create_info);
     }
 
     pub func enumerate_swapchain_formats(self) -> [i64] {
@@ -315,11 +315,11 @@ struct Session {
         return self.graphics_backend.get_supported_formats();
     }
 
-    pub func create_swapchain(self, create_info: *xr.SwapchainCreateInfo) -> (*Swapchain, xr.Result) {
-        return Swapchain.create(self, create_info);
+    pub func create_swapchain(mut self, create_info: *xr.SwapchainCreateInfo) -> (*Swapchain, xr.Result) {
+        return Swapchain.create(&self, create_info);
     }
 
-    pub func attach_action_sets(self, info: *xr.SessionActionSetsAttachInfo) -> xr.Result {
+    pub func attach_action_sets(mut self, info: *xr.SessionActionSetsAttachInfo) -> xr.Result {
         log.info("Attaching action sets to session");
 
         if info.count_action_sets == 0 {
@@ -337,7 +337,7 @@ struct Session {
             #     return xr.Result.ERROR_ACTIONSETS_ALREADY_ATTACHED;
             # }
 
-            action_set.attach_to(self);
+            action_set.attach_to(&self);
         }
 
         self.action_sets_attached = true;
@@ -364,13 +364,13 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func sync_actions(self, info: *xr.ActionsSyncInfo) -> xr.Result {
+    pub func sync_actions(mut self, info: *xr.ActionsSyncInfo) -> xr.Result {
         # FIXME: Set `active` field corretly.
         
         for i in 0..info.count_active_action_sets {
             var action_set = info.active_action_sets[i].action_set as *ActionSet;
 
-            if !action_set.is_attached_to(self) {
+            if !action_set.is_attached_to(&self) {
                 return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
             }
 
@@ -395,7 +395,7 @@ struct Session {
             var event = &event_buffer as *xr.EventDataInteractionProfileChanged;
             event.type_ = xr.StructureType.EVENT_DATA_INTERACTION_PROFILE_CHANGED;
             event.next = null;
-            event.session = self;
+            event.session = &self;
             self.instance.event_queue.push(event_buffer);
 
             self.actions_synced_once = true;
@@ -405,10 +405,10 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func enumerate_bound_sources_for_action(self, info: *xr.BoundSourcesForActionEnumerateInfo) -> xr.Result {
+    pub func enumerate_bound_sources_for_action(mut self, info: *xr.BoundSourcesForActionEnumerateInfo) -> xr.Result {
         var action = info.action as *Action;
 
-        if !action.action_set.is_attached_to(self) {
+        if !action.action_set.is_attached_to(&self) {
             return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
         }
 
@@ -423,10 +423,10 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func get_state_bool(self, info: *xr.ActionStateGetInfo, state: *xr.ActionStateBoolean) -> xr.Result {
+    pub func get_state_bool(mut self, info: *xr.ActionStateGetInfo, state: *xr.ActionStateBoolean) -> xr.Result {
         var action = info.action as *Action;
 
-        if !action.action_set.is_attached_to(self) {
+        if !action.action_set.is_attached_to(&self) {
             return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
         }
 
@@ -445,10 +445,10 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func get_state_float(self, info: *xr.ActionStateGetInfo, state: *xr.ActionStateFloat) -> xr.Result {
+    pub func get_state_float(mut self, info: *xr.ActionStateGetInfo, state: *xr.ActionStateFloat) -> xr.Result {
         var action = info.action as *Action;
         
-        if !action.action_set.is_attached_to(self) {
+        if !action.action_set.is_attached_to(&self) {
             return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
         }
         
@@ -467,10 +467,10 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func get_state_vector2f(self, info: *xr.ActionStateGetInfo, state: *xr.ActionStateVector2f) -> xr.Result {
+    pub func get_state_vector2f(mut self, info: *xr.ActionStateGetInfo, state: *xr.ActionStateVector2f) -> xr.Result {
         var action = info.action as *Action;
         
-        if !action.action_set.is_attached_to(self) {
+        if !action.action_set.is_attached_to(&self) {
             return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
         }
         
@@ -491,10 +491,10 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func get_state_pose(self, info: *xr.ActionStateGetInfo, state: *xr.ActionStatePose) -> xr.Result {
+    pub func get_state_pose(mut self, info: *xr.ActionStateGetInfo, state: *xr.ActionStatePose) -> xr.Result {
         var action = info.action as *Action;
         
-        if !action.action_set.is_attached_to(self) {
+        if !action.action_set.is_attached_to(&self) {
             return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
         }
         
@@ -504,10 +504,10 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func apply_haptic_feedback(self, info: *xr.HapticActionInfo, haptic_feedback: *xr.HapticBaseHeader) -> xr.Result {
+    pub func apply_haptic_feedback(mut self, info: *xr.HapticActionInfo, haptic_feedback: *xr.HapticBaseHeader) -> xr.Result {
         var action = info.action as *Action;
         
-        if !action.action_set.is_attached_to(self) {
+        if !action.action_set.is_attached_to(&self) {
             return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
         }
 
@@ -518,10 +518,10 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func stop_haptic_feedback(self, info: *xr.HapticActionInfo) -> xr.Result {
+    pub func stop_haptic_feedback(mut self, info: *xr.HapticActionInfo) -> xr.Result {
         var action = info.action as *Action;
         
-        if !action.action_set.is_attached_to(self) {
+        if !action.action_set.is_attached_to(&self) {
             return xr.Result.ERROR_ACTIONSET_NOT_ATTACHED;
         }
 
@@ -532,21 +532,21 @@ struct Session {
         return xr.Result.SUCCESS;
     }
 
-    pub func destroy(self) -> xr.Result {
+    pub func destroy(mut self) -> xr.Result {
         var lock = self.tracker_connection.mutex.lock();
         
         log.info("Destroying session");
         self.tracker_connection.stream.close();
-        memory.free(self);
+        memory.free(&self);
         return xr.Result.SUCCESS;
     }
 
-    func transition_to(self, state: xr.SessionState) {
+    func transition_to(mut self, state: xr.SessionState) {
         var event_buffer: xr.EventDataBuffer;
         var event = &event_buffer as *xr.EventDataSessionStateChanged;
         event.type_ = xr.StructureType.EVENT_DATA_SESSION_STATE_CHANGED;
         event.next = null;
-        event.session = self;
+        event.session = &self;
         event.state = state;
         event.time = time.now();
         self.instance.event_queue.push(event_buffer);

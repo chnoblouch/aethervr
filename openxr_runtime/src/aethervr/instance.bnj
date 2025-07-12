@@ -64,8 +64,8 @@ struct Instance {
     }
 
     pub func is_extension_enabled(self, extension: StringSlice) -> bool {
-        for *candidate in self.extensions {
-            if *candidate == extension {
+        for ref candidate in self.extensions {
+            if candidate == extension {
                 return true;
             }
         }
@@ -118,7 +118,7 @@ struct Instance {
         return xr.Result.SUCCESS;
     }
 
-    pub func string_to_path(self, string: *u8) -> (u64, xr.Result) {
+    pub func string_to_path(mut self, string: *u8) -> (u64, xr.Result) {
         try path in self.path_mapping.get_path(StringSlice.of_cstring(string)) {
             log.info("Converting string to path: \"%\" -> %", string, path);
             return (path, xr.Result.SUCCESS);
@@ -149,17 +149,17 @@ struct Instance {
         return (configs, xr.Result.SUCCESS);
     }
 
-    pub func create_session(self, create_info: *xr.SessionCreateInfo) -> (*Session, xr.Result) {
-        return Session.create(self, create_info);
+    pub func create_session(mut self, create_info: *xr.SessionCreateInfo) -> (*Session, xr.Result) {
+        return Session.create(&self, create_info);
     }
 
-    pub func create_action_set(self, create_info: *xr.ActionSetCreateInfo) -> (*ActionSet, xr.Result) {
-        return ActionSet.create(self, create_info);
+    pub func create_action_set(mut self, create_info: *xr.ActionSetCreateInfo) -> (*ActionSet, xr.Result) {
+        return ActionSet.create(&self, create_info);
     }
 
     meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         pub func get_vulkan_graphics_requirements(
-            self,
+            mut self,
             system_id: u64,
             reqs: *xr.GraphicsRequirementsVulkanKHR,
         ) -> xr.Result {
@@ -225,7 +225,7 @@ struct Instance {
         }
 
         pub func create_vulkan_instance(
-            self,
+            mut self,
             info: *xr.VulkanInstanceCreateInfoKHR,
             vk_instance: *addr,
             vk_result: *vk.Result,
@@ -255,7 +255,7 @@ struct Instance {
 
     meta if config.OS == config.WINDOWS {
         pub func get_d3d11_graphics_requirements(
-            self,
+            mut self,
             system_id: u64,
             reqs: *xr.GraphicsRequirementsD3D11KHR,
         ) -> xr.Result {
@@ -272,7 +272,7 @@ struct Instance {
 
     meta if config.OS == config.MACOS {
         pub func get_metal_graphics_requirements(
-            self,
+            mut self,
             system_id: u64,
             reqs: *xr.GraphicsRequirementsMetalKHR,
         ) -> xr.Result {

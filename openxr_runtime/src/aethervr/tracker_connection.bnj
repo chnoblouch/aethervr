@@ -95,7 +95,7 @@ struct TrackerConnection {
         };
     }
 
-    pub func poll(self) -> ?InputState {
+    pub func poll(mut self) -> ?InputState {
         var lock = self.mutex.lock();
 
         var poll_message: u8 = 0;
@@ -128,7 +128,7 @@ struct TrackerConnection {
         return self.state;
     }
 
-    pub func read_headset_state(self) -> bool {
+    pub func read_headset_state(mut self) -> bool {
         var message: HeadsetStateMsg;
         var size: usize = meta(HeadsetStateMsg).size;
 
@@ -151,7 +151,7 @@ struct TrackerConnection {
         return true;
     }
 
-    pub func read_controller_state(self) -> bool {
+    pub func read_controller_state(mut self) -> bool {
         var message: ControllerStateMsg;
         var size: usize = meta(ControllerStateMsg).size;
 
