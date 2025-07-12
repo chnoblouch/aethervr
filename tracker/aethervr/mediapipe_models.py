@@ -3,7 +3,7 @@ from pathlib import Path
 from threading import Thread
 
 
-MODELS_DIR = Path("models")
+MODELS_DIR = Path("mp_models")
 FACE_LANDMARKER_PATH = MODELS_DIR / "face_landmarker.task"
 HAND_LANDMARKER_PATH = MODELS_DIR / "hand_landmarker.task"
 

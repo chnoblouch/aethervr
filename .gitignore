@@ -2,7 +2,7 @@ openxr_runtime/scripts/xr/OpenXR-SDK/
 openxr_runtime/scripts/xr/OpenXR-SDK-Source/
 openxr_runtime/scripts/xr/Vulkan-Headers/
 
-tracker/models/
+tracker/mp_models/
 
 __pycache__/
 .vscode/

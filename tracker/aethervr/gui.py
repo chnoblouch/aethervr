@@ -135,8 +135,8 @@ class Window(QMainWindow):
         response = QMessageBox.question(
             self,
             "MediaPipe Models",
-            "The AetherVR tracker requires two MediaPipe machine learning models to run. "
-            "These files are downloaded from Google's servers and placed in the `models` directory.\n\n"
+            "The AetherVR tracker requires two MediaPipe machine learning models in order to run. "
+            "These files are downloaded from Google's servers and placed in the `mp_models` directory.\n\n"
             "Would you like to continue and start the download?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Close,
         )
@@ -870,7 +870,7 @@ class StatusBar(QLabel):
             color = "#098226"
         else:
             text = "Disconnected"
-            color = "#6D6D6D"
+            color = "#636363"
         
         if self.application_name is not None:
             text += " | "
