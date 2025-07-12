@@ -36,6 +36,9 @@ class HeadTracker:
     def _process_results(self, detection_results, image, timestamp):
         state = HeadState(visible=False)
 
+        if len(detection_results.face_landmarks) > 0:
+            state.landmarks = detection_results.face_landmarks[0]
+
         if len(detection_results.facial_transformation_matrixes) > 0:
             state.visible = True
 

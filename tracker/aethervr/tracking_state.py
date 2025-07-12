@@ -11,6 +11,7 @@ class HeadState:
     position: Position = field(default_factory=lambda: Position(0.0, 0.0, 0.0))
     pitch: float = 0.0
     yaw: float = 0.0
+    landmarks: Optional[Any] = None
 
 
 class Gesture(Enum):

@@ -46,10 +46,6 @@ from aethervr import platform
 
 
 STYLESHEET = """
-.CameraView {
-
-}
-
 .StatusBar {
     padding: 6px;
 }
@@ -599,6 +595,18 @@ class MiddlePinchBindingDropdown(QComboBox):
 
 class CameraView(QLabel):
 
+    HEAD_CONTOUR_LANDMARK_INDICES = [
+        10, 338, 297, 332, 284, 251, 389, 356,
+        454, 366, 323, 401, 361, 435, 288, 397,
+        365, 379, 378, 400, 377, 152, 148, 176,
+        149, 150, 136, 172, 58, 132, 93, 234,
+        127, 162, 21, 54, 103, 67, 109,
+    ]
+
+    HEAD_OTHER_LANDMARK_INDICES = [
+        468, 473, 4
+    ]
+
     def __init__(self):
         super().__init__("Starting camera capture...")
 
@@ -632,9 +640,27 @@ class CameraView(QLabel):
         self.overlay = np.zeros((height, width, 4), np.uint8)
 
         if tracking_state.head.visible:
-            x = int(0.5 * width)
-            y = int(0.2 * height)
-            cv2.circle(self.overlay, (x, y), 8, (255, 255, 255, 255), -1)
+            landmarks = tracking_state.head.landmarks
+
+            for i in range(len(CameraView.HEAD_CONTOUR_LANDMARK_INDICES)):
+                a = CameraView.HEAD_CONTOUR_LANDMARK_INDICES[i]
+                b = CameraView.HEAD_CONTOUR_LANDMARK_INDICES[(i + 1) % len(CameraView.HEAD_CONTOUR_LANDMARK_INDICES)]
+
+                x1 = int(width * landmarks[a].x)
+                y1 = int(height * landmarks[a].y)
+                x2 = int(width * landmarks[b].x)
+                y2 = int(height * landmarks[b].y)
+                cv2.line(self.overlay, (x1, y1), (x2, y2), (0, 255, 0, 255), 2)
+
+            for index in CameraView.HEAD_CONTOUR_LANDMARK_INDICES + CameraView.HEAD_OTHER_LANDMARK_INDICES:
+                landmark = landmarks[index]
+                x = int(width * landmark.x)
+                y = int(height * landmark.y)
+                cv2.circle(self.overlay, (x, y), 4, (255, 0, 0, 255), -1)
+
+        # x = int(0.5 * width)
+        # y = int(0.2 * height)
+        # cv2.circle(self.overlay, (x, y), 8, (255, 255, 255, 255), -1)
 
         if tracking_state.left_hand.visible:
             x1 = int(LEFT_HAND_TRACKING_ORIGIN[0] * width)
@@ -643,6 +669,7 @@ class CameraView(QLabel):
             y2 = int(height * tracking_state.left_hand.landmarks[0].y)
             cv2.line(self.overlay, (x1, y1), (x2, y2), (255, 255, 255, 255), 2)
             cv2.circle(self.overlay, (x1, y1), 8, (255, 255, 255, 255), -1)
+        
         if tracking_state.right_hand.visible:
             x1 = int(RIGHT_HAND_TRACKING_ORIGIN[0] * width)
             y1 = int(RIGHT_HAND_TRACKING_ORIGIN[1] * height)
