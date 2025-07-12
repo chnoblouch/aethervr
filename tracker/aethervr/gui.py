@@ -314,7 +314,7 @@ class TrackingConfigGroup(QGroupBox):
             self.tracking_label.setText("Status: Running")
             self.tracking_button.setText("Stop")
         else:
-            self.tracking_label.setText("Status: Stopped")
+            self.tracking_label.setText("Status: <span style=\"color: #cc3d3d\">Stopped</span>")
             self.tracking_button.setText("Start")
 
     def _update_capture_status(self):
@@ -831,10 +831,10 @@ class StatusBar(QLabel):
     def build(self):
         if self.connected:
             text = "Connected"
-            color = "#00a426"
+            color = "#098226"
         else:
             text = "Disconnected"
-            color = "#575757"
+            color = "#6D6D6D"
         
         if self.application_name is not None:
             text += " | "
@@ -858,7 +858,7 @@ class StatusBar(QLabel):
                 text += "Unknown Graphics API"
 
         self.setText(text)
-        self.setStyleSheet("QLabel { background-color: " + color + "; }")
+        self.setStyleSheet("QLabel { color: white; background-color: " + color + "; }")
 
 
 class DownloadDialog(QDialog):
