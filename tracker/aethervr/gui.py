@@ -42,6 +42,7 @@ from aethervr.runtime_connection import RuntimeConnection, RegisterImageData, Pr
 from aethervr.system_openxr_config import SystemOpenXRConfig
 from aethervr.display_surface import DisplaySurface
 from aethervr.camera_capture import CameraCapture
+from aethervr.camera_capture2 import CameraCapture2
 from aethervr import platform
 
 
@@ -65,6 +66,7 @@ class Window(QMainWindow):
         system_openxr_config: SystemOpenXRConfig,
         connection: RuntimeConnection,
         camera_capture: CameraCapture,
+        camera_capture2: CameraCapture2,
     ):
         super().__init__()
 
@@ -72,6 +74,7 @@ class Window(QMainWindow):
         self.system_openxr_config = system_openxr_config
         self.connection = connection
         self.camera_capture = camera_capture
+        self.camera_capture2 = camera_capture2
 
         self.camera_view = None
         self.frame_view = None
@@ -107,7 +110,7 @@ class Window(QMainWindow):
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(ConfigPanel(self.config, self.system_openxr_config, self.camera_capture))
+        layout.addWidget(ConfigPanel(self.config, self.system_openxr_config, self.camera_capture, self.camera_capture2))
         layout.addWidget(separator)
         layout.addWidget(tab_widget)
         widget.setLayout(layout)
@@ -169,13 +172,14 @@ class ConfigPanel(QWidget):
         config: Config,
         system_openxr_config: SystemOpenXRConfig,
         camera_capture: CameraCapture,
+        camera_capture2: CameraCapture2,
     ):
         super().__init__()
         self.config = config
 
         layout = QVBoxLayout()
         layout.addWidget(OpenXRConfigGroup(system_openxr_config))
-        layout.addWidget(TrackingConfigGroup(config, camera_capture))
+        layout.addWidget(TrackingConfigGroup(config, camera_capture, camera_capture2))
         layout.addWidget(GeneralInputMappingGroup(config))
         layout.addWidget(self._build_controller_group("Left Controller", config.left_controller_config))
         layout.addWidget(self._build_controller_group("Right Controller", config.right_controller_config))
@@ -257,11 +261,12 @@ class OpenXRConfigGroup(QGroupBox):
 
 class TrackingConfigGroup(QGroupBox):
 
-    def __init__(self, config: Config, camera_capture: CameraCapture):
+    def __init__(self, config: Config, camera_capture: CameraCapture, camera_capture2: CameraCapture2):
         super().__init__("Tracking")
 
         self.config = config
         self.camera_capture = camera_capture
+        self.camera_capture2 = camera_capture2
 
         self.tracking_label = QLabel()
         self.tracking_button = QPushButton()
@@ -292,7 +297,7 @@ class TrackingConfigGroup(QGroupBox):
         self._update_tracking_status()
 
     def _open_capture_config_dialog(self):
-        dialog = CaptureConfigDialog(self, self.config, self.camera_capture)
+        dialog = CaptureConfigDialog(self, self.config, self.camera_capture, self.camera_capture2)
         dialog.show()
         dialog.exec_()
         self._update_capture_status()
@@ -318,7 +323,12 @@ class TrackingConfigGroup(QGroupBox):
 
     def _update_capture_status(self):
         config = self.config.capture_config
-        self.capture_label.setText(f"Source: Camera {config.camera_index} ({config.frame_width}x{config.frame_height})")
+
+        if config.camera:
+            self.capture_label.setText(f"{config.camera.name} ({config.frame_width}x{config.frame_height})")
+        else:
+            self.capture_label.setText(f"Camera not configured")
+
 
     def _update_fps_input(self):
         self.fps_input.setText(str(self.config.tracking_fps_cap))
@@ -326,90 +336,59 @@ class TrackingConfigGroup(QGroupBox):
 
 class CaptureConfigDialog(QDialog):
 
-    def __init__(self, parent: QWidget, config: Config, camera_capture: CameraCapture):
+    def __init__(self, parent: QWidget, config: Config, capture: CameraCapture, capture2: CameraCapture2):
         super().__init__(parent)
 
-        self.target_capture_config = config.capture_config
-        self.camera_capture = camera_capture
-        self.capture_config = deepcopy(config.capture_config)
+        self.capture_config = config.capture_config
+        self.capture = capture
+        self.capture2 = capture2
 
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setWindowTitle("Camera Capture Configuration")
+        self.setMinimumWidth(320)
 
-        self.camera_index_input = QComboBox()
-        self.camera_index_input.addItem("Camera 0")
-        self.camera_index_input.addItem("Camera 1")
-        self.camera_index_input.addItem("Camera 2")
-        self.camera_index_input.addItem("Camera 3")
-        self.camera_index_input.addItem("Camera 4")
-        self.camera_index_input.currentIndexChanged.connect(self.on_capture_config_changed)
+        self.camera_input = QComboBox()
 
-        self.frame_width_input = QLineEdit()
-        self.frame_width_input.setFixedWidth(80)
-        self.frame_width_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
-        self.frame_width_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.frame_width_input.editingFinished.connect(self.on_capture_config_changed)
+        for camera in self.capture2.cameras:
+            self.camera_input.addItem(camera.name, camera)
 
-        self.frame_height_input = QLineEdit()
-        self.frame_height_input.setFixedWidth(80)
-        self.frame_height_input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
-        self.frame_height_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.frame_height_input.editingFinished.connect(self.on_capture_config_changed)
+        self.camera_input.currentIndexChanged.connect(self.update_resolutions)
 
-        camera_resolution_x_label = QLabel("x")
-        camera_resolution_x_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        camera_resolution_x_label.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
-
-        camera_resolution_row = QHBoxLayout()
-        camera_resolution_row.addWidget(self.frame_width_input)
-        camera_resolution_row.addWidget(camera_resolution_x_label)
-        camera_resolution_row.addWidget(self.frame_height_input)
-
+        self.resolution_input = QComboBox()
+        
         self.button_box = QDialogButtonBox()
         self.apply_button = self.button_box.addButton(QDialogButtonBox.StandardButton.Ok)
         self.cancel_button = self.button_box.addButton(QDialogButtonBox.StandardButton.Cancel)
         self.button_box.clicked.connect(self.on_button_clicked)
 
         layout = QFormLayout()
-        layout.addRow("Camera Index:", self.camera_index_input)
-        layout.addRow("Image Resolution:", camera_resolution_row)
+        layout.addRow("Camera:", self.camera_input)
+        layout.addRow("Resolution:", self.resolution_input)
         layout.addRow(self.button_box)
         self.setLayout(layout)
 
-        self.update_capture_config_inputs()
+        self.update_resolutions()
 
     def on_button_clicked(self, button):
         if button == self.apply_button:
-            self.target_capture_config.camera_index = self.capture_config.camera_index
-            self.target_capture_config.frame_width = self.capture_config.frame_width
-            self.target_capture_config.frame_height = self.capture_config.frame_height
-            self.camera_capture.restart()
+            camera = self.camera_input.currentData()
+            resolution = self.resolution_input.currentData()
+
+            self.capture_config.camera = camera
+            self.capture_config.frame_width = resolution.width
+            self.capture_config.frame_height = resolution.height
+
+            self.capture2.start()
         
         self.close()
 
-    def on_capture_config_changed(self):
-        self.capture_config.camera_index = self.camera_index_input.currentIndex()
-        
-        try:
-            value = int(self.frame_width_input.text())
-            value = max(value, 320)
-            self.capture_config.frame_width = value
-        except ValueError:
-            pass
+    def update_resolutions(self):
+        camera = self.camera_input.currentData()
 
-        try:
-            value = int(self.frame_height_input.text())
-            value = max(value, 320)
-            self.capture_config.frame_height = value
-        except ValueError:
-            pass
-        
-        self.update_capture_config_inputs()
+        self.resolution_input.clear()
 
-    def update_capture_config_inputs(self):
-        self.camera_index_input.setCurrentIndex(self.capture_config.camera_index)
-        self.frame_width_input.setText(str(self.capture_config.frame_width))
-        self.frame_height_input.setText(str(self.capture_config.frame_height))
+        for resolution in camera.resolutions:
+            self.resolution_input.addItem(f"{resolution.width} x {resolution.height}", resolution)
 
 
 class GeneralInputMappingGroup(QGroupBox):
@@ -936,11 +915,12 @@ class GUI:
         system_openxr_config: SystemOpenXRConfig,
         connection: RuntimeConnection,
         camera_capture: CameraCapture,
+        camera_capture2: CameraCapture2,
     ):
         self.app = QApplication(sys.argv)
         self.app.setStyleSheet(STYLESHEET)
 
-        self.window = Window(config, system_openxr_config, connection, camera_capture)
+        self.window = Window(config, system_openxr_config, connection, camera_capture, camera_capture2)
         self.window.show()
 
     def show_download_dialog(self, on_download) -> bool:

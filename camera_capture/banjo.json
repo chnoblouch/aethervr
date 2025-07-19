@@ -1,0 +1,5 @@
+{
+  "name": "aethervr_camera_capture",
+  "type": "shared_library",
+  "packages": ["sdl"]
+}

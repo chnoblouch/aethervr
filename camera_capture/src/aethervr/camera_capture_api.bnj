@@ -1,0 +1,126 @@
+use std.memory;
+use sdl;
+
+use aethervr.camera.{Camera, CameraCapture, Resolution};
+
+struct FFICameraList {
+	var cameras: *FFICamera;
+	var num_cameras: u32;
+}
+
+struct FFICamera {
+	var id: u32;
+	var name: *u8;
+	var resolutions: *FFIResolution;
+	var num_resolutions: u32;
+}
+
+struct FFIResolution {
+	var width: u32;
+	var height: u32;
+}
+
+struct FFICaptureFrame {
+	var width: u32;
+	var height: u32;
+	var pixels: addr;
+}
+
+@dllexport
+func aethervr_camera_init() {
+	sdl.init(sdl.INIT_CAMERA as u32);
+}
+
+@dllexport
+func aethervr_camera_enumerate() -> *FFICameraList {
+	var cameras = Camera.enumerate();
+
+	var ffi_list = memory.alloc(meta(FFICameraList).size) as *FFICameraList;
+	ffi_list.cameras = memory.alloc(cameras.length * meta(FFICamera).size) as *FFICamera;
+	ffi_list.num_cameras = cameras.length as u32;
+
+	for i in 0..cameras.length {
+		var camera = cameras[i];
+		var name = camera.name();
+		var resolutions = camera.resolutions();
+
+		ref mut ffi_camera = ffi_list.cameras[i];
+		ffi_camera.id = camera.id;
+		ffi_camera.name = memory.alloc((name.length() + 1) * meta(u8).size) as *u8;
+		ffi_camera.resolutions = memory.alloc(resolutions.length * meta(FFIResolution).size) as *FFIResolution;
+		ffi_camera.num_resolutions = resolutions.length as u32;
+
+		memory.copy(name.bytes(), ffi_camera.name, name.length());
+		ffi_camera.name[name.length()] = '\0';
+
+		for j in 0..resolutions.length {
+			var resolution = resolutions[j];
+			
+			ffi_camera.resolutions[j] = FFIResolution {
+				width: resolution.width,
+				height: resolution.height,
+			};
+		}
+	}
+		
+	return ffi_list;
+}
+
+@dllexport
+func aethervr_camera_destroy_list(list: *FFICameraList) {
+	for i in 0..list.num_cameras {
+		ref camera = list.cameras[i];
+
+		memory.free(camera.name);
+		memory.free(camera.resolutions);
+	}
+
+	memory.free(list.cameras);
+	memory.free(list);
+}
+
+@dllexport
+func aethervr_camera_open(
+	camera_id: u32,
+	frame_width: u32,
+	frame_height: u32,
+) -> *CameraCapture {
+	var camera = Camera { id: camera_id };
+
+	var resolution = Resolution {
+		width: frame_width,
+		height: frame_height,
+	};
+
+	try capture in CameraCapture.open(camera, resolution) {
+		return memory.box(capture);
+	} else {
+		return null;
+	}
+}
+
+@dllexport
+func aethervr_camera_capture_frame(capture: *CameraCapture) -> *CameraCapture.Frame {
+	try frame in capture.capture_frame() {
+		return memory.box(frame);
+	} else {
+		return null;
+	}
+}
+
+@dllexport
+func aethervr_camera_destroy_frame(frame: *CameraCapture.Frame) {
+	__builtin_deinit(*frame);
+	memory.free(frame);
+}
+
+@dllexport
+func aethervr_camera_close(capture: *CameraCapture) {
+	__builtin_deinit(*capture);
+	memory.free(capture);
+}
+
+@dllexport
+func aethervr_camera_deinit() {
+	sdl.quit();
+}

@@ -5,6 +5,7 @@ import math
 
 from aethervr.gui import GUI
 from aethervr.camera_capture import CameraCapture
+from aethervr.camera_capture2 import CameraCapture2
 from aethervr.runtime_connection import RuntimeConnection
 from aethervr.head_tracker import HeadTracker
 from aethervr.hand_tracker import HandTracker
@@ -15,15 +16,19 @@ from aethervr.config import Config, CaptureConfig, ControllerConfig
 from aethervr.system_openxr_config import SystemOpenXRConfig
 from aethervr.pose import Orientation
 from aethervr import mediapipe_models
+from aethervr import ffi
 
 
 class Application:
 
     def __init__(self):
+        ffi.load_shared_libraries()
+        ffi.camera_capture.aethervr_camera_init()
+
         self.config = Config(
             tracking_running=True,
             capture_config=CaptureConfig(
-                camera_index=0,
+                camera=None,
                 frame_width=860,
                 frame_height=720,
             ),
@@ -41,6 +46,7 @@ class Application:
         self.input_state = InputState()
 
         self.camera_capture = CameraCapture(self.config.capture_config, self.on_frame, self.on_camera_error)
+        self.camera_capture2 = CameraCapture2(self.config.capture_config, self.on_frame, self.on_camera_error)
         self.connection = RuntimeConnection(38057)
         self.system_openxr_config = SystemOpenXRConfig()
 
@@ -48,7 +54,7 @@ class Application:
         self.hand_tracker = None
         self.gesture_detector = None
 
-        self.gui = GUI(self.config, self.system_openxr_config, self.connection, self.camera_capture)
+        self.gui = GUI(self.config, self.system_openxr_config, self.connection, self.camera_capture, self.camera_capture2)
 
         self.last_head_tracking_time = time.time()
         self.last_hand_tracking_time = time.time()
@@ -68,7 +74,7 @@ class Application:
         self.head_tracker = HeadTracker(self.on_head_tracking_results)
         self.hand_tracker = HandTracker(self.head_tracker, self.on_hand_tracking_results)
         self.gesture_detector = GestureDetector(self.config, self.tracking_state, self.input_state)
-        self.camera_capture.start()
+        # self.camera_capture.start()
         self.gui.run()
     
     def on_frame(self, frame):
@@ -167,12 +173,15 @@ class Application:
     def close(self):
         self.connection.close()
         self.camera_capture.close()
+        self.camera_capture2.close()
         
         if self.head_tracker is not None:
             self.head_tracker.close()
 
         if self.hand_tracker is not None:
             self.hand_tracker.close()
+
+        ffi.camera_capture.aethervr_camera_deinit()
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Any
 
 from aethervr.tracking_state import Gesture
 from aethervr.input_state import ControllerButton
@@ -19,7 +19,7 @@ DEFAULT_GESTURE_MAPPINGS = {
 
 @dataclass
 class CaptureConfig:
-    camera_index: int
+    camera: Any
     frame_width: int
     frame_height: int
 

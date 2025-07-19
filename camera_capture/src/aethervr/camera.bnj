@@ -1,0 +1,122 @@
+use std.memory;
+use sdl;
+
+struct Camera {
+    var id: u32;
+
+    pub func enumerate() -> Array[Camera] {
+        var num_cameras: i32;
+        var cameras = sdl.get_cameras(&num_cameras);
+
+        var result = Array[Camera].sized(num_cameras as usize);
+
+        for i in 0..num_cameras as usize {
+            result[i] = Camera { id: cameras[i] };
+        }
+
+        sdl.free(cameras);
+        return result;
+    }
+
+    pub func name(self) -> String {
+        return String.from_cstr(sdl.get_camera_name(self.id));
+    }
+
+    pub func resolutions(self) -> Array[Resolution] {
+        var num_specs: i32;
+        var specs = sdl.get_camera_supported_formats(self.id, &num_specs);
+
+        var resolutions: Array[Resolution] = [];
+
+        for i in 0..num_specs as usize {
+            var spec = specs[i];
+            var width = spec.width as u32;
+            var height = spec.height as u32;
+
+            var exists = false;
+
+            for ref resolution in resolutions {
+                if resolution.width == width && resolution.height == height {
+                    exists = true;
+                    break;
+                }
+            }
+
+            if !exists {
+                resolutions.append(Resolution { width, height });
+            }
+        }
+
+        sdl.free(specs);
+        return resolutions;
+    }
+}
+
+struct CameraCapture {
+    struct Frame {
+        var width: u32;
+        var height: u32;
+        var pixels: *u8;
+    }
+
+    var sdl_camera: *sdl.Camera;
+
+    pub func open(camera: Camera, resolution: Resolution) -> ?CameraCapture {
+        var spec = sdl.CameraSpec {
+            format: sdl.PixelFormat.RGB24,
+            colorspace: sdl.Colorspace.UNKNOWN,
+            width: resolution.width as i32,
+            height: resolution.height as i32,
+            framerate_denominator: 60,
+            framerate_numerator: 1,
+        };
+
+        var sdl_camera = sdl.open_camera(camera.id, &spec);
+    
+        if sdl_camera != null {
+            return CameraCapture { sdl_camera };
+        } else {
+            return none;
+        }
+    }
+
+    pub func capture_frame(self) -> ?Frame {
+        var timestamp: u64 = undefined;
+        var sdl_surface = sdl.acquire_camera_frame(self.sdl_camera, &timestamp);
+        
+        if sdl_surface == null {
+            return none;
+        }
+
+        var width = sdl_surface.w as u32;
+        var height = sdl_surface.h as u32;
+        var pitch = sdl_surface.pitch as u32;
+        var row_size = 3 * width;
+
+        var pixels = sdl_surface.pixels as *u8;
+        var pixels_copy = memory.alloc((row_size * height) as usize) as *u8;
+        
+        for row in 0..height {
+            var src = &pixels[row * pitch];
+            var dst = &pixels_copy[row * row_size];
+            memory.copy(src, dst, row_size as usize);
+        }
+
+        sdl.release_camera_frame(self.sdl_camera, sdl_surface);
+
+        return Frame { width, height, pixels: pixels_copy };
+    }
+
+    pub func destroy_frame(self, ref frame: Frame) {
+        memory.free(frame.pixels);
+    }
+
+    pub func __deinit__(self) {
+        sdl.close_camera(self.sdl_camera);
+    }
+}
+
+struct Resolution {
+    var width: u32;
+    var height: u32;
+}
