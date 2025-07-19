@@ -586,6 +586,8 @@ class CameraView(QLabel):
         468, 473, 4
     ]
 
+    MIN_IMAGE_PADDING = 20
+
     def __init__(self):
         super().__init__("Starting camera capture...")
 
@@ -693,11 +695,25 @@ class CameraView(QLabel):
             return super().paintEvent(e)
 
         canvas_width, canvas_height = self.width(), self.height()
+        max_width = canvas_width - CameraView.MIN_IMAGE_PADDING
+        max_height = canvas_height - CameraView.MIN_IMAGE_PADDING
 
         height, width, _ = self.frame.shape
-        x = (canvas_width - width) / 2
-        y = (canvas_height - height) / 2
-        rect = QRect(x, y, width, height)
+        aspect_ratio = width / height
+
+        if width > max_width:
+            paint_width = max_width
+            paint_height = paint_width / aspect_ratio
+        elif height > max_height:
+            paint_height = max_height
+            paint_width = paint_height / aspect_ratio
+        else:
+            paint_width = width
+            paint_height = height
+
+        x = (canvas_width - paint_width) / 2
+        y = (canvas_height - paint_height) / 2
+        rect = QRect(x, y, paint_width, paint_height)
 
         painter = QPainter(self)
 
