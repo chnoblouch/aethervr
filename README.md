@@ -12,7 +12,7 @@ actual VR hardware.
 > [!NOTE]
 > The OpenXR runtime is incomplete and non-conformant and might crash with some applications.
 
-## Usage
+## Setup
 
 ### System-Wide Installation
 
@@ -44,6 +44,10 @@ OpenXR runtime.
 AetherVR can be used to play SteamVR games by using [OpenComposite](https://gitlab.com/znixian/OpenOVR) as a translation
 layer from OpenVR calls to OpenXR calls. You should be able to install AetherVR and OpenComposite on your system and it
 should just work, though crashes are to be expected.
+
+## Usage
+
+See [this guide](docs/usage.md).
 
 ## System Components
 
