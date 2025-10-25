@@ -15,7 +15,7 @@ use aethervr.{
 };
 
 @[dllexport, link_name=xrNegotiateLoaderRuntimeInterface]
-func negotiate_interface(loader_info: *xr.NegotiateLoaderInfo, runtime_request: *xr.NegotiateRuntimeRequest) -> xr.Result {
+func negotiate_interface(loader_info: *xr.NegotiateLoaderInfo, runtime_request: *xr.NegotiateRuntimeRequest) -> xr.Result {    
     var path = env.get_shared_library_path();
     if !path.has_value {
         return xr.Result.ERROR_RUNTIME_FAILURE;
@@ -135,6 +135,10 @@ func get_func(instance: *Instance, name: *u8) -> addr {
     meta if config.OS == config.MACOS {
         if instance.is_extension_enabled("XR_KHR_metal_enable") {
             if eq(name, "xrGetMetalGraphicsRequirementsKHR") { return api.get_metal_graphics_requirements_khr; }
+        }
+
+        if instance.is_extension_enabled("XR_KHRX2_metal_enable") {
+            if eq(name, "xrGetMetalGraphicsRequirementsKHRX2") { return api.get_metal_graphics_requirements_khr; }
         }
     }
     

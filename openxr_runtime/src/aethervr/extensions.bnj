@@ -26,6 +26,7 @@ pub func get_extension_properties() -> [xr.ExtensionProperties] {
     } else if config.OS == config.MACOS {
         extensions = [
             ("XR_KHR_metal_enable", 1),
+            ("XR_KHRX2_metal_enable", 1),
             ("XR_KHR_composition_layer_depth", 6),
         ];
     }
