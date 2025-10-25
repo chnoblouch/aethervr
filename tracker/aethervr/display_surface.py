@@ -1,4 +1,5 @@
 from aethervr import ffi
+from aethervr import platform
 
 
 class DisplaySurface:
@@ -7,6 +8,9 @@ class DisplaySurface:
         self.graphics_api = None
 
     def create(self, graphics_api, display, window):
+        if not DisplaySurface.is_supported():
+            return
+
         if graphics_api == self.graphics_api:
             return
         
@@ -22,6 +26,9 @@ class DisplaySurface:
         self.graphics_api = graphics_api
 
     def register_image(self, data):
+        if not DisplaySurface.is_supported():
+            return
+
         assert self.handle
 
         ffi.display_surface.aethervr_display_surface_register_image(
@@ -39,6 +46,9 @@ class DisplaySurface:
         )
 
     def present_image(self, data):
+        if not DisplaySurface.is_supported():
+            return
+
         assert self.handle
 
         ffi.display_surface.aethervr_display_surface_present_image(
@@ -50,3 +60,7 @@ class DisplaySurface:
             data.height,
             data.array_index,
         )
+
+    @staticmethod
+    def is_supported():
+        return platform.is_windows or platform.is_linux

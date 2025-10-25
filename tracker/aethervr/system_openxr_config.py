@@ -18,6 +18,10 @@ class SystemOpenXRConfig:
 
     def status(self) -> Status:
         current_manifest = self._load_current_manifest()
+
+        if not current_manifest:
+            return SystemOpenXRConfig.Status.DIFFERENT_RUNTIME
+
         runtime_info = current_manifest["runtime"]
 
         if runtime_info.get("name") != "AetherVR":
@@ -34,6 +38,10 @@ class SystemOpenXRConfig:
 
     def active_runtime_name(self):
         current_manifest = self._load_current_manifest()
+
+        if not current_manifest:
+            return None
+
         runtime_info = current_manifest["runtime"]
         name = runtime_info.get("name")
         library_path = Path(runtime_info["library_path"])

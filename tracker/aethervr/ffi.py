@@ -136,6 +136,8 @@ def load_shared_library(name: str) -> ctypes.CDLL:
         path = directory / f"aethervr_{name}.dll"
     elif platform.is_linux:
         path = directory / f"libaethervr_{name}.so"
+    elif platform.is_macos:
+        path = directory / f"libaethervr_{name}.dylib"
     else:
         path = None
 
