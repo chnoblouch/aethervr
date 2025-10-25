@@ -28,7 +28,7 @@ pub func info[Args: ...](format: String, args: Args) {
             i += 1;
         }
 
-        string.append(to_string(&arg));
+        string.append(to_string(arg));
         i += 1;
     }
 

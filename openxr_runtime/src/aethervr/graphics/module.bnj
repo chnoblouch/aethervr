@@ -163,7 +163,7 @@ meta if config.OS == config.MACOS {
             return metal.get_supported_formats();
         }
 
-        pub func create_image(self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result {
+        pub func create_image(mut self, info: *xr.SwapchainCreateInfo, image: *SwapchainImage) -> xr.Result {
             return metal.create_swapchain_image(info, &self.binding, image);
         }
 
