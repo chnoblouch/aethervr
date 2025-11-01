@@ -75,7 +75,7 @@ Clone this repository, open it in PowerShell, and run these commands:
 ```powershell
 cd openxr_runtime
 banjo2 build
-cp openxr_runtime.json out\x86_64-windows-msvc\openxr_runtime.json
+cp openxr_runtime.json out\x86_64-windows-msvc-debug\openxr_runtime.json
 cd ..\display_surface
 banjo2 build
 cd ..\camera_capture
@@ -83,6 +83,64 @@ banjo2 build
 cd ..\tracker
 python -m venv venv
 .\venv\Scripts\activate
+pip install -r requirements.txt
+python aethervr_tracker.py
+```
+
+### Linux
+
+#### Prerequisites
+
+- Python
+- An LLVM toolchain
+- [Banjo](https://chnoblouch.github.io/banjo-lang/getting_started.html)
+
+#### Building and Running
+
+Clone this repository, open `openxr_runtime/openxr_runtime.json` and replace
+`aethervr.dll` with `libaethervr.so`, open the repository in a terminal, and run
+these commands:
+
+```sh
+cd openxr_runtime
+banjo2 build
+cp openxr_runtime.json out/x86_64-linux-gnu-debug/openxr_runtime.json
+cd ../display_surface
+banjo2 build
+cd ../camera_capture
+banjo2 build
+cd ../tracker
+python3 -m venv venv
+source ./venv/bin/activate
+pip install -r requirements.txt
+python aethervr_tracker.py
+```
+
+### macOS
+
+#### Prerequisites
+
+- Python
+- Xcode
+- [Banjo](https://chnoblouch.github.io/banjo-lang/getting_started.html)
+
+#### Building and Running
+
+Clone this repository, open `openxr_runtime/openxr_runtime.json` and replace
+`aethervr.dll` with `libaethervr.dylib`, open the repository in a terminal, and
+run these commands:
+
+```sh
+cd openxr_runtime
+banjo2 build
+cp openxr_runtime.json out/aarch64-macos-debug/openxr_runtime.json
+cd ../display_surface
+banjo2 build
+cd ../camera_capture
+banjo2 build
+cd ../tracker
+python3 -m venv venv
+source ./venv/bin/activate
 pip install -r requirements.txt
 python aethervr_tracker.py
 ```
