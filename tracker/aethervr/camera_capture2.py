@@ -25,6 +25,12 @@ class Resolution:
 
 class CameraCapture2:
 
+    PREFERRED_RESOLUTIONS = [
+        Resolution(width=640, height=480),
+        Resolution(width=960, height=720),
+        Resolution(width=1920, height=1080),
+    ]
+
     def __init__(
         self,
         config: CaptureConfig,
@@ -40,6 +46,7 @@ class CameraCapture2:
         self.thread = None
 
         self.cameras = self._enumerate_cameras()
+        self._pick_suitable_config()
 
     def start(self):
         print("Opening capture device...")
@@ -90,6 +97,22 @@ class CameraCapture2:
 
         ffi.camera_capture.aethervr_camera_destroy_list(ffi_cameras)
         return cameras
+
+    def _pick_suitable_config(self):
+        if not self.cameras:
+            return
+        
+        camera = self.cameras[0]
+        resolution = camera.resolutions[0]
+
+        for preferred_resolution in CameraCapture2.PREFERRED_RESOLUTIONS:
+            if preferred_resolution in camera.resolutions:
+                resolution = preferred_resolution
+                break
+
+        self.source_config.camera = camera
+        self.source_config.frame_width = resolution.width
+        self.source_config.frame_height = resolution.height
 
     def _capture_images(self):
         capture = ffi.camera_capture.aethervr_camera_open(

@@ -74,7 +74,7 @@ class Application:
         self.head_tracker = HeadTracker(self.on_head_tracking_results)
         self.hand_tracker = HandTracker(self.head_tracker, self.on_hand_tracking_results)
         self.gesture_detector = GestureDetector(self.config, self.tracking_state, self.input_state)
-        # self.camera_capture.start()
+        self.camera_capture2.start()
         self.gui.run()
     
     def on_frame(self, frame):
