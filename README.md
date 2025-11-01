@@ -56,6 +56,37 @@ expected.
 
 See [this guide](docs/usage.md).
 
+## Building Manually
+
+These are the steps you need to follow to build and run AetherVR manually.
+
+### Windows
+
+#### Prerequisites
+
+- Python
+- Visual Studio Build Tools
+- [Banjo](https://chnoblouch.github.io/banjo-lang/getting_started.html)
+
+#### Building and Running
+
+Clone this repository, open it in PowerShell, and run these commands:
+
+```powershell
+cd openxr_runtime
+banjo2 build
+cp openxr_runtime.json out\x86_64-windows-msvc\openxr_runtime.json
+cd ..\display_surface
+banjo2 build
+cd ..\camera_capture
+banjo2 build
+cd ..\tracker
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
+python aethervr_tracker.py
+```
+
 ## System Components
 
 ### OpenXR Runtime
