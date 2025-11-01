@@ -80,7 +80,7 @@ class Window(QMainWindow):
         self.frame_view = None
 
         self.setWindowTitle("AetherVR Tracker")
-        self.resize(QSize(1280, 720))
+        self.resize(QSize(1280, 640))
 
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -181,29 +181,11 @@ class ConfigPanel(QWidget):
         layout.addWidget(OpenXRConfigGroup(system_openxr_config))
         layout.addWidget(TrackingConfigGroup(config, camera_capture, camera_capture2))
         layout.addWidget(GeneralInputMappingGroup(config))
-        layout.addWidget(self._build_controller_group("Left Controller", config.left_controller_config))
-        layout.addWidget(self._build_controller_group("Right Controller", config.right_controller_config))
+        layout.addWidget(ControllerConfigGroup(config))
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.setLayout(layout)
 
         self.setMinimumWidth(320)
-
-    def _build_controller_group(self, label: str, config: ControllerConfig):
-        group = QGroupBox(label)
-
-        press_thumbstick_checkbox = QCheckBox("Press Thumbstick During Use")
-        press_thumbstick_checkbox.setChecked(config.press_thumbstick)
-        press_thumbstick_checkbox.checkStateChanged.connect(lambda value: ConfigPanel._on_press_thumbstick_changed(config, value))
-
-        layout = QFormLayout()
-        layout.addRow("Pinch:", ButtonBindingDropdown(config, Gesture.PINCH))
-        layout.addRow("Palm Pinch:", ButtonBindingDropdown(config, Gesture.PALM_PINCH))
-        layout.addRow("Middle Pinch:", MiddlePinchBindingDropdown(config))
-        layout.addRow("Fist:", ButtonBindingDropdown(config, Gesture.FIST))
-        layout.addRow(press_thumbstick_checkbox)
-        group.setLayout(layout)
-
-        return group
     
     def _on_press_thumbstick_changed(config: ControllerConfig, state: Qt.CheckState):
         config.press_thumbstick = state == Qt.CheckState.Checked
@@ -329,7 +311,6 @@ class TrackingConfigGroup(QGroupBox):
         else:
             self.capture_label.setText(f"Camera not configured")
 
-
     def _update_fps_input(self):
         self.fps_input.setText(str(self.config.tracking_fps_cap))
 
@@ -420,6 +401,32 @@ class GeneralInputMappingGroup(QGroupBox):
         dialog = ControllerRotationDialog(self, self.config)
         dialog.show()
 
+
+class ControllerConfigGroup(QTabWidget):
+
+    def __init__(self, config: Config):
+        super().__init__()
+
+        self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
+        self.addTab(self._build_controller_page(config.left_controller_config), "Left Controller")
+        self.addTab(self._build_controller_page(config.right_controller_config), "Right Controller")
+
+    def _build_controller_page(self, config: ControllerConfig):
+        page = QWidget()
+
+        press_thumbstick_checkbox = QCheckBox("Press Thumbstick During Use")
+        press_thumbstick_checkbox.setChecked(config.press_thumbstick)
+        press_thumbstick_checkbox.checkStateChanged.connect(lambda value: ConfigPanel._on_press_thumbstick_changed(config, value))
+
+        layout = QFormLayout()
+        layout.addRow("Pinch:", ButtonBindingDropdown(config, Gesture.PINCH))
+        layout.addRow("Palm Pinch:", ButtonBindingDropdown(config, Gesture.PALM_PINCH))
+        layout.addRow("Middle Pinch:", MiddlePinchBindingDropdown(config))
+        layout.addRow("Fist:", ButtonBindingDropdown(config, Gesture.FIST))
+        layout.addRow(press_thumbstick_checkbox)
+        page.setLayout(layout)
+
+        return page
 
 class DeadzoneInput(QWidget):
 
