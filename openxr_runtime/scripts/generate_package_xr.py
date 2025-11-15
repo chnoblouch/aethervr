@@ -13,7 +13,7 @@ def generate():
 
     subprocess.run(
         [
-            "banjo",
+            "banjo2",
             "bindgen",
             "--generator",
             "bindgen.py",
