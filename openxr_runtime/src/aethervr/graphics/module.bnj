@@ -94,7 +94,8 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         }
 
         pub func share_image(mut self, image: *SwapchainImage) -> ?usize {
-            return vulkan.share_image(&self.binding, image);
+            return none;
+            # return vulkan.share_image(&self.binding, image);
         }
 
         pub func wait_image(self, image: *SwapchainImage, timeout: i64) -> xr.Result {
