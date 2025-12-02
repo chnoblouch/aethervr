@@ -4,7 +4,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
     use vulkan as vk;
 
     use aethervr.{
-        display_surface.{Surface, ImageRegisterInfo, ImagePresentInfo},
+        display_surface_api.{Surface, ImageRegisterInfo, ImagePresentInfo},
         platform,
     };
 
