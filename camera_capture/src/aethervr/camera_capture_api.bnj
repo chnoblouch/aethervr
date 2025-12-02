@@ -28,7 +28,7 @@ struct FFICaptureFrame {
 
 @dllexport
 func aethervr_camera_init() {
-	sdl.init(sdl.INIT_CAMERA as u32);
+	sdl.init(sdl.INIT_CAMERA as i32);
 }
 
 @dllexport
@@ -45,7 +45,7 @@ func aethervr_camera_enumerate() -> *FFICameraList {
 		var resolutions = camera.resolutions();
 
 		ref mut ffi_camera = ffi_list.cameras[i];
-		ffi_camera.id = camera.id;
+		ffi_camera.id = camera.id as u32;
 		ffi_camera.name = memory.alloc((name.length() + 1) * meta(u8).size) as *u8;
 		ffi_camera.resolutions = memory.alloc(resolutions.length * meta(FFIResolution).size) as *FFIResolution;
 		ffi_camera.num_resolutions = resolutions.length as u32;
@@ -85,7 +85,7 @@ func aethervr_camera_open(
 	frame_width: u32,
 	frame_height: u32,
 ) -> *CameraCapture {
-	var camera = Camera { id: camera_id };
+	var camera = Camera { id: camera_id as i32 };
 
 	var resolution = Resolution {
 		width: frame_width,

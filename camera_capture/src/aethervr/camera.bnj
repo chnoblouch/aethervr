@@ -2,7 +2,7 @@ use std.memory;
 use sdl;
 
 struct Camera {
-    var id: u32;
+    var id: i32;
 
     pub func enumerate() -> Array[Camera] {
         var num_cameras: i32;
@@ -81,7 +81,7 @@ struct CameraCapture {
     }
 
     pub func capture_frame(self) -> ?Frame {
-        var timestamp: u64 = undefined;
+        var timestamp: i32 = undefined;
         var sdl_surface = sdl.acquire_camera_frame(self.sdl_camera, &timestamp);
         
         if sdl_surface == null {
