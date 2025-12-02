@@ -9,7 +9,7 @@ jobs:
     runs-on: windows-2022
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
@@ -51,5 +51,54 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-x86_64-windows
+          name: aethervr-x86_64-windows
           path: aethervr-x86_64-windows.zip
+
+  build-linux:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Download Banjo toolchain
+        run: curl -L -o banjo-x86_64-linux.zip https://github.com/chnoblouch/banjo-lang/releases/latest/download/banjo-x86_64-linux.zip
+
+      - name: Extract Banjo toolchain
+        run: unzip ./banjo-x86_64-linux.zip -d $HOME
+
+      - name: Add Banjo toolchain to PATH
+        run: echo "$HOME/banjo-x86_64-linux/bin" >> $GITHUB_PATH
+
+      - name: Build OpenXR runtime
+        working-directory: "${{ github.workspace }}/openxr_runtime"
+        run: banjo2 build
+
+      - name: Build camera capture library
+        working-directory: "${{ github.workspace }}/camera_capture"
+        run: banjo2 build
+
+      - name: Build display surface library
+        working-directory: "${{ github.workspace }}/display_surface"
+        run: banjo2 build
+
+      - name: Set up tracker venv
+        working-directory: "${{ github.workspace }}/tracker"
+        run: |
+          python -m venv venv
+          ./venv/bin/pip install -r requirements.txt
+
+      - name: Package
+        run: python package.py
+
+      - name: Archive
+        run: zip -r aethervr-x86_64-linux.zip aethervr-x86_64-linux
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aethervr-x86_64-linux
+          path: aethervr-x86_64-linux.zip
