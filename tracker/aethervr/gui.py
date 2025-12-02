@@ -209,10 +209,18 @@ class OpenXRConfigGroup(QGroupBox):
         self.incompatible_label.setWordWrap(True)
         self.incompatible_label.setStyleSheet("QLabel { color: #dec60f; }")
 
+        self.unavailable_label = QLabel("OpenXR system configuration is unavailable on macOS.")
+        self.unavailable_label.setWordWrap(True)
+
         layout = QFormLayout()
-        layout.addRow(QLabel("Current OpenXR Runtime:"), self.current_label)
-        layout.addRow(self.incompatible_label)
-        layout.addRow(self.set_button)
+        
+        if not platform.is_macos:
+            layout.addRow(QLabel("Current OpenXR Runtime:"), self.current_label)
+            layout.addRow(self.incompatible_label)
+            layout.addRow(self.set_button)
+        else:
+            layout.addRow(self.unavailable_label)
+        
         self.setLayout(layout)
 
         self.timer = QTimer(self)
