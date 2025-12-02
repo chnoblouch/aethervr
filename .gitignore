@@ -9,3 +9,8 @@ __pycache__/
 venv/
 out/
 packages/
+build/
+
+aethervr-x86_64-windows
+aethervr-x86_64-linux
+aethervr-aarch64-macos

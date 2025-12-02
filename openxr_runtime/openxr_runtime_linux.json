@@ -2,6 +2,6 @@
   "file_format_version": "1.0.0",
   "runtime": {
     "name": "AetherVR",
-    "library_path": "./aethervr.dll"
+    "library_path": "./libaethervr.so"
   }
 }
