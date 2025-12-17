@@ -26,15 +26,15 @@ jobs:
 
       - name: Build OpenXR runtime
         working-directory: "${{ github.workspace }}/openxr_runtime"
-        run: banjo build
+        run: banjo2 build
 
       - name: Build camera capture library
         working-directory: "${{ github.workspace }}/camera_capture"
-        run: banjo build
+        run: banjo2 build
 
       - name: Build display surface library
         working-directory: "${{ github.workspace }}/display_surface"
-        run: banjo build
+        run: banjo2 build
 
       - name: Set up tracker venv
         working-directory: "${{ github.workspace }}/tracker"
@@ -102,3 +102,52 @@ jobs:
         with:
           name: aethervr-x86_64-linux
           path: aethervr-x86_64-linux.zip
+
+  build-macos:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Download Banjo toolchain
+        run: curl -L -o banjo-aarch64-macos.zip https://github.com/chnoblouch/banjo-lang/releases/latest/download/banjo-aarch64-macos.zip
+
+      - name: Extract Banjo toolchain
+        run: unzip ./banjo-aarch64-macos.zip -d $HOME
+
+      - name: Add Banjo toolchain to PATH
+        run: echo "$HOME/banjo-aarch64-macos/bin" >> $GITHUB_PATH
+
+      - name: Build OpenXR runtime
+        working-directory: "${{ github.workspace }}/openxr_runtime"
+        run: banjo2 build
+
+      - name: Build camera capture library
+        working-directory: "${{ github.workspace }}/camera_capture"
+        run: banjo2 build
+
+      - name: Build display surface library
+        working-directory: "${{ github.workspace }}/display_surface"
+        run: banjo2 build
+
+      - name: Set up tracker venv
+        working-directory: "${{ github.workspace }}/tracker"
+        run: |
+          python -m venv venv
+          ./venv/bin/pip install -r requirements.txt
+
+      - name: Package
+        run: python package.py
+
+      - name: Archive
+        run: zip -r aethervr-aarch64-macos.zip aethervr-aarch64-macos
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aethervr-aarch64-macos
+          path: aethervr-aarch64-macos.zip
