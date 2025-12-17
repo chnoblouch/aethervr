@@ -109,12 +109,12 @@ struct Swapchain {
     ) -> xr.Result {
         log.info("Enumerating swapchain images");
 
-        var buffer_info = handle_buffer_size(self.images.length as u32, image_count_output, image_capacity_input);
+        var buffer_info = handle_buffer_size(self.images.length() as u32, image_count_output, image_capacity_input);
         if buffer_info.0 {
             return buffer_info.1;
         }
 
-        for i in 0..self.images.length {
+        for i in 0..self.images.length() {
             var handle = self.images[i].api_handle;
             self.session.graphics_backend.store_image(handle, images, i as u32);
         }
@@ -123,7 +123,7 @@ struct Swapchain {
     }
 
     pub func acquire_image(mut self, info: *xr.SwapchainImageAcquireInfo, index: *u32) -> xr.Result {
-        for i in 0..self.images.length {
+        for i in 0..self.images.length() {
             if self.images[i].state == SwapchainImageState.AVAILABLE {
                 *index = i as u32;
                 self.images[i].state = SwapchainImageState.ACQUIRED;
@@ -135,7 +135,7 @@ struct Swapchain {
     }
 
     pub func wait_image(mut self, info: *xr.SwapchainImageWaitInfo) -> xr.Result {
-        for i in 0..self.images.length {
+        for i in 0..self.images.length() {
             if self.images[i].state == SwapchainImageState.ACQUIRED {
                 self.images[i].state = SwapchainImageState.WAITED;
                 return self.session.graphics_backend.wait_image(&self.images[i], info.timeout);
@@ -146,7 +146,7 @@ struct Swapchain {
     }
 
     pub func release_image(mut self, info: *xr.SwapchainImageReleaseInfo) -> xr.Result {        
-        for i in 0..self.images.length {
+        for i in 0..self.images.length() {
             if self.images[i].state == SwapchainImageState.WAITED {
                 self.session.graphics_backend.release_image(&self.images[i]);
                 self.images[i].state = SwapchainImageState.AVAILABLE;

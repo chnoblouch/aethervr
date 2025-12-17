@@ -20,21 +20,21 @@ struct PathMapping {
             return none;
         }
 
-        for i in 0..self.paths.length {
+        for i in 0..self.paths.length() {
             if self.paths[i] == string {
                 return i as u64 + 1;
             }
         }
 
         self.paths.append(String.from(string));
-        return self.paths.length as u64;
+        return self.paths.length() as u64;
     }
 
     pub func get_string(self, path: u64) -> ?StringSlice {
         var index = path as usize - 1;
 
         # FIXME: `index` possibly being smaller than 0 is a compiler bug.
-        if index < 0 || index >= self.paths.length {
+        if index < 0 || index >= self.paths.length() {
             return none;
         }
 

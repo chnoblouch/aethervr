@@ -67,10 +67,10 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
                 p_next: null,
                 flags: 0,
                 p_application_info: &application_info,
-                enabled_layer_count: instance_layers.length as u32,
-                pp_enabled_layer_names: instance_layers.data,
-                enabled_extension_count: instance_extensions.length as u32,
-                pp_enabled_extension_names: instance_extensions.data,
+                enabled_layer_count: instance_layers.length() as u32,
+                pp_enabled_layer_names: instance_layers.data(),
+                enabled_extension_count: instance_extensions.length() as u32,
+                pp_enabled_extension_names: instance_extensions.data(),
             };
 
             var instance: addr;
@@ -118,7 +118,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
 
             var physical_devices: Array[addr] = [];
             physical_devices.resize(physical_device_count as usize);
-            vk.enumerate_physical_devices(instance, &physical_device_count, physical_devices.data);
+            vk.enumerate_physical_devices(instance, &physical_device_count, physical_devices.data());
 
             var physical_device = physical_devices[0];
 
@@ -127,11 +127,11 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
 
             var queue_families: Array[vk.QueueFamilyProperties] = [];
             queue_families.resize(queue_family_count as usize);
-            vk.get_physical_device_queue_family_properties(physical_device, &queue_family_count, queue_families.data);
+            vk.get_physical_device_queue_family_properties(physical_device, &queue_family_count, queue_families.data());
 
             var graphics_family_index: ?u32 = none;
 
-            for i in 0..queue_families.length {
+            for i in 0..queue_families.length() {
                 if queue_families[i].queue_flags & vk.QueueFlagBits.GRAPHICS_BIT as u32 != 0 {
                     graphics_family_index = i as u32;
                     break;
@@ -177,8 +177,8 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
                 p_queue_create_infos: &queue_create_info,
                 enabled_layer_count: 0,
                 pp_enabled_layer_names: null,
-                enabled_extension_count: device_extensions.length as u32,
-                pp_enabled_extension_names: device_extensions.data,
+                enabled_extension_count: device_extensions.length() as u32,
+                pp_enabled_extension_names: device_extensions.data(),
                 p_enabled_features: &physical_device_features,
             };
 
@@ -226,7 +226,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
 
             var surface_formats: Array[vk.SurfaceFormatKHR] = [];
             surface_formats.resize(surface_format_count as usize);
-            vk.get_physical_device_surface_formats_khr(physical_device, surface, &surface_format_count, surface_formats.data);
+            vk.get_physical_device_surface_formats_khr(physical_device, surface, &surface_format_count, surface_formats.data());
 
             var surface_format: ?vk.SurfaceFormatKHR = none;
 
@@ -287,7 +287,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
             
             var swapchain_images: Array[addr] = [];
             swapchain_images.resize(swapchain_image_count as usize);
-            vk.get_swapchain_images_khr(device, swapchain, &swapchain_image_count, swapchain_images.data);
+            vk.get_swapchain_images_khr(device, swapchain, &swapchain_image_count, swapchain_images.data());
 
             var semaphore_create_info = vk.SemaphoreCreateInfo {
                 s_type: vk.StructureType.SEMAPHORE_CREATE_INFO,

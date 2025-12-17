@@ -44,7 +44,7 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
 
         var devices: [addr] = [];
         devices.resize(device_count as usize);
-        vk.enumerate_physical_devices(vk_instance, &device_count, devices.data);
+        vk.enumerate_physical_devices(vk_instance, &device_count, devices.data());
 
         log.info("  Picking first device");
         *vk_physical_device = devices[0];
@@ -88,8 +88,8 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         log.exit_scope();
         log.exit_scope();
 
-        vk_create_info.enabled_extension_count = vk_extensions.length as u32;
-        vk_create_info.pp_enabled_extension_names = vk_extensions.data;
+        vk_create_info.enabled_extension_count = vk_extensions.length() as u32;
+        vk_create_info.pp_enabled_extension_names = vk_extensions.data();
 
         var vk_create_instance =
             info.pfn_get_instance_proc_addr(vk_instance, "vkCreateInstance")
@@ -145,8 +145,8 @@ meta if config.OS == config.WINDOWS || config.OS == config.LINUX {
         log.exit_scope();
         log.exit_scope();
 
-        vk_create_info.enabled_extension_count = vk_extensions.length as u32;
-        vk_create_info.pp_enabled_extension_names = vk_extensions.data;
+        vk_create_info.enabled_extension_count = vk_extensions.length() as u32;
+        vk_create_info.pp_enabled_extension_names = vk_extensions.data();
     
         var vk_create_device =
             info.pfn_get_instance_proc_addr(vk_instance, "vkCreateDevice")

@@ -36,10 +36,10 @@ func aethervr_camera_enumerate() -> *FFICameraList {
 	var cameras = Camera.enumerate();
 
 	var ffi_list = memory.alloc(meta(FFICameraList).size) as *FFICameraList;
-	ffi_list.cameras = memory.alloc(cameras.length * meta(FFICamera).size) as *FFICamera;
-	ffi_list.num_cameras = cameras.length as u32;
+	ffi_list.cameras = memory.alloc(cameras.length() * meta(FFICamera).size) as *FFICamera;
+	ffi_list.num_cameras = cameras.length() as u32;
 
-	for i in 0..cameras.length {
+	for i in 0..cameras.length() {
 		var camera = cameras[i];
 		var name = camera.name();
 		var resolutions = camera.resolutions();
@@ -47,13 +47,13 @@ func aethervr_camera_enumerate() -> *FFICameraList {
 		ref mut ffi_camera = ffi_list.cameras[i];
 		ffi_camera.id = camera.id as u32;
 		ffi_camera.name = memory.alloc((name.length() + 1) * meta(u8).size) as *u8;
-		ffi_camera.resolutions = memory.alloc(resolutions.length * meta(FFIResolution).size) as *FFIResolution;
-		ffi_camera.num_resolutions = resolutions.length as u32;
+		ffi_camera.resolutions = memory.alloc(resolutions.length() * meta(FFIResolution).size) as *FFIResolution;
+		ffi_camera.num_resolutions = resolutions.length() as u32;
 
 		memory.copy(name.bytes(), ffi_camera.name, name.length());
 		ffi_camera.name[name.length()] = '\0';
 
-		for j in 0..resolutions.length {
+		for j in 0..resolutions.length() {
 			var resolution = resolutions[j];
 			
 			ffi_camera.resolutions[j] = FFIResolution {
