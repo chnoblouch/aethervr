@@ -142,6 +142,7 @@ class Window(QMainWindow):
             "These files are downloaded from Google's servers and placed in the `mp_models` directory.\n\n"
             "Would you like to continue and start the download?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Close,
+            QMessageBox.StandardButton.Yes,
         )
 
         if response == QMessageBox.StandardButton.Yes:
@@ -750,6 +751,8 @@ class FrameView(QStackedWidget):
         DISCONNECTED = 0
         AWAITING_FRAME = 1
         PRESENTING = 2
+        VULKAN_UNSUPPORTED = 3
+        METAL_UNSUPPORTED = 4
 
     _set_status_signal = QtCore.Signal(Status)
     _connected_signal = QtCore.Signal()
@@ -762,10 +765,11 @@ class FrameView(QStackedWidget):
         self.status = FrameView.Status.DISCONNECTED
         self.surface_window = DisplaySurfaceWindow()
         self.surface = DisplaySurface()
+        self.graphics_api = None
 
         self.info_widget = QLabel()
         self.info_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.info_widget.setStyleSheet("QLabel { color: white; background-color: black; }")
+        self.info_widget.setStyleSheet("QLabel { color: white; background-color: #222222; }")
 
         self.addWidget(self.surface_window)
         self.addWidget(self.info_widget)
@@ -786,14 +790,9 @@ class FrameView(QStackedWidget):
         self._set_status_signal.emit(FrameView.Status.DISCONNECTED)
 
     def _on_runtime_info(self, _: str, graphics_api: int):
-        native_interface = QApplication.instance().nativeInterface()
-
-        if platform.is_linux:
-            display = native_interface.display()
-        else:
-            display = 0
-
+        display = 0
         self.surface.create(graphics_api, display, self.surface_window.window_id)
+        self.graphics_api = graphics_api
 
     def _register_image(self, data: RegisterImageData):
         self.surface.register_image(data)
@@ -808,6 +807,12 @@ class FrameView(QStackedWidget):
             self.setCurrentIndex(1)
         elif status == FrameView.Status.PRESENTING:
             self.setCurrentIndex(0)
+        elif status == FrameView.Status.VULKAN_UNSUPPORTED:
+            self.info_widget.setText("Presenting Vulkan images is currently unsupported.")
+            self.setCurrentIndex(1)
+        elif status == FrameView.Status.METAL_UNSUPPORTED:
+            self.info_widget.setText("Presenting Metal images is currently unsupported.")
+            self.setCurrentIndex(1)
 
     @QtCore.Slot(PresentImageData)
     def _connected_slot(self):
@@ -819,8 +824,13 @@ class FrameView(QStackedWidget):
 
     @QtCore.Slot(PresentImageData)
     def _present_image_slot(self, data: PresentImageData):
-        self._set_status_signal.emit(FrameView.Status.PRESENTING)
-        self.surface.present_image(data)
+        if self.graphics_api == 0:
+            self._set_status_signal.emit(FrameView.Status.PRESENTING)
+            self.surface.present_image(data)
+        elif self.graphics_api == 1:
+            self._set_status_signal.emit(FrameView.Status.VULKAN_UNSUPPORTED)
+        elif self.graphics_api == 2:
+            self._set_status_signal.emit(FrameView.Status.METAL_UNSUPPORTED)
 
 
 class DisplaySurfaceWindow(QWidget):
