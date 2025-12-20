@@ -147,7 +147,7 @@ class Window(QMainWindow):
 
         if response == QMessageBox.StandardButton.Yes:
             dialog = DownloadDialog(self)
-            on_download(dialog.close_thread_safe)
+            on_download(dialog.close_remotely, dialog.close_with_error_remotely)
             dialog.exec()
             return True
         else:
@@ -920,6 +920,7 @@ class StatusBar(QLabel):
 class DownloadDialog(QDialog):
 
     _close_signal = QtCore.Signal()
+    _close_with_error_signal = QtCore.Signal(str)
 
     def __init__(self, parent: QWidget):
         super().__init__(parent)
@@ -939,12 +940,22 @@ class DownloadDialog(QDialog):
         self.setLayout(layout)
 
         self._close_signal.connect(self._close_slot)
+        self._close_with_error_signal.connect(self._close_with_error_slot)
 
-    def close_thread_safe(self):
+    def close_remotely(self):
         self._close_signal.emit()
+
+    def close_with_error_remotely(self, message: str):
+        self._close_with_error_signal.emit(message)
 
     @QtCore.Slot()
     def _close_slot(self):
+        self.close()
+
+    @QtCore.Slot()
+    def _close_with_error_slot(self, message: str):
+        text = "Failed to download MediaPipe ML models.\n\nMessage: " + message
+        QMessageBox.critical(self, "Error", text)
         self.close()
 
 

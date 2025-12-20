@@ -67,7 +67,8 @@ class Application:
            self.start()
         else:
             downloaded = self.gui.show_download_dialog(mediapipe_models.download)
-            if downloaded:
+            
+            if downloaded and mediapipe_models.are_all_models_cached():
                 self.start() 
 
     def start(self):

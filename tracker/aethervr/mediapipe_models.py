@@ -25,23 +25,26 @@ def are_all_models_cached():
     return True
 
 
-def download(on_done):
-    thread = Thread(target=lambda: download_sync(on_done))
+def download(on_done, on_error):
+    thread = Thread(target=lambda: download_sync(on_done, on_error))
     thread.start()
 
 
-def download_sync(on_done):
-    for file_path, url in MODELS:
-        if file_path.is_file():
-            return file_path
+def download_sync(on_done, on_error):
+    try:
+        for file_path, url in MODELS:
+            if file_path.is_file():
+                return file_path
 
-        if not MODELS_DIR.is_dir():
-            MODELS_DIR.mkdir()
+            if not MODELS_DIR.is_dir():
+                MODELS_DIR.mkdir()
 
-        print(f"Downloading {file_path}...")
-        print(f"  URL: {url}")
-        print(f"  File path: {file_path}")
+            print(f"Downloading {file_path}...")
+            print(f"  URL: {url}")
+            print(f"  File path: {file_path}")
 
-        urlretrieve(url, file_path)
-
-    on_done()
+            urlretrieve(url, file_path)
+    
+        on_done()
+    except Exception as e:
+        on_error(repr(e))
