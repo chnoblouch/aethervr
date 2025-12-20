@@ -65,10 +65,10 @@ class Orientation:
         sin_y = math.sin(0.5 * yaw)
 
         return Orientation(
-            sin_r * cos_p * cos_y - cos_r * sin_p * sin_y,
-            cos_r * sin_p * cos_y + sin_r * cos_p * sin_y,
-            cos_r * cos_p * sin_y - sin_r * sin_p * cos_y,
-            cos_r * cos_p * cos_y + sin_r * sin_p * sin_y,
+            sin_p * cos_y * cos_r - cos_p * sin_y * sin_r,
+            cos_p * sin_y * cos_r + sin_p * cos_y * sin_r,
+            cos_p * cos_y * sin_r - sin_p * sin_y * cos_r,
+            cos_p * cos_y * cos_r + sin_p * sin_y * sin_r,
         )
 
     def from_triangle(p1, p2, p3, flip):
