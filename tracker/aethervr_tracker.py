@@ -31,20 +31,29 @@ class Application:
             tracking_running=True,
             capture_config=CaptureConfig(
                 camera=None,
-                frame_width=860,
-                frame_height=720,
+                frame_width=0,
+                frame_height=0,
             ),
-            tracking_fps_cap=20,
-            left_controller_config=ControllerConfig(),
-            right_controller_config=ControllerConfig(),
-            headset_pitch_deadzone=8,
-            headset_yaw_deadzone=8,
+            tracking_fps_cap=0,
+            left_controller_config=ControllerConfig(
+                gesture_mappings={},
+                thumbstick_enabled=False,
+                press_thumbstick=False,
+            ),
+            right_controller_config=ControllerConfig(
+                gesture_mappings={},
+                thumbstick_enabled=False,
+                press_thumbstick=False,
+            ),
+            headset_pitch_deadzone=0,
+            headset_yaw_deadzone=0,
             controller_pitch=0,
             controller_yaw=0,
             controller_roll=0,
             controller_depth_offset=0.0,
         )
 
+        self.config.set_to_default()
         save.load_config(self.config)
 
         self.tracking_state = TrackingState()

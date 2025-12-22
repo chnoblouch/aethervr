@@ -3,6 +3,7 @@ from typing import Optional, Any, Dict
 
 from aethervr.tracking_state import Gesture
 from aethervr.input_state import ControllerButton
+from aethervr.event_source import EventSource
 
 
 LEFT_HAND_TRACKING_ORIGIN = (0.2, 0.6)
@@ -57,11 +58,14 @@ class CaptureConfig:
 
 @dataclass
 class ControllerConfig:
-    gesture_mappings: Dict[Gesture, Optional[ControllerButton]] = field(
-        default_factory=lambda: DEFAULT_GESTURE_MAPPINGS
-    )
-    thumbstick_enabled: bool = True
-    press_thumbstick: bool = True
+    gesture_mappings: Dict[Gesture, Optional[ControllerButton]]
+    thumbstick_enabled: bool
+    press_thumbstick: bool
+
+    def set_to_default(self):
+        self.gesture_mappings = DEFAULT_GESTURE_MAPPINGS.copy()
+        self.thumbstick_enabled = True
+        self.press_thumbstick = True
 
     def deserialize(self, data: Dict[str, Any]):
         gesture_mappings = {}
@@ -113,6 +117,18 @@ class Config:
     controller_depth_offset: float
     left_controller_config: ControllerConfig
     right_controller_config: ControllerConfig
+    on_updated: EventSource = field(default_factory=lambda: EventSource())
+
+    def set_to_default(self):
+        self.tracking_fps_cap = 20
+        self.headset_pitch_deadzone = 8
+        self.headset_yaw_deadzone = 8
+        self.controller_pitch = 0
+        self.controller_yaw = 0
+        self.controller_roll = 0
+        self.controller_depth_offset = 0
+        self.left_controller_config.set_to_default()
+        self.right_controller_config.set_to_default()
 
     def deserialize(self, data: Dict[str, Any]):
         self.capture_config.deserialize(data["capture"])

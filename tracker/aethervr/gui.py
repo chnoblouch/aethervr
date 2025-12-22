@@ -178,18 +178,23 @@ class ConfigPanel(QWidget):
         super().__init__()
         self.config = config
 
+        reset_button = QPushButton("Reset Configuration")
+        reset_button.clicked.connect(self._on_config_reset)
+
         layout = QVBoxLayout()
         layout.addWidget(OpenXRConfigGroup(system_openxr_config))
         layout.addWidget(TrackingConfigGroup(config, camera_capture, camera_capture2))
         layout.addWidget(GeneralInputMappingGroup(config))
         layout.addWidget(ControllerConfigGroup(config))
+        layout.addWidget(reset_button)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.setLayout(layout)
 
         self.setMinimumWidth(320)
     
-    def _on_press_thumbstick_changed(config: ControllerConfig, state: Qt.CheckState):
-        config.press_thumbstick = state == Qt.CheckState.Checked
+    def _on_config_reset(self):
+        self.config.set_to_default()
+        self.config.on_updated.trigger()
 
 
 class OpenXRConfigGroup(QGroupBox):
@@ -282,6 +287,8 @@ class TrackingConfigGroup(QGroupBox):
         self._update_tracking_status()
         self._update_capture_status()
         self._update_fps_input()
+
+        config.on_updated.subscribe(self._update_fps_input)
 
     def _on_tracking_button_clicked(self):
         self.config.tracking_running = not self.config.tracking_running
@@ -391,14 +398,17 @@ class GeneralInputMappingGroup(QGroupBox):
         controller_pose_button = QPushButton("Configure Controller Pose")
         controller_pose_button.clicked.connect(self._show_controller_pose_dialog)
 
-        headset_pitch_deadzone_row = DeadzoneInput(config.headset_pitch_deadzone, self._update_headset_pitch_deadzone)
-        headset_yaw_deadzone_row = DeadzoneInput(config.headset_yaw_deadzone, self._update_headset_yaw_deadzone)
+        headset_pitch_deadzone = DeadzoneInput(config.headset_pitch_deadzone, self._update_headset_pitch_deadzone)
+        headset_yaw_deadzone = DeadzoneInput(config.headset_yaw_deadzone, self._update_headset_yaw_deadzone)
 
         layout = QFormLayout()
-        layout.addRow("Headset Pitch Deadzone:", headset_pitch_deadzone_row)
-        layout.addRow("Headset Yaw Deadzone:", headset_yaw_deadzone_row)
+        layout.addRow("Headset Pitch Deadzone:", headset_pitch_deadzone)
+        layout.addRow("Headset Yaw Deadzone:", headset_yaw_deadzone)
         layout.addRow(controller_pose_button)
         self.setLayout(layout)
+
+        self.config.on_updated.subscribe(lambda: headset_pitch_deadzone.set_value(config.headset_pitch_deadzone))
+        self.config.on_updated.subscribe(lambda: headset_yaw_deadzone.set_value(config.headset_yaw_deadzone))
 
     def _update_headset_pitch_deadzone(self, value: int):
         self.config.headset_pitch_deadzone = value
@@ -415,27 +425,55 @@ class ControllerConfigGroup(QTabWidget):
 
     def __init__(self, config: Config):
         super().__init__()
+        self.config = config
+
+        self.left_controller_tab = ControllerConfigTab(config.left_controller_config)
+        self.right_controller_tab = ControllerConfigTab(config.right_controller_config)
 
         self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
-        self.addTab(self._build_controller_page(config.left_controller_config), "Left Controller")
-        self.addTab(self._build_controller_page(config.right_controller_config), "Right Controller")
+        self.addTab(self.left_controller_tab, "Left Controller")
+        self.addTab(self.right_controller_tab, "Right Controller")
 
-    def _build_controller_page(self, config: ControllerConfig):
-        page = QWidget()
+        config.on_updated.subscribe(self.sync_values)
 
-        press_thumbstick_checkbox = QCheckBox("Press Thumbstick During Use")
-        press_thumbstick_checkbox.setChecked(config.press_thumbstick)
-        press_thumbstick_checkbox.checkStateChanged.connect(lambda value: ConfigPanel._on_press_thumbstick_changed(config, value))
+    def sync_values(self):
+        self.left_controller_tab.sync_values()
+        self.right_controller_tab.sync_values()
+
+
+class ControllerConfigTab(QWidget):
+
+    def __init__(self, config: ControllerConfig):
+        super().__init__()
+        self.config = config
+
+        self.pinch_binding_dropdown = ButtonBindingDropdown(config, Gesture.PINCH)
+        self.palm_pinch_binding_dropdown = ButtonBindingDropdown(config, Gesture.PALM_PINCH)
+        self.middle_pinch_binding_dropdown = MiddlePinchBindingDropdown(config)
+        self.fist_binding_dropdown = ButtonBindingDropdown(config, Gesture.FIST)
+
+        self.press_thumbstick_checkbox = QCheckBox("Press Thumbstick During Use")
+        self.press_thumbstick_checkbox.setChecked(config.press_thumbstick)
+        self.press_thumbstick_checkbox.checkStateChanged.connect(self._update_press_thumbstick)
 
         layout = QFormLayout()
-        layout.addRow("Pinch:", ButtonBindingDropdown(config, Gesture.PINCH))
-        layout.addRow("Palm Pinch:", ButtonBindingDropdown(config, Gesture.PALM_PINCH))
-        layout.addRow("Middle Pinch:", MiddlePinchBindingDropdown(config))
-        layout.addRow("Fist:", ButtonBindingDropdown(config, Gesture.FIST))
-        layout.addRow(press_thumbstick_checkbox)
-        page.setLayout(layout)
+        layout.addRow("Pinch:", self.pinch_binding_dropdown)
+        layout.addRow("Palm Pinch:", self.palm_pinch_binding_dropdown)
+        layout.addRow("Middle Pinch:", self.middle_pinch_binding_dropdown)
+        layout.addRow("Fist:", self.fist_binding_dropdown)
+        layout.addRow(self.press_thumbstick_checkbox)
+        self.setLayout(layout)
 
-        return page
+    def sync_values(self):
+        self.pinch_binding_dropdown.sync_value()
+        self.palm_pinch_binding_dropdown.sync_value()
+        self.middle_pinch_binding_dropdown.sync_value()
+        self.fist_binding_dropdown.sync_value()
+
+        self.press_thumbstick_checkbox.setChecked(self.config.press_thumbstick)
+
+    def _update_press_thumbstick(self, state):
+        self.config.press_thumbstick = state == Qt.CheckState.Checked
 
 
 class DeadzoneInput(QWidget):
@@ -446,7 +484,7 @@ class DeadzoneInput(QWidget):
         self.value = initial_value
         self.on_value_changed = on_value_changed
 
-        self.input = QLineEdit(str(initial_value))
+        self.input = QLineEdit()
         self.input.setFixedWidth(60)
         self.input.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
         self.input.setAlignment(Qt.AlignmentFlag.AlignCenter) 
@@ -460,6 +498,12 @@ class DeadzoneInput(QWidget):
         self.setContentsMargins(0, 0, 0, 0)
         self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum))
         self.setLayout(layout)
+
+        self.set_value(initial_value)
+
+    def set_value(self, value: float):
+        self.value = value
+        self.input.setText(str(value))
 
     def _on_editing_finished(self):
         try:
@@ -563,7 +607,7 @@ class Slider(QWidget):
 class AngleSlider(Slider):
     
     def __init__(self, initial_angle: float, on_angle_changed):
-        super().__init__(initial_angle, -12, 12, 3, 15, "{:}°", on_angle_changed)
+        super().__init__(initial_angle, -12, 12, 3, 15, "{:.0f}°", on_angle_changed)
 
 
 class ButtonBindingDropdown(QComboBox):
@@ -572,8 +616,6 @@ class ButtonBindingDropdown(QComboBox):
         super().__init__()
         self.config = config
         self.gesture = gesture
-
-        initial_value = config.gesture_mappings[gesture]
 
         self.addItem("None", None)
         self.addItem("Trigger", ControllerButton.TRIGGER)
@@ -584,11 +626,15 @@ class ButtonBindingDropdown(QComboBox):
         self.addItem("Y", ControllerButton.Y_BUTTON)
         self.addItem("Menu", ControllerButton.MENU)
         self.addItem("System", ControllerButton.SYSTEM)
-        self.setCurrentIndex(self.findData(initial_value))
+        self.currentIndexChanged.connect(self._on_selected)
 
-        self.currentIndexChanged.connect(self.on_selected)
+        self.sync_value()
 
-    def on_selected(self, index: int):
+    def sync_value(self):
+        value = self.config.gesture_mappings[self.gesture]
+        self.setCurrentIndex(self.findData(value))
+
+    def _on_selected(self, index: int):
         button = self.itemData(index)
         self.config.gesture_mappings[self.gesture] = button
 
@@ -599,15 +645,17 @@ class MiddlePinchBindingDropdown(QComboBox):
         super().__init__()
         self.config = config
 
-        initial_value = config.thumbstick_enabled
-
         self.addItem("None", False)
         self.addItem("Thumbstick", True)
-        self.setCurrentIndex(self.findData(initial_value))
+        self.currentIndexChanged.connect(self._on_selected)
 
-        self.currentIndexChanged.connect(self.on_selected)
+        self.sync_value()
 
-    def on_selected(self, index: int):
+    def sync_value(self):
+        value = self.config.thumbstick_enabled
+        self.setCurrentIndex(self.findData(value))
+
+    def _on_selected(self, index: int):
         value = self.itemData(index)
         self.config.thumbstick_enabled = value
 
