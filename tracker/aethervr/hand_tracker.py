@@ -17,6 +17,9 @@ from aethervr import mediapipe_models
 
 class HandTracker:
 
+    DEPTH_ORIGIN = 1.3
+    DEPTH_SCALE = 5.0
+
     def __init__(self, head_tracker, detection_callback) -> None:
         self.head_tracker = head_tracker
         self.detection_callback = detection_callback
@@ -74,13 +77,14 @@ class HandTracker:
 
                 hand_x = offset[0] + 2.0 * (raw_x - tracking_origin[0])
                 hand_y = offset[1] - 2.0 * (raw_y - tracking_origin[1])
-                hand_z = 1.3 - 5.0 * linear_depth_estimate
+                hand_z = HandTracker.DEPTH_ORIGIN - HandTracker.DEPTH_SCALE * linear_depth_estimate
                 position = Position(hand_x, hand_y, hand_z)
 
                 orientation = Orientation.from_triangle(p1, p2, p3, flip)
 
                 hand.visible = True
                 hand.landmarks = landmarks
+                hand.world_landmarks = detection_results.hand_world_landmarks[i]
                 hand.position = position
                 hand.orientation = orientation
 

@@ -388,8 +388,8 @@ class GeneralInputMappingGroup(QGroupBox):
 
         self.config = config
 
-        set_controller_rotation_button = QPushButton("Set Controller Rotation")
-        set_controller_rotation_button.clicked.connect(self._show_controller_rotation_dialog)
+        controller_pose_button = QPushButton("Configure Controller Pose")
+        controller_pose_button.clicked.connect(self._show_controller_pose_dialog)
 
         headset_pitch_deadzone_row = DeadzoneInput(config.headset_pitch_deadzone, self._update_headset_pitch_deadzone)
         headset_yaw_deadzone_row = DeadzoneInput(config.headset_yaw_deadzone, self._update_headset_yaw_deadzone)
@@ -397,7 +397,7 @@ class GeneralInputMappingGroup(QGroupBox):
         layout = QFormLayout()
         layout.addRow("Headset Pitch Deadzone:", headset_pitch_deadzone_row)
         layout.addRow("Headset Yaw Deadzone:", headset_yaw_deadzone_row)
-        layout.addRow(set_controller_rotation_button)
+        layout.addRow(controller_pose_button)
         self.setLayout(layout)
 
     def _update_headset_pitch_deadzone(self, value: int):
@@ -406,8 +406,8 @@ class GeneralInputMappingGroup(QGroupBox):
     def _update_headset_yaw_deadzone(self, value: int):
         self.config.headset_yaw_deadzone = value
 
-    def _show_controller_rotation_dialog(self):
-        dialog = ControllerRotationDialog(self, self.config)
+    def _show_controller_pose_dialog(self):
+        dialog = ControllerPoseDialog(self, self.config)
         dialog.show()
 
 
@@ -436,6 +436,7 @@ class ControllerConfigGroup(QTabWidget):
         page.setLayout(layout)
 
         return page
+
 
 class DeadzoneInput(QWidget):
 
@@ -471,7 +472,7 @@ class DeadzoneInput(QWidget):
         self.input.setText(str(self.value))
 
 
-class ControllerRotationDialog(QDialog):
+class ControllerPoseDialog(QDialog):
 
     def __init__(self, parent: QWidget, config: Config):
         super().__init__(parent)
@@ -479,8 +480,8 @@ class ControllerRotationDialog(QDialog):
         self.config = config
 
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
-        self.setWindowTitle("Controller Rotation")
-        self.setMinimumWidth(360)        
+        self.setWindowTitle("Controller Pose")
+        self.setMinimumWidth(480)        
 
         layout = QGridLayout()
         layout.addWidget(QLabel("Pitch:"), 0, 0)
@@ -489,6 +490,8 @@ class ControllerRotationDialog(QDialog):
         layout.addWidget(AngleSlider(config.controller_yaw, self._update_yaw), 1, 1)
         layout.addWidget(QLabel("Roll:"), 2, 0)
         layout.addWidget(AngleSlider(config.controller_roll, self._update_roll), 2, 1)
+        layout.addWidget(QLabel("Depth Offset:"), 3, 0)
+        layout.addWidget(Slider(config.controller_depth_offset, -5, 5, 1, 0.1, "{:.1f}m", self._update_offset), 3, 1)
         layout.setColumnStretch(0, 0)
         layout.setColumnStretch(1, 1)
         self.setLayout(layout)
@@ -502,25 +505,40 @@ class ControllerRotationDialog(QDialog):
     def _update_roll(self, roll: float):
         self.config.controller_roll = roll
 
+    def _update_offset(self, offset: float):
+        self.config.controller_depth_offset = offset
 
-class AngleSlider(QWidget):
 
-    def __init__(self, initial_angle: float, on_angle_changed):
+class Slider(QWidget):
+
+    def __init__(
+        self,
+        initial_value: float,
+        min: int,
+        max: int,
+        tick_interval: int,
+        scale: int,
+        format_template: str,
+        on_value_changed,
+    ):
         super().__init__()
 
-        self.angle = int(initial_angle)
-        self.on_angle_changed = on_angle_changed
+        self.value = initial_value
+        self.scale = scale
+        self.format_template = format_template
+        self.on_value_changed = on_value_changed
 
         slider = QSlider(Qt.Orientation.Horizontal)
         slider.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
-        slider.setMinimum(-12)
-        slider.setMaximum(12)
+        slider.setMinimum(min)
+        slider.setMaximum(max)
         slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        slider.setTickInterval(3)
+        slider.setTickInterval(tick_interval)
+        slider.setValue(int(initial_value / scale))
         slider.valueChanged.connect(self._on_value_changed)
 
         self.label = QLabel()
-        self.label.setFixedWidth(30)
+        self.label.setFixedWidth(40)
         self.label.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred))
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -534,12 +552,18 @@ class AngleSlider(QWidget):
         self._update_label()
 
     def _on_value_changed(self, value: int):
-        self.angle = 15 * value
-        self.on_angle_changed(float(self.angle))
+        self.value = self.scale * value
+        self.on_value_changed(float(self.value))
         self._update_label()
 
     def _update_label(self):
-        self.label.setText(f"{self.angle}°")
+        self.label.setText(self.format_template.format(self.value))
+
+
+class AngleSlider(Slider):
+    
+    def __init__(self, initial_angle: float, on_angle_changed):
+        super().__init__(initial_angle, -12, 12, 3, 15, "{:}°", on_angle_changed)
 
 
 class ButtonBindingDropdown(QComboBox):

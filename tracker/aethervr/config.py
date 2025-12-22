@@ -110,6 +110,7 @@ class Config:
     controller_pitch: int
     controller_yaw: int
     controller_roll: int
+    controller_depth_offset: float
     left_controller_config: ControllerConfig
     right_controller_config: ControllerConfig
 
@@ -121,6 +122,7 @@ class Config:
         self.controller_pitch = int(data["controller_pitch"])
         self.controller_yaw = int(data["controller_yaw"])
         self.controller_roll = int(data["controller_roll"])
+        self.controller_depth_offset = float(data["controller_depth_offset"])
         self.left_controller_config.deserialize(data["left_controller"])
         self.right_controller_config.deserialize(data["right_controller"])
 
@@ -133,6 +135,7 @@ class Config:
             "controller_pitch": self.controller_pitch,
             "controller_yaw": self.controller_yaw,
             "controller_roll": self.controller_roll,
+            "controller_depth_offset": self.controller_depth_offset,
             "left_controller": self.left_controller_config.serialize(),
             "right_controller": self.right_controller_config.serialize(),
         }

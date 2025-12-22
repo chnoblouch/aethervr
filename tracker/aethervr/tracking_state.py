@@ -28,6 +28,7 @@ class HandState:
     orientation: Orientation = field(default_factory=lambda: Orientation(0.0, 0.0, 0.0, 1.0))
     timestamp: int = 0
     landmarks: Optional[Any] = None
+    world_landmarks: Optional[Any] = None
     gesture: Optional[Gesture] = None
     previous_gesture: Optional[Gesture] = None
 

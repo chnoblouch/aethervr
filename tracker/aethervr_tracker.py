@@ -15,7 +15,7 @@ from aethervr.input_state import InputState
 from aethervr.gesture_detector import GestureDetector
 from aethervr.config import Config, CaptureConfig, ControllerConfig
 from aethervr.system_openxr_config import SystemOpenXRConfig
-from aethervr.pose import Orientation
+from aethervr.pose import Position, Orientation
 from aethervr import mediapipe_models
 from aethervr import ffi
 from aethervr import save
@@ -42,6 +42,7 @@ class Application:
             controller_pitch=0,
             controller_yaw=0,
             controller_roll=0,
+            controller_depth_offset=0.0,
         )
 
         save.load_config(self.config)
@@ -164,7 +165,7 @@ class Application:
             if delta_angle > 1.0:
                 left_state.orientation = left_controller_state.orientation.slerp(left_state.orientation, 0.5)
 
-            left_controller_state.position = left_state.position
+            left_controller_state.position = left_state.position - Position(0.0, 0.0, self.config.controller_depth_offset)
             left_controller_state.orientation = left_state.orientation * Orientation.from_euler_angles(pitch, yaw, roll)
             left_controller_state.timestamp = left_state.timestamp
 
@@ -174,7 +175,7 @@ class Application:
             if delta_angle > 1.0:
                 right_state.orientation = right_controller_state.orientation.slerp(right_state.orientation, 0.5)
 
-            right_controller_state.position = right_state.position
+            right_controller_state.position = right_state.position - Position(0.0, 0.0, self.config.controller_depth_offset)
             right_controller_state.orientation = right_state.orientation * Orientation.from_euler_angles(-pitch, -yaw, roll)
             right_controller_state.timestamp = right_state.timestamp
 
