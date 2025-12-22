@@ -46,7 +46,18 @@ class CameraCapture2:
         self.thread = None
 
         self.cameras = self._enumerate_cameras()
-        self._pick_suitable_config()
+
+        if type(config.camera) is str:
+            name = config.camera
+            config.camera = None
+
+            for camera in self.cameras:
+                if camera.name == name:
+                    config.camera = camera
+
+        if not config.camera:
+            self._pick_suitable_config()
+        
 
     def start(self):
         print("Opening capture device...")

@@ -2,6 +2,7 @@ from threading import Lock
 import time
 import os
 import math
+import json
 
 from aethervr.gui import GUI
 from aethervr.camera_capture import CameraCapture
@@ -17,6 +18,7 @@ from aethervr.system_openxr_config import SystemOpenXRConfig
 from aethervr.pose import Orientation
 from aethervr import mediapipe_models
 from aethervr import ffi
+from aethervr import save
 
 
 class Application:
@@ -42,6 +44,8 @@ class Application:
             controller_roll=0,
         )
 
+        save.load_config(self.config)
+
         self.tracking_state = TrackingState()
         self.input_state = InputState()
 
@@ -54,7 +58,13 @@ class Application:
         self.hand_tracker = None
         self.gesture_detector = None
 
-        self.gui = GUI(self.config, self.system_openxr_config, self.connection, self.camera_capture, self.camera_capture2)
+        self.gui = GUI(
+            self.config,
+            self.system_openxr_config,
+            self.connection,
+            self.camera_capture,
+            self.camera_capture2,
+        )
 
         self.last_head_tracking_time = time.time()
         self.last_hand_tracking_time = time.time()
@@ -70,6 +80,8 @@ class Application:
             
             if downloaded and mediapipe_models.are_all_models_cached():
                 self.start() 
+
+        save.save_config(self.config)        
 
     def start(self):
         self.head_tracker = HeadTracker(self.on_head_tracking_results)

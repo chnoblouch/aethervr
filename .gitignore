@@ -3,6 +3,7 @@ openxr_runtime/scripts/xr/OpenXR-SDK-Source/
 openxr_runtime/scripts/xr/Vulkan-Headers/
 
 tracker/mp_models/
+tracker/config.json
 
 __pycache__/
 .vscode/
