@@ -169,21 +169,11 @@ class Application:
         roll = math.radians(self.config.controller_roll)
 
         if left_state.visible:
-            delta_angle = left_controller_state.orientation.angle_to(left_state.orientation)
-            
-            if delta_angle > 1.0:
-                left_state.orientation = left_controller_state.orientation.slerp(left_state.orientation, 0.5)
-
             left_controller_state.position = left_state.position - Position(0.0, 0.0, self.config.controller_depth_offset)
             left_controller_state.orientation = left_state.orientation * Orientation.from_euler_angles(pitch, yaw, roll)
             left_controller_state.timestamp = left_state.timestamp
 
         if right_state.visible:
-            delta_angle = right_controller_state.orientation.angle_to(right_state.orientation)
-            
-            if delta_angle > 1.0:
-                right_state.orientation = right_controller_state.orientation.slerp(right_state.orientation, 0.5)
-
             right_controller_state.position = right_state.position - Position(0.0, 0.0, self.config.controller_depth_offset)
             right_controller_state.orientation = right_state.orientation * Orientation.from_euler_angles(-pitch, -yaw, roll)
             right_controller_state.timestamp = right_state.timestamp
