@@ -79,6 +79,18 @@ struct InputMapper {
                 if hand_state.value.trigger_presed { return 1.0; } else { return 0.0; }
             } else if binding.identifier == Identifier.SQUEEZE {
                 if hand_state.value.squeeze_pressed { return 1.0; } else { return 0.0; }
+            } else if binding.identifier == Identifier.A_BUTTON {
+                if hand_state.value.a_pressed { return 1.0; } else { return 0.0; }
+            } else if binding.identifier == Identifier.B_BUTTON {
+                if hand_state.value.b_pressed { return 1.0; } else { return 0.0; }
+            } else if binding.identifier == Identifier.X_BUTTON {
+                if hand_state.value.x_pressed { return 1.0; } else { return 0.0; }
+            } else if binding.identifier == Identifier.Y_BUTTON {
+                if hand_state.value.y_pressed { return 1.0; } else { return 0.0; }
+            } else if binding.identifier == Identifier.MENU {
+                if hand_state.value.menu_pressed { return 1.0; } else { return 0.0; }
+            } else if binding.identifier == Identifier.SYSTEM {
+                if hand_state.value.system_pressed { return 1.0; } else { return 0.0; }
             } else if binding.identifier == Identifier.THUMBSTICK {
                 if hand_state.value.thumbstick_pressed { return 1.0; } else { return 0.0; }
             }
