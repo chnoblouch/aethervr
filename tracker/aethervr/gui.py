@@ -913,10 +913,10 @@ class FrameView(QStackedWidget):
     @QtCore.Slot(PresentImageData)
     def _present_image_slot(self, data: PresentImageData):
         if self.graphics_api == 0:
+            self._set_status_signal.emit(FrameView.Status.VULKAN_UNSUPPORTED)
+        elif self.graphics_api == 1:
             self._set_status_signal.emit(FrameView.Status.PRESENTING)
             self.surface.present_image(data)
-        elif self.graphics_api == 1:
-            self._set_status_signal.emit(FrameView.Status.VULKAN_UNSUPPORTED)
         elif self.graphics_api == 2:
             self._set_status_signal.emit(FrameView.Status.METAL_UNSUPPORTED)
 
