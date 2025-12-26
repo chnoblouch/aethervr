@@ -57,6 +57,10 @@ struct CameraCapture {
         var width: u32;
         var height: u32;
         var pixels: *u8;
+
+        func __deinit__(self) {
+            memory.free(self.pixels);
+        }
     }
 
     var sdl_camera: *sdl.Camera;
@@ -105,10 +109,6 @@ struct CameraCapture {
         sdl.release_camera_frame(self.sdl_camera, sdl_surface);
 
         return Frame { width, height, pixels: pixels_copy };
-    }
-
-    pub func destroy_frame(self, ref frame: Frame) {
-        memory.free(frame.pixels);
     }
 
     pub func __deinit__(self) {
