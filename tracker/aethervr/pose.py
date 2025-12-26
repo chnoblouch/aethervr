@@ -19,6 +19,16 @@ class Position:
         dy = other.y = self.y
         dz = other.z = self.z
         return math.sqrt(dx * dx + dy * dy + dz * dz)
+    
+    def dot(self, other):
+        return self.x * other.x + self.y * other.y + self.z * other.z
+
+    def length(self):
+        return math.sqrt(self.x ** 2 + self.y ** 2 + self.z ** 2)
+
+    def normalized(self):
+        inv_length = 1.0 / self.length()
+        return Position(self.x * inv_length, self.y * inv_length, self.z * inv_length)
 
     def lerp(self, other, t):
         return Position(
@@ -97,7 +107,12 @@ class Orientation:
         d = self.inverse() * other
         y = math.sqrt(float(d.x ** 2 + d.y ** 2 + d.z ** 2))
         x = float(d.w)
-        return abs(2.0 * math.atan2(y, x))
+        angle = abs(2.0 * math.atan2(y, x))
+
+        if angle <= math.pi:
+            return angle
+        else:
+            return 2.0 * math.pi - angle
 
     def copy(self):
         return Orientation(self.x, self.y, self.z, self.w)

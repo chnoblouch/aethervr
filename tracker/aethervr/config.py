@@ -1,9 +1,15 @@
 from dataclasses import dataclass, field
 from typing import Optional, Any, Dict
+from enum import Enum
 
 from aethervr.tracking_state import Gesture
 from aethervr.input_state import ControllerButton
 from aethervr.event_source import EventSource
+
+
+class HandTrackingMode(Enum):
+    DIRECT = 0
+    SMOOTH = 1
 
 
 LEFT_HAND_TRACKING_ORIGIN = (0.2, 0.6)
@@ -17,14 +23,14 @@ DEFAULT_GESTURE_MAPPINGS = {
     Gesture.FIST: ControllerButton.SQUEEZE,
 }
 
-GESTURE_NAMES = {
+GESTURE_NAMES = (
     (Gesture.PINCH, "pinch"),
     (Gesture.PALM_PINCH, "palm_pinch"),
     (Gesture.MIDDLE_PINCH, "middle_pinch"),
     (Gesture.FIST, "fist"),
-}
+)
 
-CONTROLLER_BUTTON_NAMES = {
+CONTROLLER_BUTTON_NAMES = (
     (ControllerButton.TRIGGER, "trigger"),
     (ControllerButton.SQUEEZE, "squeeze"),
     (ControllerButton.A_BUTTON, "a"),
@@ -34,7 +40,12 @@ CONTROLLER_BUTTON_NAMES = {
     (ControllerButton.MENU, "menu"),
     (ControllerButton.SYSTEM, "system"),
     (ControllerButton.THUMBSTICK, "thumbstick"),
-}
+)
+
+HAND_TRACKING_MODE_NAMES = (
+    (HandTrackingMode.DIRECT, "direct"),
+    (HandTrackingMode.SMOOTH, "smooth"),
+)
 
 
 @dataclass
@@ -71,13 +82,8 @@ class ControllerConfig:
         gesture_mappings = {}
 
         for gesture_name, button_name in data["gesture_mappings"].items():
-            gesture = next(value for value, name in GESTURE_NAMES if name == gesture_name)
-            
-            if button_name:
-                button = next(value for value, name in CONTROLLER_BUTTON_NAMES if name == button_name)
-            else:
-                button = None
-
+            gesture = _deserialize_enum(gesture_name, GESTURE_NAMES)
+            button = _deserialize_enum(button_name, CONTROLLER_BUTTON_NAMES)
             gesture_mappings[gesture] = button
 
         self.gesture_mappings = gesture_mappings
@@ -88,13 +94,8 @@ class ControllerConfig:
         gesture_mappings = {}
 
         for gesture, button in self.gesture_mappings.items():
-            gesture_name = next(name for value, name in GESTURE_NAMES if value == gesture)
-            
-            if button:
-                button_name = next(name for value, name in CONTROLLER_BUTTON_NAMES if value == button)
-            else:
-                button_name = None
-
+            gesture_name = _serialize_enum(gesture, GESTURE_NAMES)
+            button_name = _serialize_enum(button, CONTROLLER_BUTTON_NAMES)
             gesture_mappings[gesture_name] = button_name
 
         return {
@@ -111,6 +112,7 @@ class Config:
     tracking_fps_cap: int
     headset_pitch_deadzone: int
     headset_yaw_deadzone: int
+    hand_tracking_mode: HandTrackingMode
     controller_pitch: int
     controller_yaw: int
     controller_roll: int
@@ -123,6 +125,7 @@ class Config:
         self.tracking_fps_cap = 20
         self.headset_pitch_deadzone = 8
         self.headset_yaw_deadzone = 8
+        self.hand_tracking_mode = HandTrackingMode.SMOOTH
         self.controller_pitch = 0
         self.controller_yaw = 0
         self.controller_roll = 0
@@ -135,6 +138,7 @@ class Config:
         self.tracking_fps_cap = int(data["tracking_fps_cap"])
         self.headset_pitch_deadzone = int(data["headset_pitch_deadzone"])
         self.headset_yaw_deadzone = int(data["headset_yaw_deadzone"])
+        self.hand_tracking_mode = _deserialize_enum(data["hand_tracking_mode"], HAND_TRACKING_MODE_NAMES)
         self.controller_pitch = int(data["controller_pitch"])
         self.controller_yaw = int(data["controller_yaw"])
         self.controller_roll = int(data["controller_roll"])
@@ -148,6 +152,7 @@ class Config:
             "tracking_fps_cap": self.tracking_fps_cap,
             "headset_pitch_deadzone": self.headset_pitch_deadzone,
             "headset_yaw_deadzone": self.headset_yaw_deadzone,
+            "hand_tracking_mode": _serialize_enum(self.hand_tracking_mode, HAND_TRACKING_MODE_NAMES),
             "controller_pitch": self.controller_pitch,
             "controller_yaw": self.controller_yaw,
             "controller_roll": self.controller_roll,
@@ -155,3 +160,13 @@ class Config:
             "left_controller": self.left_controller_config.serialize(),
             "right_controller": self.right_controller_config.serialize(),
         }
+
+
+def _deserialize_enum(name, names):
+    iter = (value for value, candidate_name in names if candidate_name == name)
+    return next(iter, None)
+
+
+def _serialize_enum(value, names):
+    iter = (name for candidate_value, name in names if candidate_value == value)
+    return next(iter, None)

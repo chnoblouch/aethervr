@@ -395,26 +395,43 @@ class GeneralInputMappingGroup(QGroupBox):
 
         self.config = config
 
+        self.headset_pitch_deadzone = DeadzoneInput(self._update_headset_pitch_deadzone)
+        self.headset_yaw_deadzone = DeadzoneInput(self._update_headset_yaw_deadzone)
+
+        self.hand_tracking_mode_input = QComboBox()
+        self.hand_tracking_mode_input.addItem("Direct (more responsive)", HandTrackingMode.DIRECT)
+        self.hand_tracking_mode_input.addItem("Smooth (more stable)", HandTrackingMode.SMOOTH)
+        self.hand_tracking_mode_input.currentIndexChanged.connect(self._on_hand_tracking_mode_selected)
+
         controller_pose_button = QPushButton("Configure Controller Pose")
         controller_pose_button.clicked.connect(self._show_controller_pose_dialog)
 
-        headset_pitch_deadzone = DeadzoneInput(config.headset_pitch_deadzone, self._update_headset_pitch_deadzone)
-        headset_yaw_deadzone = DeadzoneInput(config.headset_yaw_deadzone, self._update_headset_yaw_deadzone)
-
         layout = QFormLayout()
-        layout.addRow("Headset Pitch Deadzone:", headset_pitch_deadzone)
-        layout.addRow("Headset Yaw Deadzone:", headset_yaw_deadzone)
+        layout.addRow("Headset Pitch Deadzone:", self.headset_pitch_deadzone)
+        layout.addRow("Headset Yaw Deadzone:", self.headset_yaw_deadzone)
+        layout.addRow("Hand Tracking Mode:", self.hand_tracking_mode_input)
         layout.addRow(controller_pose_button)
         self.setLayout(layout)
 
-        self.config.on_updated.subscribe(lambda: headset_pitch_deadzone.set_value(config.headset_pitch_deadzone))
-        self.config.on_updated.subscribe(lambda: headset_yaw_deadzone.set_value(config.headset_yaw_deadzone))
+        self.config.on_updated.subscribe(self.sync_values)
+        self.sync_values()
+
+    def sync_values(self):
+        self.headset_pitch_deadzone.set_value(self.config.headset_pitch_deadzone)
+        self.headset_yaw_deadzone.set_value(self.config.headset_yaw_deadzone)
+
+        hand_tracking_mode_index = self.hand_tracking_mode_input.findData(self.config.hand_tracking_mode)
+        self.hand_tracking_mode_input.setCurrentIndex(hand_tracking_mode_index)
 
     def _update_headset_pitch_deadzone(self, value: int):
         self.config.headset_pitch_deadzone = value
     
     def _update_headset_yaw_deadzone(self, value: int):
         self.config.headset_yaw_deadzone = value
+
+    def _on_hand_tracking_mode_selected(self, index: int):
+        mode = self.hand_tracking_mode_input.itemData(index)
+        self.config.hand_tracking_mode = mode
 
     def _show_controller_pose_dialog(self):
         dialog = ControllerPoseDialog(self, self.config)
@@ -478,10 +495,10 @@ class ControllerConfigTab(QWidget):
 
 class DeadzoneInput(QWidget):
 
-    def __init__(self, initial_value: float, on_value_changed):
+    def __init__(self, on_value_changed):
         super().__init__()
 
-        self.value = initial_value
+        self.value = 0.0
         self.on_value_changed = on_value_changed
 
         self.input = QLineEdit()
@@ -498,8 +515,6 @@ class DeadzoneInput(QWidget):
         self.setContentsMargins(0, 0, 0, 0)
         self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum))
         self.setLayout(layout)
-
-        self.set_value(initial_value)
 
     def set_value(self, value: float):
         self.value = value

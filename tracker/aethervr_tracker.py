@@ -13,7 +13,7 @@ from aethervr.hand_tracker import HandTracker
 from aethervr.tracking_state import TrackingState, HeadState, HandState
 from aethervr.input_state import InputState
 from aethervr.gesture_detector import GestureDetector
-from aethervr.config import Config, CaptureConfig, ControllerConfig
+from aethervr.config import *
 from aethervr.system_openxr_config import SystemOpenXRConfig
 from aethervr.pose import Position, Orientation
 from aethervr import mediapipe_models
@@ -47,6 +47,7 @@ class Application:
             ),
             headset_pitch_deadzone=0,
             headset_yaw_deadzone=0,
+            hand_tracking_mode=HandTrackingMode.DIRECT,
             controller_pitch=0,
             controller_yaw=0,
             controller_roll=0,
@@ -169,13 +170,27 @@ class Application:
         roll = math.radians(self.config.controller_roll)
 
         if left_state.visible:
-            left_controller_state.position = left_state.position - Position(0.0, 0.0, self.config.controller_depth_offset)
-            left_controller_state.orientation = left_state.orientation * Orientation.from_euler_angles(pitch, yaw, roll)
+            position = left_state.position - Position(0.0, 0.0, self.config.controller_depth_offset)
+            orientation = left_state.orientation * Orientation.from_euler_angles(pitch, yaw, roll)
+            
+            if self.config.hand_tracking_mode == HandTrackingMode.SMOOTH:
+                position = left_controller_state.position.lerp(position, 0.5)
+                orientation = left_controller_state.orientation.slerp(orientation, 0.5)
+            
+            left_controller_state.position = position
+            left_controller_state.orientation = orientation
             left_controller_state.timestamp = left_state.timestamp
 
         if right_state.visible:
-            right_controller_state.position = right_state.position - Position(0.0, 0.0, self.config.controller_depth_offset)
-            right_controller_state.orientation = right_state.orientation * Orientation.from_euler_angles(-pitch, -yaw, roll)
+            position = right_state.position - Position(0.0, 0.0, self.config.controller_depth_offset)
+            orientation = right_state.orientation * Orientation.from_euler_angles(-pitch, -yaw, roll)
+            
+            if self.config.hand_tracking_mode == HandTrackingMode.SMOOTH:
+                position = right_controller_state.position.lerp(position, 0.5)
+                orientation = right_controller_state.orientation.slerp(orientation, 0.5)
+
+            right_controller_state.position = position
+            right_controller_state.orientation = orientation
             right_controller_state.timestamp = right_state.timestamp
 
         self.gesture_detector.detect()
