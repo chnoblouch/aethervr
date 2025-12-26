@@ -854,11 +854,11 @@ class CameraView(QLabel):
         painter.drawImage(rect, image)
 
         if self.overlay is not None:
+            height, width, _ = self.overlay.shape
             image = QImage(self.overlay, width, height, QImage.Format.Format_RGBA8888)
             painter.drawImage(rect, image)
 
         painter.end()
-
         return super().paintEvent(e)
 
 

@@ -57,7 +57,6 @@ class CameraCapture2:
 
         if not config.camera:
             self._pick_suitable_config()
-        
 
     def start(self):
         print("Opening capture device...")
