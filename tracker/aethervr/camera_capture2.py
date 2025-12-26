@@ -26,8 +26,10 @@ class Resolution:
 class CameraCapture2:
 
     PREFERRED_RESOLUTIONS = [
-        Resolution(width=640, height=480),
         Resolution(width=960, height=720),
+        Resolution(width=960, height=540),
+        Resolution(width=1280, height=720),
+        Resolution(width=640, height=480),
         Resolution(width=1920, height=1080),
     ]
 
