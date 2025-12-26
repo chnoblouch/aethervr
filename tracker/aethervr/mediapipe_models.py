@@ -1,25 +1,26 @@
+import sys
 from urllib.request import urlretrieve
 from pathlib import Path
 from threading import Thread
 
 
-MODELS_DIR = Path("mp_models")
-FACE_LANDMARKER_PATH = MODELS_DIR / "face_landmarker.task"
-HAND_LANDMARKER_PATH = MODELS_DIR / "hand_landmarker.task"
+MODELS_DIR_NAME = "mp_models"
+FACE_LANDMARKER_FILE_NAME = "face_landmarker.task"
+HAND_LANDMARKER_FILE_NAME = "hand_landmarker.task"
 
 BASE_URL = "https://storage.googleapis.com/mediapipe-models"
 FACE_LANDMARKER_URL = f"{BASE_URL}/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
 HAND_LANDMARKER_URL = f"{BASE_URL}/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"
 
 MODELS = [
-    (FACE_LANDMARKER_PATH, FACE_LANDMARKER_URL),
-    (HAND_LANDMARKER_PATH, HAND_LANDMARKER_URL),
+    (FACE_LANDMARKER_FILE_NAME, FACE_LANDMARKER_URL),
+    (HAND_LANDMARKER_FILE_NAME, HAND_LANDMARKER_URL),
 ]
 
 
 def are_all_models_cached():
-    for file_path, _ in MODELS:
-        if not file_path.exists():
+    for file_name, _ in MODELS:
+        if not get_model_path(file_name).exists():
             return False
 
     return True
@@ -32,12 +33,15 @@ def download(on_done, on_error):
 
 def download_sync(on_done, on_error):
     try:
-        for file_path, url in MODELS:
+        for file_name, url in MODELS:
+            file_path = get_model_path(file_name)
+            models_dir = file_path.parent
+
             if file_path.is_file():
                 return file_path
 
-            if not MODELS_DIR.is_dir():
-                MODELS_DIR.mkdir()
+            if not models_dir.is_dir():
+                models_dir.mkdir()
 
             print(f"Downloading {file_path}...")
             print(f"  URL: {url}")
@@ -48,3 +52,8 @@ def download_sync(on_done, on_error):
         on_done()
     except Exception as e:
         on_error(repr(e))
+
+
+def get_model_path(file_name):
+    models_dir = Path(sys.argv[0]).parent / MODELS_DIR_NAME
+    return models_dir / file_name

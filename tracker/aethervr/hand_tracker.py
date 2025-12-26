@@ -24,7 +24,7 @@ class HandTracker:
         self.head_tracker = head_tracker
         self.detection_callback = detection_callback
 
-        model_path = mediapipe_models.HAND_LANDMARKER_PATH
+        model_path = mediapipe_models.get_model_path(mediapipe_models.HAND_LANDMARKER_FILE_NAME)
 
         options = HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(model_path)),

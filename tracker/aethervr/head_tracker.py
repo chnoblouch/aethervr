@@ -13,7 +13,7 @@ class HeadTracker:
     def __init__(self, detection_callback):
         self.detection_callback = detection_callback
 
-        model_path = mediapipe_models.FACE_LANDMARKER_PATH
+        model_path = mediapipe_models.get_model_path(mediapipe_models.FACE_LANDMARKER_FILE_NAME)
 
         options = FaceLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(model_path)),
