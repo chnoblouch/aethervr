@@ -26,10 +26,8 @@ if __name__ == "__main__":
 
     if is_windows:
         pyinstaller_path = venv_path / "Scripts" / "pyinstaller"
-        tracker_packages_path = venv_path / "Lib" / "site-packages"
     else:
         pyinstaller_path = venv_path / "bin" / "pyinstaller"
-        tracker_packages_path = venv_path / "lib" / "python3.12" / "site-packages"
 
     pyinstaller_command = [pyinstaller_path, "../aethervr_tracker.py", "--noconfirm"]
 

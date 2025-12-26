@@ -17,9 +17,26 @@ jobs:
       - name: Download Windows build
         uses: actions/download-artifact@v4
         with:
-          name: build-x86_64-windows
+          name: aethervr-x86_64-windows
+
+      - name: Download Linux build
+        uses: actions/download-artifact@v4
+        with:
+          name: aethervr-x86_64-linux
+
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: aethervr-aarch64-macos
 
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create -t "AetherVR $(Get-Date -Format yyyy-MM-dd)" $(Get-Date -Format yyyy-MM-dd) aethervr-x86_64-windows.zip
+        run: |
+          gh release create \
+            -t "AetherVR $(date -Idate)" \
+            -n "AetherVR Release $(date -Idate)" \
+            "$(date -Idate)" \
+            aethervr-x86_64-windows.zip \
+            aethervr-x86_64-linux.zip \
+            aethervr-aarch64-macos.zip
