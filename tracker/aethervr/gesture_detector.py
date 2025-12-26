@@ -45,13 +45,13 @@ class GestureDetector:
         p1 = tracking_state.landmarks[9]
         reference_distance = GestureDetector.calc_distance(p0, p1)
 
+        is_front_facing = GestureDetector.is_front_facing(tracking_state.landmarks, flipped)
+        pinch_threshold = 0.3 if is_front_facing else 0.5
+
         if GestureDetector.is_fist(tracking_state, reference_distance):
             tracking_state.gesture = Gesture.FIST
-        elif GestureDetector.is_pinching(tracking_state, reference_distance):
-            if GestureDetector.is_front_facing(tracking_state.landmarks, flipped):
-                tracking_state.gesture = Gesture.PINCH
-            else:
-                tracking_state.gesture = Gesture.PALM_PINCH
+        elif GestureDetector.is_pinching(tracking_state, reference_distance, pinch_threshold):
+            tracking_state.gesture = Gesture.PINCH if is_front_facing else Gesture.PALM_PINCH
         elif GestureDetector.is_middle_pinching(tracking_state, reference_distance):
             tracking_state.gesture = Gesture.MIDDLE_PINCH
 
@@ -84,31 +84,43 @@ class GestureDetector:
             input_state.jostick_center = None
 
     @staticmethod
-    def is_pinching(tracking_state: HandState, reference_distance: float):
-        tip1 = tracking_state.landmarks[4]
-        tip2 = tracking_state.landmarks[8]
-        distance = GestureDetector.calc_distance(tip1, tip2) / reference_distance
+    def is_pinching(tracking_state: HandState, reference_distance: float, threshold: float):
+        tip0 = tracking_state.landmarks[4]
+        tip1 = tracking_state.landmarks[8]
+        tip2 = tracking_state.landmarks[12]
 
-        distance_threshold = 0.5 if tracking_state.previous_gesture == Gesture.PINCH else 0.3
-        return distance < distance_threshold
+        d0 = GestureDetector.calc_distance(tip0, tip1) / reference_distance
+        d1 = GestureDetector.calc_distance(tip1, tip2) / reference_distance
+
+        if d1 < 0.3:
+            return False
+
+        distance_threshold = threshold + 0.2 if tracking_state.previous_gesture == Gesture.PINCH else threshold
+        return d0 < distance_threshold
 
     @staticmethod
     def is_middle_pinching(tracking_state: HandState, reference_distance: float):
-        tip1 = tracking_state.landmarks[4]
+        tip0 = tracking_state.landmarks[4]
+        tip1 = tracking_state.landmarks[8]
         tip2 = tracking_state.landmarks[12]
-        distance = GestureDetector.calc_distance(tip1, tip2) / reference_distance
+        
+        d0 = GestureDetector.calc_distance(tip0, tip2) / reference_distance
+        d1 = GestureDetector.calc_distance(tip1, tip2) / reference_distance
+
+        if d1 < 0.3:
+            return False
 
         distance_threshold = 0.5 if tracking_state.previous_gesture == Gesture.MIDDLE_PINCH else 0.3
-        return distance < distance_threshold
+        return d0 < distance_threshold
 
     @staticmethod
     def is_fist(tracking_state: HandState, reference_distance: float):
+        wrist = tracking_state.landmarks[0]
         tip0 = tracking_state.landmarks[4]
         tip1 = tracking_state.landmarks[8]
         tip2 = tracking_state.landmarks[12]
         tip3 = tracking_state.landmarks[16]
         tip4 = tracking_state.landmarks[20]
-        wrist = tracking_state.landmarks[0]
 
         d0 = GestureDetector.calc_distance(tip0, wrist) / reference_distance
         d1 = GestureDetector.calc_distance(tip1, wrist) / reference_distance
@@ -116,7 +128,7 @@ class GestureDetector:
         d3 = GestureDetector.calc_distance(tip3, wrist) / reference_distance
         d4 = GestureDetector.calc_distance(tip4, wrist) / reference_distance
 
-        return (d0 < 1.4 and d1 < 1.4 and d2 < 1.0 and d3 < 1.4 and d4 < 1.4)
+        return (d0 < 1.5 and d1 < 1.5 and d2 < 1.0 and d3 < 1.5 and d4 < 1.5)
 
     @staticmethod
     def calc_distance(landmark_a, landmark_b):
