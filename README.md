@@ -15,6 +15,18 @@ applications into thinking they are connected to actual VR hardware.
     <img src="https://marinohimself.ch/aethervr/screenshot.png" alt="AetherVR Screenshot">
 </p>
 
+## Limitations
+
+- Hand tracking only really works when the palm faces the camera. Don't rotate
+  your hands too much.
+- Moving your hands too quickly stops them from being recognized.
+- Gestures can be erroneously detected if the hand faces the camera at a weird
+  angle.
+- Tracking may have issues when the camera image isn't properly lit.
+- The camera has to be mounted in front of the user.
+- Head position tracking isn't supported at the moment.
+- Currently, only Direct3D 11 supports all features.
+
 ## Setup
 
 ### System-Wide Installation
@@ -75,7 +87,7 @@ Clone this repository, open it in PowerShell, and run these commands:
 ```powershell
 cd openxr_runtime
 banjo2 build
-cp openxr_runtime.json out\x86_64-windows-msvc-debug\openxr_runtime.json
+cp openxr_runtime_windows.json out\x86_64-windows-msvc-debug\openxr_runtime.json
 cd ..\display_surface
 banjo2 build
 cd ..\camera_capture
@@ -97,14 +109,12 @@ python aethervr_tracker.py
 
 #### Building and Running
 
-Clone this repository, open `openxr_runtime/openxr_runtime.json` and replace
-`aethervr.dll` with `libaethervr.so`, open the repository in a terminal, and run
-these commands:
+Clone this repository, open the repository in a terminal, and run these commands:
 
 ```sh
 cd openxr_runtime
 banjo2 build
-cp openxr_runtime.json out/x86_64-linux-gnu-debug/openxr_runtime.json
+cp openxr_runtime_linux.json out/x86_64-linux-gnu-debug/openxr_runtime.json
 cd ../display_surface
 banjo2 build
 cd ../camera_capture
@@ -126,14 +136,12 @@ python aethervr_tracker.py
 
 #### Building and Running
 
-Clone this repository, open `openxr_runtime/openxr_runtime.json` and replace
-`aethervr.dll` with `libaethervr.dylib`, open the repository in a terminal, and
-run these commands:
+Clone this repository, open the repository in a terminal, and run these commands:
 
 ```sh
 cd openxr_runtime
 banjo2 build
-cp openxr_runtime.json out/aarch64-macos-debug/openxr_runtime.json
+cp openxr_runtime_macos.json out/aarch64-macos-debug/openxr_runtime.json
 cd ../display_surface
 banjo2 build
 cd ../camera_capture
@@ -145,13 +153,13 @@ pip install -r requirements.txt
 python aethervr_tracker.py
 ```
 
-## System Components
+## Components
 
 ### OpenXR Runtime
 
 The OpenXR runtime (`aethervr.dll`) is a shared library written in the [Banjo
 programming language](https://chnoblouch.github.io/banjo-lang/). It currently
-supports Windows and applications that use Vulkan or D3D11 as their graphics
+supports Windows and applications that use Vulkan, Metal, or D3D11 as their graphics
 API.
 
 The runtime currently implements these extensions:
@@ -160,6 +168,7 @@ The runtime currently implements these extensions:
 | --------------------------------------------- | ------- |
 | XR_KHR_D3D11_enable                           | 9       |
 | XR_KHR_vulkan_enable2                         | 2       |
+| XR_KHR_metal_enable                           | 1       |
 | XR_KHR_win32_convert_performance_counter_time | 1       |
 | XR_KHR_composition_layer_depth                | 6       |
 
