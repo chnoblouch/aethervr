@@ -42,7 +42,7 @@ from aethervr.runtime_connection import RuntimeConnection, RegisterImageData, Pr
 from aethervr.system_openxr_config import SystemOpenXRConfig
 from aethervr.display_surface import DisplaySurface
 from aethervr.camera_capture import CameraCapture
-from aethervr.camera_capture2 import CameraCapture2
+from aethervr.camera_capture2 import Camera, CameraCapture2
 from aethervr import platform
 
 
@@ -365,6 +365,30 @@ class CaptureConfigDialog(QDialog):
         self.setLayout(layout)
 
         self.update_resolutions()
+
+        current_name = None
+        current_width = self.capture_config.frame_width
+        current_height = self.capture_config.frame_height
+
+        if type(self.capture_config.camera) is Camera:
+            current_name = self.capture_config.camera.name
+        elif type(self.capture_config.camera) is str:
+            current_name = self.capture_config.camera
+
+        for i in range(self.camera_input.count()):
+            camera = self.camera_input.itemData(i)
+
+            if camera.name == current_name:
+                self.resolution_input.setCurrentIndex(i)
+                break
+
+        for i in range(self.resolution_input.count()):
+            resolution = self.resolution_input.itemData(i)
+            width, height = resolution.width, resolution.height
+
+            if width == current_width and height == current_height:
+                self.resolution_input.setCurrentIndex(i)
+                break
 
     def on_button_clicked(self, button):
         if button == self.apply_button:

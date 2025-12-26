@@ -34,7 +34,7 @@ class ControllerState:
     jostick_center: Optional[Position] = None
     thumbstick_x: float = 0.0
     thumbstick_y: float = 0.0
-    timestamp: float = 0.0
+    timestamp: int = 0
 
 
 @dataclass
