@@ -48,24 +48,20 @@ class HandTracker:
             right_hand = HandState(timestamp=time.time_ns(), visible=False)
 
             for i, landmarks in enumerate(detection_results.hand_landmarks):
-                handedness = detection_results.handedness[i][0].display_name
-                handedness = "Right" if handedness == "Left" else "Left"
-
-                if handedness == "Left":
+                is_left_handed = landmarks[0].x <= 0.5
+                
+                if is_left_handed:
                     hand = left_hand
                     tracking_origin = LEFT_HAND_TRACKING_ORIGIN
                     offset = LEFT_HAND_WORLD_ORIGIN
-                elif handedness == "Right":
+                else:
                     hand = right_hand
                     tracking_origin = RIGHT_HAND_TRACKING_ORIGIN
                     offset = RIGHT_HAND_WORLD_ORIGIN
-                else:
-                    continue
-
+                
                 p1 = HandTracker.get_landmark_position(landmarks[0])
                 p2 = HandTracker.get_landmark_position(landmarks[5])
                 p3 = HandTracker.get_landmark_position(landmarks[17])
-                flip = handedness == "Left"
 
                 dx = landmarks[9].x - landmarks[0].x
                 dy = landmarks[9].y - landmarks[0].y
@@ -80,7 +76,7 @@ class HandTracker:
                 hand_z = HandTracker.DEPTH_ORIGIN - HandTracker.DEPTH_SCALE * linear_depth_estimate
                 position = Position(hand_x, hand_y, hand_z)
 
-                orientation = Orientation.from_triangle(p1, p2, p3, flip)
+                orientation = Orientation.from_triangle(p1, p2, p3, is_left_handed)
 
                 hand.visible = True
                 hand.landmarks = landmarks
