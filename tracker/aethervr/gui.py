@@ -288,6 +288,9 @@ class TrackingConfigGroup(QGroupBox):
         self._update_capture_status()
         self._update_fps_input()
 
+        if not self.camera_capture2.cameras:
+            self.capture_config_button.setEnabled(False)
+
         config.on_updated.subscribe(self._update_fps_input)
 
     def _on_tracking_button_clicked(self):
@@ -324,8 +327,10 @@ class TrackingConfigGroup(QGroupBox):
 
         if config.camera:
             self.capture_label.setText(f"{config.camera.name} ({config.frame_width}x{config.frame_height})")
+        elif not self.camera_capture2.cameras:
+            self.capture_label.setText("<span style=\"color: #cc3d3d\">No camera connected</span>")
         else:
-            self.capture_label.setText(f"Camera not configured")
+            self.capture_label.setText("<span style=\"color: #cc3d3d\">Camera not configured</span>")
 
     def _update_fps_input(self):
         self.fps_input.setText(str(self.config.tracking_fps_cap))

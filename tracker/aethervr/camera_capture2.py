@@ -64,6 +64,10 @@ class CameraCapture2:
 
         if self.running.is_set():
             self.close()
+        
+        if not self.cameras:
+            self.on_error()
+            return
 
         self.active_config = copy(self.source_config)
         self.running.set()
@@ -126,11 +130,14 @@ class CameraCapture2:
         self.source_config.frame_height = resolution.height
 
     def _capture_images(self):
-        capture = ffi.camera_capture.aethervr_camera_open(
-            self.active_config.camera.id,
-            self.active_config.frame_width,
-            self.active_config.frame_height,
-        )
+        if type(self.active_config.camera) is Camera:
+            capture = ffi.camera_capture.aethervr_camera_open(
+                self.active_config.camera.id,
+                self.active_config.frame_width,
+                self.active_config.frame_height,
+            )
+        else:
+            capture = None
 
         if not capture:
             print("Failed to open capture device")
