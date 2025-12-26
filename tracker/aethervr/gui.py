@@ -706,7 +706,7 @@ class CameraView(QLabel):
 
     def update_overlay(self, tracking_state: TrackingState):
         height, width, _ = self.frame.shape
-        self.overlay = np.zeros((height, width, 4), np.uint8)
+        overlay = np.zeros((height, width, 4), np.uint8)
 
         if tracking_state.head.visible:
             landmarks = tracking_state.head.landmarks
@@ -719,33 +719,33 @@ class CameraView(QLabel):
                 y1 = int(height * landmarks[a].y)
                 x2 = int(width * landmarks[b].x)
                 y2 = int(height * landmarks[b].y)
-                cv2.line(self.overlay, (x1, y1), (x2, y2), (0, 255, 0, 255), 2)
+                cv2.line(overlay, (x1, y1), (x2, y2), (0, 255, 0, 255), 2)
 
             for index in CameraView.HEAD_CONTOUR_LANDMARK_INDICES + CameraView.HEAD_OTHER_LANDMARK_INDICES:
                 landmark = landmarks[index]
                 x = int(width * landmark.x)
                 y = int(height * landmark.y)
-                cv2.circle(self.overlay, (x, y), 4, (255, 0, 0, 255), -1)
+                cv2.circle(overlay, (x, y), 4, (255, 0, 0, 255), -1)
 
         # x = int(0.5 * width)
         # y = int(0.2 * height)
-        # cv2.circle(self.overlay, (x, y), 8, (255, 255, 255, 255), -1)
+        # cv2.circle(new_overlay, (x, y), 8, (255, 255, 255, 255), -1)
 
         if tracking_state.left_hand.visible:
             x1 = int(LEFT_HAND_TRACKING_ORIGIN[0] * width)
             y1 = int(LEFT_HAND_TRACKING_ORIGIN[1] * height)
             x2 = int(width * tracking_state.left_hand.landmarks[0].x)
             y2 = int(height * tracking_state.left_hand.landmarks[0].y)
-            cv2.line(self.overlay, (x1, y1), (x2, y2), (255, 255, 255, 255), 2)
-            cv2.circle(self.overlay, (x1, y1), 8, (255, 255, 255, 255), -1)
+            cv2.line(overlay, (x1, y1), (x2, y2), (255, 255, 255, 255), 2)
+            cv2.circle(overlay, (x1, y1), 8, (255, 255, 255, 255), -1)
         
         if tracking_state.right_hand.visible:
             x1 = int(RIGHT_HAND_TRACKING_ORIGIN[0] * width)
             y1 = int(RIGHT_HAND_TRACKING_ORIGIN[1] * height)
             x2 = int(width * tracking_state.right_hand.landmarks[0].x)
             y2 = int(height * tracking_state.right_hand.landmarks[0].y)
-            cv2.line(self.overlay, (x1, y1), (x2, y2), (255, 255, 255, 255), 2)
-            cv2.circle(self.overlay, (x1, y1), 8, (255, 255, 255, 255), -1)
+            cv2.line(overlay, (x1, y1), (x2, y2), (255, 255, 255, 255), 2)
+            cv2.circle(overlay, (x1, y1), 8, (255, 255, 255, 255), -1)
 
         for hand_state in [tracking_state.left_hand, tracking_state.right_hand]:
             if not hand_state.visible:
@@ -769,13 +769,14 @@ class CameraView(QLabel):
                 y1 = int(height * landmarks[a].y)
                 x2 = int(width * landmarks[b].x)
                 y2 = int(height * landmarks[b].y)
-                cv2.line(self.overlay, (x1, y1), (x2, y2), color, 2)
+                cv2.line(overlay, (x1, y1), (x2, y2), color, 2)
 
             for landmark in landmarks:
                 x = int(width * landmark.x)
                 y = int(height * landmark.y)
-                cv2.circle(self.overlay, (x, y), 4, (255, 0, 0, 255), -1)
+                cv2.circle(overlay, (x, y), 4, (255, 0, 0, 255), -1)
 
+        self.overlay = overlay
         self.update()
 
     def paintEvent(self, e: QPaintEvent):
