@@ -183,7 +183,7 @@ class Application:
 
         if right_state.visible:
             position = right_state.position - Position(0.0, 0.0, self.config.controller_depth_offset)
-            orientation = right_state.orientation * Orientation.from_euler_angles(-pitch, -yaw, roll)
+            orientation = right_state.orientation * Orientation.from_euler_angles(pitch, -yaw, -roll)
             
             if self.config.hand_tracking_mode == HandTrackingMode.SMOOTH:
                 position = right_controller_state.position.lerp(position, 0.5)
