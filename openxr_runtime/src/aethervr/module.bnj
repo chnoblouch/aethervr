@@ -14,6 +14,12 @@ use aethervr.{
     utils.streq as eq,
 };
 
+# Workaround for a linking bug on Linux.
+meta if config.OS == config.LINUX {
+	@exposed
+	func atexit(func()) {}
+}
+
 @[dllexport, link_name=xrNegotiateLoaderRuntimeInterface]
 func negotiate_interface(loader_info: *xr.NegotiateLoaderInfo, runtime_request: *xr.NegotiateRuntimeRequest) -> xr.Result {    
     var path = env.get_shared_library_path();

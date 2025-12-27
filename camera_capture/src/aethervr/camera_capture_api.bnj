@@ -1,4 +1,4 @@
-use std.memory;
+use std.{config, memory};
 use sdl;
 
 use aethervr.camera.{Camera, CameraCapture, Resolution};
@@ -24,6 +24,12 @@ struct FFICaptureFrame {
 	var width: u32;
 	var height: u32;
 	var pixels: addr;
+}
+
+# Workaround for a linking bug on Linux.
+meta if config.OS == config.LINUX {
+	@exposed
+	func atexit(func()) {}
 }
 
 @dllexport

@@ -33,6 +33,12 @@ proto Surface {
     func destroy(self);
 }
 
+# Workaround for a linking bug on Linux.
+meta if config.OS == config.LINUX {
+	@exposed
+	func atexit(func()) {}
+}
+
 @dllexport
 func aethervr_display_surface_create(
     graphics_api: u32,
