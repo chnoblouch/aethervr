@@ -63,4 +63,4 @@ class DisplaySurface:
 
     @staticmethod
     def is_supported():
-        return platform.is_windows or platform.is_linux
+        return platform.is_windows
