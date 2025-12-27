@@ -45,14 +45,11 @@ jobs:
       - name: Package
         run: python package.py
 
-      - name: Archive
-        run: 7z a aethervr-x86_64-windows.zip aethervr-x86_64-windows
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: aethervr-x86_64-windows
-          path: aethervr-x86_64-windows.zip
+          path: aethervr-x86_64-windows
 
   build-linux:
     runs-on: ubuntu-24.04
@@ -94,14 +91,11 @@ jobs:
       - name: Package
         run: python package.py
 
-      - name: Archive
-        run: zip -r aethervr-x86_64-linux.zip aethervr-x86_64-linux
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: aethervr-x86_64-linux
-          path: aethervr-x86_64-linux.zip
+          path: aethervr-x86_64-linux
 
   build-macos:
     runs-on: macos-15
@@ -143,11 +137,8 @@ jobs:
       - name: Package
         run: python package.py
 
-      - name: Archive
-        run: zip -r aethervr-aarch64-macos.zip aethervr-aarch64-macos
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: aethervr-aarch64-macos
-          path: aethervr-aarch64-macos.zip
+          path: aethervr-aarch64-macos
