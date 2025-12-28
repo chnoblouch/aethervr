@@ -5,6 +5,7 @@ system tracks your head and hands using nothing but a webcam and translates the
 results into virtual headset and controller inputs that are passed on to VR
 applications. This is done using a custom OpenXR runtime that tricks
 applications into thinking they are connected to actual VR hardware.
+For more information, see [this demo video](https://www.youtube.com/watch?v=KR2vqmxGAEE).
 
 > [!CAUTION]
 > PLEASE NOTE: This is just a proof of concept and not a replacement
@@ -22,7 +23,7 @@ applications into thinking they are connected to actual VR hardware.
 - Moving your hands too quickly stops them from being recognized.
 - Gestures can be erroneously detected if the hand faces the camera at a weird
   angle.
-- Tracking may have issues when the camera image isn't properly lit.
+- Tracking may have issues when the camera image doesn't have enough contrast.
 - The camera has to be mounted in front of the user.
 - Head position tracking isn't supported at the moment.
 - Currently, only Direct3D 11 supports all features.
@@ -55,6 +56,10 @@ AetherVR in Unity for use as the play mode OpenXR runtime.
 4. Enter the path to `openxr_runtime.json`
 5. Run `aethervr_tracker.exe`
 6. Enter play mode
+
+### Unreal Engine
+
+No idea, Unreal Engine 5 hasn't finished downloading yet.
 
 ### OpenComposite
 
@@ -158,9 +163,8 @@ python aethervr_tracker.py
 ### OpenXR Runtime
 
 The OpenXR runtime (`aethervr.dll`) is a shared library written in the [Banjo
-programming language](https://chnoblouch.github.io/banjo-lang/). It currently
-supports Windows and applications that use Vulkan, Metal, or D3D11 as their graphics
-API.
+programming language](https://github.com/chnoblouch/banjo-lang/). It currently
+supports applications that use Vulkan, D3D11, or Metal as their graphics API.
 
 The runtime currently implements these extensions:
 
@@ -174,7 +178,7 @@ The runtime currently implements these extensions:
 
 ### Tracker
 
-The AetherVR tracker (`aethervr_tracker.exe`) is an application written in
-Python that uses OpenCV, MediaPipe, and Qt. It tracks landmarks of the users
-head and hands using MediaPipe, converts them to virtual headset and controller
-inputs, and sends them to the OpenXR runtime over TCP.
+The AetherVR tracker (`aethervr_tracker.exe`) is a Python application that
+tracks landmarks on the users head and hands using MediaPipe, converts them to
+virtual headset and controller inputs, and sends them to the OpenXR runtime over
+TCP.
